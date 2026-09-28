@@ -382,12 +382,176 @@ def test_task_submission_file_access(professor_token: str, student_token: str, s
                         log_test("Professor can access student submission file", False, f"Error: {str(e)}")
                 else:
                     log_test("Student submits task with file", False, f"Status: {submit_response.status_code}")
+                
+                # Return task_id and file_id for additional tests
+                return task_id, file_id
             else:
                 print(f"✗ Failed to upload file: {upload_response.status_code}")
         else:
             print(f"✗ Failed to create task: {response.status_code}")
     except Exception as e:
         print(f"✗ Error in task submission test: {str(e)}")
+    
+    return None, None
+
+def test_task_submission_validation(professor_token: str, student_token: str, other_student_token: str, subject_id: str):
+    """Test 10: Task submission validation - file ownership, non-existent files, role restrictions, text-only"""
+    print("\n=== TEST 10: Task Submission Validation ===")
+    
+    professor_headers = {"Authorization": f"Bearer {professor_token}"}
+    student_headers = {"Authorization": f"Bearer {student_token}"}
+    other_student_headers = {"Authorization": f"Bearer {other_student_token}"}
+    
+    # Professor creates a task
+    task_data = {
+        "title": "Validation Test Assignment",
+        "description": "Testing file validation",
+        "due_date": "2026-12-31",
+        "due_time": "23:59",
+        "materials": []
+    }
+    
+    try:
+        response = requests.post(f"{BASE_URL}/subjects/{subject_id}/tasks", 
+                                json=task_data, headers=professor_headers, timeout=10)
+        if response.status_code != 200:
+            print(f"✗ Failed to create task: {response.status_code}")
+            return
+        
+        task = response.json()
+        task_id = task.get("id")
+        print(f"✓ Created validation test task: {task.get('title')}")
+        
+        # Test 10a: Student uploads a file (this will be used by another student - should fail)
+        file_content = b"Student 1's file"
+        files = {"file": ("student1_file.pdf", io.BytesIO(file_content), "application/pdf")}
+        upload_response = requests.post(f"{BASE_URL}/files", files=files, 
+                                      headers=student_headers, timeout=10)
+        if upload_response.status_code != 200:
+            print(f"✗ Failed to upload file: {upload_response.status_code}")
+            return
+        
+        student1_file = upload_response.json()
+        student1_file_id = student1_file.get("id")
+        print(f"✓ Student 1 uploaded file: {student1_file.get('name')}")
+        
+        # Get another student token (we'll use monitor as second student for this test)
+        # First, let's create a proper second student
+        register_data = {
+            "name": "Estudiante Dos",
+            "username": f"estudiante2_{hash('test2')%10000}",
+            "email": f"estudiante2_{hash('test2')%10000}@uao.edu.co",
+            "password": "TestPass123!",
+            "role": "student",
+            "program": "Ingeniería Informática",
+            "semester": 3
+        }
+        
+        register_response = requests.post(f"{BASE_URL}/auth/register", json=register_data, timeout=10)
+        if register_response.status_code == 200:
+            student2_data = register_response.json()
+            student2_token = student2_data.get("token")
+            student2_headers = {"Authorization": f"Bearer {student2_token}"}
+            print(f"✓ Created second student account")
+            
+            # Student 2 joins the subject
+            subjects_response = requests.get(f"{BASE_URL}/subjects", headers=professor_headers, timeout=10)
+            if subjects_response.status_code == 200:
+                subjects = subjects_response.json()
+                subject = next((s for s in subjects if s.get("id") == subject_id), None)
+                if subject and "access_code" in subject:
+                    join_response = requests.post(f"{BASE_URL}/subjects/join", 
+                                                json={"code": subject["access_code"]}, 
+                                                headers=student2_headers, timeout=10)
+                    if join_response.status_code == 200:
+                        print(f"✓ Student 2 joined subject")
+            
+            # Test 10a: Student 2 tries to submit with Student 1's file_id (should return 422)
+            submission_data = {
+                "text": "Trying to use someone else's file",
+                "link": "",
+                "file_id": student1_file_id
+            }
+            submit_response = requests.post(f"{BASE_URL}/tasks/{task_id}/submissions", 
+                                          json=submission_data, headers=student2_headers, timeout=10)
+            if submit_response.status_code == 422:
+                error_data = submit_response.json()
+                if "detail" in error_data and "fields" in error_data["detail"] and "file_id" in error_data["detail"]["fields"]:
+                    error_msg = error_data["detail"]["fields"]["file_id"]
+                    log_test("Submit with another user's file_id returns 422", True, f"Error: {error_msg}")
+                else:
+                    log_test("Submit with another user's file_id returns 422", False, f"Missing specific field error. Response: {error_data}")
+            else:
+                log_test("Submit with another user's file_id returns 422", False, f"Expected 422, got {submit_response.status_code}")
+            
+            # Test 10b: Student 2 tries to submit with non-existent file_id (should return 422)
+            submission_data = {
+                "text": "Trying to use non-existent file",
+                "link": "",
+                "file_id": "non-existent-file-id-12345"
+            }
+            submit_response = requests.post(f"{BASE_URL}/tasks/{task_id}/submissions", 
+                                          json=submission_data, headers=student2_headers, timeout=10)
+            if submit_response.status_code == 422:
+                error_data = submit_response.json()
+                if "detail" in error_data and "fields" in error_data["detail"] and "file_id" in error_data["detail"]["fields"]:
+                    error_msg = error_data["detail"]["fields"]["file_id"]
+                    log_test("Submit with non-existent file_id returns 422", True, f"Error: {error_msg}")
+                else:
+                    log_test("Submit with non-existent file_id returns 422", False, f"Missing specific field error. Response: {error_data}")
+            else:
+                log_test("Submit with non-existent file_id returns 422", False, f"Expected 422, got {submit_response.status_code}")
+            
+            # Test 10c: Text-only submission (should work)
+            submission_data = {
+                "text": "This is a text-only submission without any file",
+                "link": "",
+                "file_id": ""
+            }
+            submit_response = requests.post(f"{BASE_URL}/tasks/{task_id}/submissions", 
+                                          json=submission_data, headers=student2_headers, timeout=10)
+            if submit_response.status_code == 200:
+                submission = submit_response.json()
+                if submission.get("text") == submission_data["text"] and not submission.get("file_id"):
+                    log_test("Text-only submission works", True, "Submission created without file")
+                else:
+                    log_test("Text-only submission works", False, f"Unexpected submission data: {submission}")
+            else:
+                log_test("Text-only submission works", False, f"Expected 200, got {submit_response.status_code}, Body: {submit_response.text[:200]}")
+        else:
+            print(f"✗ Failed to create second student: {register_response.status_code}")
+        
+        # Test 10d: Professor tries to submit (should return 403)
+        submission_data = {
+            "text": "Professor trying to submit",
+            "link": "",
+            "file_id": ""
+        }
+        submit_response = requests.post(f"{BASE_URL}/tasks/{task_id}/submissions", 
+                                      json=submission_data, headers=professor_headers, timeout=10)
+        if submit_response.status_code == 403:
+            error_data = submit_response.json()
+            log_test("Professor cannot submit task (403)", True, f"Error: {error_data.get('detail', '')}")
+        else:
+            log_test("Professor cannot submit task (403)", False, f"Expected 403, got {submit_response.status_code}")
+        
+        # Test 10e: Monitor tries to submit (should return 403)
+        # We'll use the other_student_token which is actually a monitor token
+        submission_data = {
+            "text": "Monitor trying to submit",
+            "link": "",
+            "file_id": ""
+        }
+        submit_response = requests.post(f"{BASE_URL}/tasks/{task_id}/submissions", 
+                                      json=submission_data, headers=other_student_headers, timeout=10)
+        if submit_response.status_code == 403:
+            error_data = submit_response.json()
+            log_test("Monitor cannot submit task (403)", True, f"Error: {error_data.get('detail', '')}")
+        else:
+            log_test("Monitor cannot submit task (403)", False, f"Expected 403, got {submit_response.status_code}")
+            
+    except Exception as e:
+        print(f"✗ Error in task submission validation test: {str(e)}")
 
 def main():
     """Run all backend file storage tests"""
@@ -438,6 +602,10 @@ def main():
     # Test 9: Task submission file access
     if subject_id:
         test_task_submission_file_access(monitor_token, student_token, subject_id)
+    
+    # Test 10: Task submission validation (file ownership, non-existent files, role restrictions, text-only)
+    if subject_id:
+        test_task_submission_validation(monitor_token, student_token, monitor_token, subject_id)
     
     # Summary
     print("\n" + "=" * 80)

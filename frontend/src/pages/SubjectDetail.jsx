@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, Plus, X, CheckCircle2, MessageCircle } from "lucide-react";
+import { ArrowRight, Plus, X, CheckCircle2, MessageCircle, Upload, FileText } from "lucide-react";
 import { api } from "@/lib/api";
 import { Empty } from "@/components/ui/states";
 import SubjectResources from "@/components/SubjectResources";
@@ -13,7 +13,10 @@ export default function SubjectDetail({ user }) {
   const [selected, setSelected] = useState(null);
   const [form, setForm] = useState({ title: "", description: "", due_date: "", due_time: "23:59" });
   const [text, setText] = useState("");
+  const [attachment, setAttachment] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const fileRef = useRef(null);
   const nav = useNavigate();
 
   const load = () =>
@@ -40,14 +43,42 @@ export default function SubjectDetail({ user }) {
     }
   };
 
-  const submit = async () => {
+  const onFileChosen = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (file.size > 25 * 1024 * 1024) {
+      setError("El archivo de la entrega no puede pesar más de 25MB.");
+      return;
+    }
+    setError("");
+    setUploading(true);
     try {
-      await api.post(`/tasks/${selected.id}/submissions`, { text });
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await api.post("/files", formData, { headers: { "Content-Type": "multipart/form-data" } });
+      setAttachment({ ...response.data, size: file.size });
+    } catch {
+      setError("No pudimos subir el archivo de la entrega. Intenta nuevamente.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const submit = async () => {
+    if (!text.trim() && !attachment) {
+      setError("Escribe una respuesta o adjunta un archivo para entregar la tarea.");
+      return;
+    }
+    try {
+      await api.post(`/tasks/${selected.id}/submissions`, { text, file_id: attachment?.id || "" });
       setSelected(null);
       setText("");
+      setAttachment(null);
       load();
     } catch (x) {
-      setError(x.response?.data?.detail || "No pudimos entregar la tarea.");
+      const detail = x.response?.data?.detail;
+      setError(detail?.fields?.file_id || detail || "No pudimos entregar la tarea.");
     }
   };
 
@@ -190,6 +221,7 @@ export default function SubjectDetail({ user }) {
                   onClick={() => {
                     setSelected(t);
                     setText(t.submission?.text || "");
+                    setAttachment(null);
                   }}
                   data-testid={`submit-task-${t.id}`}
                 >
@@ -217,14 +249,26 @@ export default function SubjectDetail({ user }) {
               Tu respuesta
               <textarea
                 data-testid="submission-text-input"
-                required
+                required={!attachment}
                 placeholder="Escribe tu solución o comentarios…"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
               />
             </label>
-            <button className="primary wide" onClick={submit} data-testid="confirm-submission-button">
-              Enviar entrega <ArrowRight size={15} />
+            <div className="submission-file-picker">
+              <input ref={fileRef} type="file" hidden onChange={onFileChosen} data-testid="submission-file-input" />
+              <button type="button" className="ghost" onClick={() => fileRef.current?.click()} disabled={uploading} data-testid="submission-file-button">
+                <Upload size={14} /> {uploading ? "Subiendo…" : attachment ? "Cambiar archivo" : "Adjuntar archivo"}
+              </button>
+              {attachment && (
+                <span className="pill" data-testid="submission-attachment">
+                  <FileText size={13} /> {attachment.name}
+                  <button type="button" className="icon-mini" onClick={() => setAttachment(null)} aria-label="Quitar archivo"><X size={12} /></button>
+                </span>
+              )}
+            </div>
+            <button className="primary wide" onClick={submit} disabled={uploading} data-testid="confirm-submission-button">
+              {uploading ? "Subiendo archivo…" : "Enviar entrega"} <ArrowRight size={15} />
             </button>
           </div>
         </div>

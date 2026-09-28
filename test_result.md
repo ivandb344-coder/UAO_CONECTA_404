@@ -160,8 +160,24 @@
 ##       - working: true
 ##         agent: "testing"
 ##         comment: "✅ VERIFIED: POST /api/profile/links funciona para las 10 plataformas (moodle, whatsapp, discord, meet, teams, piazza, telegram, email, linkedin, custom). URL inválida retorna 422 con error específico. Custom link sin label retorna 422 con error 'Escribe un nombre para el enlace personalizado'. Custom link con label e icon funciona correctamente. PATCH /api/profile/links/{lid} y DELETE /api/profile/links/{lid} funcionan."
+## backend:
+##   - task: "Entregas de tareas con archivos"
+##     implemented: true
+##     working: true
+##     file: "backend/server.py"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: false
+##     status_history:
+##       - working: NA
+##         agent: "main"
+##         comment: "Se validó que file_id de una entrega solo pueda apuntar a un archivo subido por el estudiante autenticado."
+##       - working: true
+##         agent: "testing"
+##         comment: "✅ VERIFIED: Task submission with files completamente funcional. 27/27 tests pasaron. Verificado: 1) Estudiante autenticado sube archivo PDF pequeño a POST /api/files y recibe id/storage_path ✓. 2) POST /api/tasks/{task_id}/submissions con text + file_id guarda la entrega correctamente ✓. 3) POST con file_id de otro usuario retorna 422 con error específico 'El archivo de la entrega no es válido o no te pertenece.' y NO lo asocia ✓. 4) POST con file_id inexistente retorna 422 con mismo error específico ✓. 5) Profesor recibe 403 'Las entregas están disponibles para estudiantes' al intentar entregar ✓. 6) Monitor recibe 403 'Las entregas están disponibles para estudiantes' ✓. 7) Profesor autor de la tarea puede abrir archivo mediante GET /api/files/{path} ✓. 8) Usuario no autorizado recibe 403 'No tienes permisos para abrir este archivo.' ✓. 9) Entregas solo con texto funcionan sin romper nada ✓. MongoDB GridFS funcionando correctamente. Validación de propiedad de archivos implementada y funcionando."
 ## frontend:
 ##   - task: "Login y autenticación"
+
 ##     implemented: true
 ##     working: true
 ##     file: "frontend/src/pages/Login.jsx"
@@ -204,14 +220,30 @@
 ##       - working: true
 ##         agent: "testing"
 ##         comment: "✅ VERIFIED: Crear asignatura funciona completamente. Formulario se abre desde /asignaturas ✓. Campos: nombre, código, descripción, programa (select con optgroups), semestre, horario, info adicional ✓. Validación funciona ✓. Subject creado aparece en catálogo con código AUTO202 ✓. Join con código inválido muestra error 'No encontramos una asignatura con ese código de unión' ✓. Subject detail carga correctamente ✓. Resources: formulario de upload ✓, archivo se adjunta (documento-prueba.txt) ✓, recurso se publica ✓. Botones 'Abrir / visualizar' y 'Descargar' usan openProtectedFile con blob autenticado (NO href directo) ✓. Chat carga correctamente con controles de adjuntos ✓. Sistema de archivos autenticados funcionando."
+## frontend:
+##   - task: "Entregas de tareas con archivos en frontend"
+##     implemented: true
+##     working: true
+##     file: "frontend/src/pages/SubjectDetail.jsx"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: false
+##     status_history:
+##       - working: NA
+##         agent: "main"
+##         comment: "Se añadió selector de archivo, subida autenticada a GridFS y asociación segura mediante file_id al entregar tareas."
+##       - working: true
+##         agent: "testing"
+##         comment: "✅ VERIFIED: Flujo completo de entregas con archivos funciona correctamente. 1) Login como estudiante y navegación a asignatura con tareas ✓. 2) Modal 'Entregar/Actualizar entrega' se abre correctamente ✓. 3) Entrega solo con texto funciona sin romper nada ✓. 4) Selector de archivo submission-file-input permite seleccionar PDF pequeño ✓. 5) Indicador de subida muestra 'Cambiar archivo' y nombre del archivo adjunto (tarea_matematicas.pdf) ✓. 6) Envío con archivo cierra modal exitosamente sin errores de consola ✓. 7) Actualizar entrega reemplazando archivo funciona (tarea_actualizada.pdf) ✓. 8) Validación de archivo mayor de 25MB muestra mensaje específico 'El archivo de la entrega no puede pesar más de 25MB.' ✓. 9) Como monitor: NO aparece botón de entregar ✓, botón 'Nueva tarea' visible ✓. 10) UI usa subida autenticada POST /api/files, NO expone URLs públicas directas ✓. NOTA MENOR: Error 401 en carga de foto de perfil después de cambio de sesión (no relacionado con entregas)."
+
 ## metadata:
 ##   created_by: "main_agent"
 ##   version: "1.0"
-##   test_sequence: 5
+##   test_sequence: 7
 ##   run_ui: true
 ## test_plan:
 ##   current_focus:
-##     - "Todas las funcionalidades críticas verificadas y funcionando"
+##     - "Entregas de tareas con archivos - COMPLETADO"
 ##   stuck_tasks: []
 ##   test_all: false
 ##   test_priority: "high_first"
@@ -228,3 +260,9 @@
 
 ##   - agent: "testing"
 ##     message: "✅ FRONTEND TESTING COMPLETADO. Todas las funcionalidades críticas funcionan correctamente. Login por correo (estudiante@uao.edu.co), botones Demo (estudiante/monitor), Google button visible. Profile edit: guardar cambios ✓, agregar enlaces ✓, validación URL inválida ✓. Subjects: crear asignatura ✓, validación ✓, join con código inválido ✓. Resources: upload de archivos ✓, botones Abrir/Descargar con blob autenticado ✓. Chat: página carga ✓, controles de adjuntos ✓. NO hay requests a undefined/api. Warnings menores: WebSocket chat (esperado), hydration warning en select (cosmético), 422/404 de validaciones (esperado). Sistema frontend funcionando correctamente."
+
+##   - agent: "testing"
+##     message: "✅ TASK SUBMISSIONS WITH FILES - COMPLETADO. Backend testing: 27/27 tests pasaron. Todas las validaciones de entregas con archivos funcionan correctamente: 1) Upload de archivos por estudiante autenticado ✓. 2) Crear entrega con text + file_id ✓. 3) Validación de propiedad de archivo (422 con error específico para file_id de otro usuario) ✓. 4) Validación de existencia de archivo (422 para file_id inexistente) ✓. 5) Restricción de rol: profesor y monitor reciben 403 al intentar entregar ✓. 6) Autorización: profesor autor puede acceder a archivo de entrega del estudiante ✓. 7) Autorización: usuario no autorizado recibe 403 ✓. 8) Entregas solo con texto funcionan sin problemas ✓. Sistema de entregas con archivos completamente funcional y listo para producción."
+
+##   - agent: "testing"
+##     message: "✅ FRONTEND FILE SUBMISSIONS - COMPLETADO. Testing completo del flujo de entregas con archivos en navegador. Todos los requisitos verificados: 1) Login estudiante y navegación a asignatura con tareas ✓. 2) Modal 'Entregar/Actualizar entrega' funciona ✓. 3) Entrega solo texto sigue funcionando ✓. 4) Selector submission-file-input permite adjuntar PDF pequeño ✓. 5) Indicador de subida muestra 'Cambiar archivo' y nombre de archivo ✓. 6) Envío con archivo exitoso sin errores de consola ✓. 7) Actualizar entrega reemplazando archivo funciona ✓. 8) Validación 25MB muestra mensaje específico ✓. 9) Monitor/profesor NO ve botón entregar, SÍ ve 'Nueva tarea' ✓. 10) UI usa POST /api/files autenticado, sin URLs públicas expuestas ✓. Sistema de entregas con archivos completamente funcional en producción."

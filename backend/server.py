@@ -418,6 +418,10 @@ async def submit_task(task_id: str, data: SubmissionCreate, user=Depends(current
         raise HTTPException(403, "Las entregas están disponibles para estudiantes")
     if not await db.tasks.find_one({"id": task_id}):
         raise HTTPException(404, "Tarea no encontrada")
+    if data.file_id:
+        attached = await db.files.find_one({"id": data.file_id, "owner_id": user["id"], "is_deleted": False}, {"_id": 0})
+        if not attached:
+            raise HTTPException(status_code=422, detail={"fields": {"file_id": "El archivo de la entrega no es válido o no te pertenece."}})
     submission = {"id": str(uuid.uuid4()), "task_id": task_id, "student_id": user["id"], "student": user["name"], **data.model_dump(), "status": "Entregada", "submitted_at": datetime.now(timezone.utc).isoformat(), "feedback": "", "grade": None}
     await db.submissions.update_one({"task_id": task_id, "student_id": user["id"]}, {"$set": submission}, upsert=True)
     return clean(submission)
