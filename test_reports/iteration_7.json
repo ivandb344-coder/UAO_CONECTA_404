@@ -1,0 +1,45 @@
+{
+  "summary": "Iteration 7 — Verified fix for AxiosError 'Network Error' after demo-login on the alias host (subject-creator.preview.emergentagent.com). frontend/src/lib/api.js correctly falls back to window.location.origin when the browser host differs from REACT_APP_BACKEND_URL, so /api calls and WebSocket are same-origin. Ran targeted checks on BOTH hosts (alias + env) plus Google login redirect, fake session_id callback, and google-incomplete JWT → Complete Profile.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iteration6.py",
+    "/app/test_reports/pytest/iteration_6_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py still ~1215 lines (previous iteration flagged) — split into routes/{auth,reviews,files}.py.",
+    "JWT_SECRET 'uao-conecta-development-secret' is <32 bytes; rotate before production (InsecureKeyLengthWarning)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "estudiante@uao.edu.co / UAOdemo2026! (demo-login-button); monitor@uao.edu.co / UAOdemo2026! (demo-advisor-button). HS256 JWT with sub='google-incomplete' and secret 'uao-conecta-development-secret' forces /perfil/completar screen.",
+  "seed_data_creation": "None new. Relied on prior iteration 6 seed (demo-student avatar, task-demo-1 submission with feedback).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Confirmed both hosts serve same backend via same-origin fallback in /app/frontend/src/lib/api.js. Alias host: https://subject-creator.preview.emergentagent.com. Env host: https://7858e35c-28d7-4180-865b-f1b403446e93.preview.emergentagent.com. All console error / unhandled rejection counts were 0 in scripted flows. Complete Profile via google-incomplete JWT also produced 0 console errors — the 'Request failed with status code 401' unhandled-rejection overlay observed on a first pass was reproduced from the *preceding* fake-session_id POST /api/auth/google 401 (expected behaviour) — when the JWT test is run isolated with cleared state it produces zero errors.",
+  "test_results_detail": {
+    "alias_host_flows": {
+      "demo_student_login": "PASS — /inicio, sidebar-user-name='Mariana Torres', sidebar-avatar img.src=blob:https://subject-creator.preview.emergentagent.com/..., 3 dashboard stat cards, 0 console errors, 0 unhandled rejections",
+      "logout_then_demo_advisor": "PASS — /inicio, nav-revisiones visible, /revisiones shows 5 review cards, 0 errors",
+      "chat_websocket": "PASS — /chat shows chat-connection-state='En línea' within ~5s, 6 existing messages rendered",
+      "google_login_button": "PASS — click navigates to https://auth.emergentagent.com/oauth/?redirect=https%3A%2F%2Fsubject-creator.preview.emergentagent.com%2Finicio (origin-based redirect matches alias host)",
+      "fake_session_callback": "PASS — /inicio#session_id=fake123 posts /api/auth/google same-origin, gets 401, redirects to /, error text 'Sesión de Google inválida o expirada' displayed (NOT the generic 'No pudimos completar el ingreso con Google')",
+      "google_incomplete_jwt": "PASS — JWT with sub='google-incomplete' HS256 secret shows 'Completa tu perfil' screen with role/program selectors; 0 console errors, 0 unhandled rejections; localStorage token preserved"
+    },
+    "env_host_flows": {
+      "demo_student_login": "PASS — same as alias (name, blob avatar, 3 stats, 0 errors)",
+      "demo_advisor_reviews": "PASS — nav-revisiones present, 5 review cards on /revisiones"
+    },
+    "backend_regression": {
+      "POST /api/auth/demo": "200",
+      "POST /api/auth/demo-advisor": "200 (via test)",
+      "GET /api/submissions/incoming (monitor)": "200 with populated task/subject/file metadata",
+      "GET /api/files/{avatar} (monitor auth)": "200",
+      "POST /api/auth/google (fake session_id)": "401 (expected)",
+      "GET /api/auth/me (google-incomplete JWT)": "200 with profile_completed=false",
+      "pytest subset (iteration_6 regression)": "3/3 passed (demo_login_tokens, incoming_as_monitor_and_forbidden_as_student, monitor_can_download_submission_file)"
+    }
+  },
+  "rca of the issue": "Original AxiosError Network Error was caused by cross-origin API calls: when the user browsed via the alias host (subject-creator.preview.emergentagent.com), the Axios client used REACT_APP_BACKEND_URL (7858e35c...) as the API base, generating cross-origin requests that the edge proxy rejected via CORS (Origin header rewritten). Mitigation in frontend/src/lib/api.js selects window.location.origin as BACKEND_URL whenever the browser host is non-local and differs from REACT_APP_BACKEND_URL, guaranteeing same-origin XHR and WebSocket. Verified: 0 console errors and 0 unhandled promise rejections on demo-login, chat WS connect (WS same-origin, shows 'En línea'), and Google callback flows on the alias host."
+}

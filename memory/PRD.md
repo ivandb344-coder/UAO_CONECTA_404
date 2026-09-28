@@ -57,6 +57,7 @@ Construir una aplicación académica real para conectar estudiantes, monitores y
 - **Vista previa inline**: `FilePreviewModal` (imagen/PDF/video, fallback) + `FileActions` (Vista previa / Descargar) reutilizados en Recursos, entregas del estudiante (`subject_tasks` devuelve `submission.file`) y bandeja docente.
 - **Google E2E**: verificado `POST /auth/google` con sesión inválida → 401 y usuario `profile_completed=false` forzado a `/perfil/completar`. El consentimiento real de Google debe probarse manualmente en la URL publicada.
 - Testing agent iteración 6: 8/8 backend + todos los flujos frontend sin bugs.
+- **Fix Network Error / Google (iteración 7)**: el usuario navegaba por el alias `subject-creator.preview.emergentagent.com` mientras `.env` apunta a `7858e35c-…`; el proxy reescribe `Origin` y las llamadas cross-origin fallaban (login demo y `POST /auth/google`). `lib/api.js` ahora usa `window.location.origin` cuando el host del navegador (no local) difiere del de `.env`, así API y WebSocket son same-origin. Verificado en ambos hosts por testing agent.
 
 ## Prioritized backlog
 - P0: OAuth Google real y recuperación de contraseña por correo.
