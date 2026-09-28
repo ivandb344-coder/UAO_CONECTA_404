@@ -1,6 +1,11 @@
 import axios from "axios";
 
-export const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const ENV_BACKEND = process.env.REACT_APP_BACKEND_URL;
+const isLocalHost = /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
+// El ingreso enruta /api en el mismo dominio; si el usuario navega por un alias distinto al de .env,
+// las llamadas cross-origin fallan (el proxy reescribe Origin) → usamos el mismo origen del navegador.
+export const BACKEND_URL = !isLocalHost && window.location.origin !== ENV_BACKEND ? window.location.origin : ENV_BACKEND;
+export const API = `${BACKEND_URL}/api`;
 
 export const api = axios.create({ baseURL: API });
 api.interceptors.request.use((c) => {
