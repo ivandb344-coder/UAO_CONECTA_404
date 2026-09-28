@@ -24,9 +24,10 @@ Construir una aplicación académica real para conectar estudiantes, monitores y
 - Auth API with email/password, protected routes and demo account; Google entry point communicates configuration status.
 - Persistent dashboard, seeded subjects/advisories, question creation, advisor booking, persistent chat, upload endpoint and AI streaming endpoint.
 - Full MVP interface across Inicio, Dudas, Asignaturas, Asesorías, Chat and Asistente IA.
+- Tareas académicas dentro de cada asignatura: creación para profesores/monitores, entregas persistentes y reentregas para estudiantes, estado, fecha límite, feedback y calificación.
 
 ## Prioritized backlog
 - P0: Complete OAuth Google credentials and password recovery email flow.
-- P1: Subject detail pages, answers UI, accepted answers, profile editing and ratings.
+- P1: Answers UI, accepted answers, profile editing and ratings.
 - P1: Real WebSocket chat, notifications and file permissions.
 - P2: Tasks, submissions, activities, videos and global search.
