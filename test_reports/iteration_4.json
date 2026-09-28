@@ -1,0 +1,27 @@
+{
+  "summary": "Iteration 4 — WebSocket chat refactor validated end-to-end. 11/11 pytest cases pass (6 WS/HTTP chat + 5 regression across auth/dashboard/questions/advisories/bookings/subjects). UI validated: /chat loads with En línea state, 5 room tabs (Comunidad UAO + 4 seed subjects), messages sent via WS appear instantly and are styled with .message.mine class (right-aligned), room switch navigates to /chat/{subject_id} and clears messages, room-specific broadcast confirmed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_chat_ws.py",
+    "/app/test_reports/pytest/iteration_4_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now ~615 lines; getting close to the 700-line split threshold recommended earlier — consider extracting Chat (HTTP + WS) into its own module in the next iteration.",
+    "ConnectionManager.broadcast serializes JSON per socket; for large rooms consider building the payload once and reusing (micro-perf, non-blocking).",
+    "WS handler enforces auth via _user_from_token but only checks JWT signature/exp — no re-validation of user existence on every message (fine for MVP, but a revoked user keeps posting until reconnect).",
+    "Frontend Chat.jsx reconnect backoff caps at 6s and never gives up; acceptable but could add a visible retry counter/max-attempts UX in future."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_chat_ws.py",
+    "/app/test_reports/iteration_4.json"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "estudiante@uao.edu.co / UAOdemo2026! (POST /api/auth/demo); monitor@uao.edu.co / UAOdemo2026! (POST /api/auth/demo-advisor).",
+  "seed_data_creation": "Created TEST-prefixed messages in rooms TEST_ROOM_A, TEST_ROOM_ISO_A/B, TEST_ROOM_HTTP, plus one TEST_ws_regression question and UI_test_/UI_calc_ messages in general and a Cálculo I room. No production/seed data mutated.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "WebSocket endpoint /api/ws/chat/{room}?token=... is registered at app-level (not APIRouter) with wss:// scheme. Verified: (a) 4401 close on missing/invalid token, (b) presence event on connect + broadcast presence when others join/leave, (c) message broadcast to all room clients incl. sender with Mongo persistence, (d) room isolation, (e) HTTP POST /api/chat also broadcasts to open WS clients (fallback path). Regression suite in same file covers auth/me, dashboard, questions create+get, advisories list/create-403, bookings list+incoming, subjects+tasks. Frontend selectors: chat-connection-state, chat-room-tabs, chat-room-general, chat-room-{subject.code}, chat-message-input, send-chat-message, chat-message-{id}. .message.mine class confirmed on own messages. Benign console warning: 'WebSocket is closed before the connection is established' fires when navigating away (cleanup on unmount) — not a bug.",
+  "rca of the issue": "No bugs found."
+}

@@ -36,6 +36,11 @@ Construir una aplicación académica real para conectar estudiantes, monitores y
 - Cuenta demo adicional para monitor.
 - Testing agent: 28/28 backend + UI flows verificados sin bugs.
 
+### 2026-03-12
+- **Chat en tiempo real con WebSockets**: nuevo endpoint `/api/ws/chat/{room}` con `ConnectionManager`, auth por query token, broadcast por sala, evento `presence`. Persistencia en Mongo intacta; HTTP POST `/api/chat` sigue como fallback y también hace broadcast.
+- **Frontend Chat**: reconexión con backoff, selector de salas (Comunidad UAO + una por asignatura), rutas `/chat` y `/chat/:room`, mensajes propios en teal a la derecha, indicador "En línea"/"Reconectando".
+- Testing agent: 11/11 tests (6 WS/HTTP chat + 5 regresión), sin bugs.
+
 ## Prioritized backlog
 - P0: OAuth Google real y recuperación de contraseña por correo.
 - P1: Notificaciones (Fase 22, 31) y valoración de asesorías (Fase 23).
