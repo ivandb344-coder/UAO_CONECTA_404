@@ -632,12 +632,18 @@ async def chat_ws(websocket: WebSocket, room: str, token: str = Query(...)):
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }
             if isinstance(file_info, dict) and file_info.get("storage_path"):
-                item["file"] = {
-                    "name": (file_info.get("name") or "adjunto")[:120],
-                    "storage_path": file_info["storage_path"],
-                    "content_type": file_info.get("content_type") or "application/octet-stream",
-                    "size": int(file_info.get("size") or 0),
-                }
+                # Only accept files the sender actually owns (prevents forging storage_path)
+                file_record = await db.files.find_one(
+                    {"storage_path": file_info["storage_path"], "owner_id": user["id"], "is_deleted": False},
+                    {"_id": 0},
+                )
+                if file_record:
+                    item["file"] = {
+                        "name": file_record.get("name") or (file_info.get("name") or "adjunto")[:120],
+                        "storage_path": file_record["storage_path"],
+                        "content_type": file_record.get("content_type") or "application/octet-stream",
+                        "size": int(file_info.get("size") or 0),
+                    }
             await db.messages.insert_one(item)
             await manager.broadcast(room, {"type": "message", "message": clean(dict(item))})
     except WebSocketDisconnect:

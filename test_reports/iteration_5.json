@@ -1,0 +1,28 @@
+{
+  "summary": "Iteration 5 — validated Google auth endpoint (401 on invalid session_id, 422 on missing field), self-booking prevention (backend 409 + monitor UI shows Gestionar), chat unread badges (nav-chat-badge=4/5 and notifications-badge visible from /chat/summary), chat presence with role class (role-student on avatar), attachment controls (chat-file-input/attach-chat-file/send-chat-message), Abrir chat from asignatura navigating to /chat/{subject_id}, and stars horizontal (`.stars.compact` w=148/h=16, `.stars.input` w=123/h=23 — both <40px tall with 5 SVGs each). Backend: 13/13 pytest cases pass (Google auth, public_user picture key, demo+demo-advisor, self-book 409, chat summary+seen flow with unread decrement, chat/summary requires auth, file upload, WS presence payload with users[].{id,name,role,initial,picture}, WS invalid token rejected (ingress 403 wrapper of 4401), WS message with file broadcasts with file field, dudas rating/accept regression, advisories regression).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iteration5.py",
+    "/app/test_reports/pytest/iteration_5_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now 722 lines — crossed the 700-line threshold. Recommend extracting chat (HTTP + WS) into its own module (routes/chat.py) and/or advisories.py in the next iteration.",
+    "WS handler in chat_ws accepts payload.file dict without verifying the current user owns/uploaded that storage_path. A malicious client could set any storage_path string. Consider validating db.files lookup by owner_id or at least storage_path existence before broadcasting.",
+    "Ingress returns HTTP 403 (not 4401 WS close) when the token query param is invalid because the app-level app.close() runs after accept — some proxies drop the frame. Not a bug per se but the front-end will only see a generic close and reconnect; document the behavior.",
+    "Google auth endpoint: on returning users, `role`/`program`/`semester` are preserved (good) but `name` is not refreshed. If a user updates their Google display name it won't propagate. Low priority.",
+    "SubjectDetail.jsx renders TWO separate Abrir-chat buttons (one under head-actions for non-students, another as sibling for students). Fine functionally but duplicates JSX — could unify. Both share `data-testid='open-subject-chat'` which is unique per rendered role branch so no collision, but a stricter querySelectorAll('[data-testid=open-subject-chat]') could catch stale duplicates."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration5.py",
+    "/app/test_reports/iteration_5.json"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "estudiante@uao.edu.co / UAOdemo2026! (POST /api/auth/demo); monitor@uao.edu.co / UAOdemo2026! (POST /api/auth/demo-advisor). Google auth cannot be tested end-to-end — only 401 on bad session_id path was verified.",
+  "seed_data_creation": "Created TEST-prefixed advisory owned by monitor (deleted at end of test), TEST_rating_q duda + answer + rating + accept, TEST_msg_ chat messages in TEST_unread_* rooms, TEST_with_file WS message with fake storage_path (no real file), TEST_pres_/TEST_file_/TEST_401_ rooms. No production/seed data mutated.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Frontend testids used: login buttons are labeled 'Demo estudiante' and 'Demo monitor' (get_by_role button name), not the wordy previous strings. Subject cards use data-testid='open-subject-{code}' (e.g. open-subject-MAT101) and 'catalog-subject-{code}'. Question cards use data-testid='question-{uuid}'. In Advisories browse tab: 'book-advisory-{id}' vs 'manage-advisory-{id}' by ownership. Chat presence chips: data-testid='presence-{userId}' inside 'presence-list'. Attach controls: chat-file-input, attach-chat-file, chat-attach-pill, chat-attach-clear. Bell badge = notifications-badge; sidebar nav badge = nav-chat-badge; per-room badge = .room-badge. Google auth path only tests invalid session_id → 401; real OAuth requires window.location redirect to auth.emergentagent.com and cannot be automated. WS invalid token returns ingress HTTP 403 (not 4401 code observable client-side).",
+  "rca of the issue": "No bugs found. All 4 correcciones and 4 new features work as designed."
+}

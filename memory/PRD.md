@@ -41,6 +41,16 @@ Construir una aplicación académica real para conectar estudiantes, monitores y
 - **Frontend Chat**: reconexión con backoff, selector de salas (Comunidad UAO + una por asignatura), rutas `/chat` y `/chat/:room`, mensajes propios en teal a la derecha, indicador "En línea"/"Reconectando".
 - Testing agent: 11/11 tests (6 WS/HTTP chat + 5 regresión), sin bugs.
 
+### 2026-03-13
+- **Correcciones**: (1) Google Login real vía Emergent Auth con endpoint `POST /api/auth/google` que canjea `session_id` por JWT propio. (2) Auto-reserva bloqueada tanto en frontend (botón "Gestionar" en lugar de "Solicitar cupo" para el propio dueño) como en backend (409). (3) Estrellas horizontales garantizadas con `flex-direction: row !important` y `display:inline-block` en SVG.
+- **Login rediseñado**: layout de dos columnas, botón Google destacado en oscuro con separador "o con tu correo", enlaces "¿Olvidaste tu contraseña?" y "Crear una cuenta", accesos demo compactos.
+- **Chat mejorado**:
+  - Botón "Abrir chat" dentro de cada asignatura → `/chat/{subject_id}`.
+  - Badge de mensajes no leídos en campana + sidebar Chat, alimentado por `GET /api/chat/summary` (polling 15s) y `POST /api/chat/{room}/seen`.
+  - Presencia por rol: WS emite `users[]` con `{id,name,role,initial,picture}`. UI muestra chips con avatar coloreado por rol arriba de la sala.
+  - Adjuntos (imagen o PDF ≤8MB) vía `/api/files` + payload WS `{body, file}`. Validación en backend: solo se aceptan `storage_path` del propio usuario.
+- Testing agent: 13/13 backend + UI, sin bugs.
+
 ## Prioritized backlog
 - P0: OAuth Google real y recuperación de contraseña por correo.
 - P1: Notificaciones (Fase 22, 31) y valoración de asesorías (Fase 23).
