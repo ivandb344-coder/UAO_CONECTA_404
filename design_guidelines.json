@@ -1,0 +1,78 @@
+{
+  "app_name": "UAO Conecta",
+  "concept": "Encontrar. Coordinar. Saber a quién acudir.",
+  "app_type": "hybrid_fullstack",
+  "archetype": "ORGANIC & EARTHY / SWISS & HIGH-CONTRAST (Academic Professional)",
+  "typography": {
+    "heading_font": "Outfit, sans-serif",
+    "body_font": "Plus Jakarta Sans, sans-serif",
+    "mono_font": "JetBrains Mono, monospace",
+    "sizes": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight",
+      "h3": "text-xl sm:text-2xl",
+      "h4": "text-lg sm:text-xl",
+      "body": "text-base leading-relaxed",
+      "small": "text-sm"
+    }
+  },
+  "colors": {
+    "primary": "#0F172A",
+    "primary_accent": "#0D9488",
+    "secondary": "#3B82F6",
+    "background": "#F8FAFC",
+    "surface": "#FFFFFF",
+    "border": "#E2E8F0",
+    "text_main": "#0F172A",
+    "text_muted": "#64748B",
+    "success": "#10B981",
+    "warning": "#F59E0B",
+    "danger": "#EF4444"
+  },
+  "image_urls": {
+    "campus_hero": "https://images.unsplash.com/photo-1760551572356-06b0cfa5408f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzN8MHwxfHNlYXJjaHw0fHx1bml2ZXJzaXR5JTIwc3R1ZGVudHMlMjBjYW1wdXMlMjBtb2Rlcm4lMjBhY2FkZW1pYyUyMGxpYnJhcnl8ZW58MHx8fHwxNzkwNjExNDg0fDA&ixlib=rb-4.1.0&q=85",
+    "library_interior": "https://images.unsplash.com/photo-1717434297575-14851e57ecd2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzN8MHwxfHNlYXJjaHwyfHx1bml2ZXJzaXR5JTIwc3R1ZGVudHMlMjBjYW1wdXMlMjBtb2Rlcm4lMjBhY2FkZW1pYyUyMGxpYnJhcnl8ZW58MHx8fHwxNzkwNjExNDg0fDA&ixlib=rb-4.1.0&q=85"
+  },
+  "navigation": {
+    "desktop": "Sidebar with collapsible sections",
+    "mobile": "Bottom navigation bar + top header with notification drawer",
+    "routes": [
+      "/dashboard",
+      "/dudas",
+      "/asignaturas",
+      "/asesorias",
+      "/mis-asesorias",
+      "/chat",
+      "/asistente-ia",
+      "/perfil",
+      "/notificaciones",
+      "/guardados"
+    ]
+  },
+  "features": [
+    "Authentication (Google Login + email/password with role selection: student, monitor, professor)",
+    "Dashboard with quick stats, recent questions, upcoming tutoring sessions, and AI advisor widget",
+    "Subject catalog with curriculum, resources, monitors list, and professor directory",
+    "Q&A Forum (Dudas) with tagging, filtering, upvoting, file attachments, and verified answers",
+    "Tutoring (Asesorías) booking system with calendar availability, online/in-person mode, and 'Mis Asesorías' manager",
+    "Realtime Chat (Chat) with peer-to-peer and group study rooms with file sharing",
+    "AI Assistant (Asistente IA) powered by GPT 5.4 Mini with Emergent LLM key for instant academic guidance",
+    "Notifications center and Saved items (Guardados)",
+    "Global search bar with instant autocomplete across questions, subjects, tutors, and files"
+  ],
+  "instructions_to_main_agent": [
+    "Build a complete React application with .js files (JSX).",
+    "Use Tailwind CSS for styling with generous spacing (p-6, p-8, gap-6) and clean cards with 1px subtle borders.",
+    "Implement fully functional mock backend states or local API storage with robust localStorage fallback so all CRUD operations (questions, bookings, chat messages, file uploads, AI answers) work smoothly.",
+    "Ensure every interactive and key informational element has a data-testid attribute.",
+    "Maintain responsive layout with a persistent desktop sidebar and mobile bottom navigation.",
+    "Add toast notifications via sonner for all key user actions."
+  ],
+  "universal_guidelines": [
+    "No universal transition (transition: all). Use specific property transitions.",
+    "Do not center-align the app container.",
+    "Never use AI assistant emoji characters for core navigation icons.",
+    "Ensure all text meets WCAG contrast requirements with explicit hover states.",
+    "Keep headers solid or use glassmorphism with backdrop blur and non-transparent background."
+  ]
+}
