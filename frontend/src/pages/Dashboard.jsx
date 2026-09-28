@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { BookOpen, CalendarDays, Bookmark, ArrowRight, Bot, Plus, CircleHelp } from "lucide-react";
 import { api } from "@/lib/api";
 import { Loading, Empty } from "@/components/ui/states";
+import CreateSubjectForm from "@/components/CreateSubjectForm";
 
 const Stat = ({ icon, title, value, sub, color }) => (
   <div className="stat" data-testid={`stat-${title.toLowerCase().replaceAll(" ", "-")}`}>
@@ -17,6 +18,7 @@ const Stat = ({ icon, title, value, sub, color }) => (
 
 export default function Dashboard({ user }) {
   const [data, setData] = useState(null);
+  const [showCreate, setShowCreate] = useState(false);
   const nav = useNavigate();
   useEffect(() => {
     api.get("/dashboard").then((r) => setData(r.data));
@@ -36,10 +38,16 @@ export default function Dashboard({ user }) {
           <h1>Hola, {user.name.split(" ")[0]}.</h1>
           <p className="lede">¿Qué necesitas encontrar hoy?</p>
         </div>
-        <button className="primary" onClick={() => nav("/dudas")} data-testid="ask-question-button">
-          <Plus size={17} /> Hacer una pregunta
-        </button>
+        <div className="head-actions">
+          <button className="ghost" onClick={() => setShowCreate(!showCreate)} data-testid="dashboard-create-subject-button">
+            <Plus size={17} /> Crear asignatura
+          </button>
+          <button className="primary" onClick={() => nav("/dudas")} data-testid="ask-question-button">
+            <Plus size={17} /> Hacer una pregunta
+          </button>
+        </div>
       </div>
+      {showCreate && <CreateSubjectForm onCancel={() => setShowCreate(false)} onCreated={(created) => { setData((current) => ({ ...current, subjects: [created, ...(current.subjects || [])] })); setShowCreate(false); }} />}
       <div className="stats">
         <Stat icon={<BookOpen />} title="Mis asignaturas" value={data.stats.subjects} sub="activas este semestre" color="teal" />
         <Stat icon={<CalendarDays />} title="Próximas asesorías" value={data.stats.pending} sub="por coordinar" color="blue" />

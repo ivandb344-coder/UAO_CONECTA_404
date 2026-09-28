@@ -4,6 +4,8 @@ import { ArrowRight, Camera, Trash2, Eye, EyeOff, Plus, Save, Check } from "luci
 import { api, API } from "@/lib/api";
 import { PLATFORMS, platformMeta } from "@/lib/platforms";
 import { Loading } from "@/components/ui/states";
+import { useProtectedFileUrl } from "@/hooks/useProtectedFile";
+import { storagePathFromFileUrl } from "@/services/fileService";
 
 const ROLE_OPTIONS = [
   { value: "student", label: "Estudiante" },
@@ -27,15 +29,19 @@ export default function ProfileEdit({ me, onUpdate }) {
     semester: me.semester || "",
     bio: me.bio || "",
     phone: me.phone || "",
+    contact_info: me.contact_info || "",
     academic_info: me.academic_info || "",
     picture: me.picture || "",
   });
   const [links, setLinks] = useState(me.links || []);
+  const protectedPicture = storagePathFromFileUrl(form.picture);
+  const protectedPictureUrl = useProtectedFileUrl(protectedPicture);
+  const pictureSrc = protectedPicture ? protectedPictureUrl : form.picture;
   const [errors, setErrors] = useState({});
   const [remoteMsg, setRemoteMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [newLink, setNewLink] = useState({ platform: "linkedin", url: "", label: "" });
+  const [newLink, setNewLink] = useState({ platform: "linkedin", url: "", label: "", icon: "" });
   const [linkErrors, setLinkErrors] = useState({});
 
   useEffect(() => {
@@ -120,7 +126,7 @@ export default function ProfileEdit({ me, onUpdate }) {
     try {
       const r = await api.post("/profile/links", newLink);
       setLinks((l) => [...l, r.data]);
-      setNewLink({ platform: "linkedin", url: "", label: "" });
+      setNewLink({ platform: "linkedin", url: "", label: "", icon: "" });
     } catch (x) {
       const d = x.response?.data?.detail;
       if (d?.fields) setLinkErrors(d.fields);
@@ -173,7 +179,7 @@ export default function ProfileEdit({ me, onUpdate }) {
       <form className="profile-form" onSubmit={submit}>
         <div className="photo-row">
           <div className="profile-avatar big" data-testid="edit-avatar">
-            {form.picture ? <img src={form.picture} alt="Foto de perfil" /> : <span>{form.name?.[0] || "?"}</span>}
+            {pictureSrc ? <img src={pictureSrc} alt="Foto de perfil" /> : <span>{form.name?.[0] || "?"}</span>}
           </div>
           <div>
             <button type="button" className="ghost" onClick={() => fileRef.current?.click()} data-testid="upload-photo-button">
@@ -285,12 +291,12 @@ export default function ProfileEdit({ me, onUpdate }) {
             />
           </label>
           <label className="field">
-            <span>Teléfono / contacto</span>
+            <span>Información adicional de contacto</span>
             <input
-              data-testid="pe-phone"
-              value={form.phone}
-              onChange={(e) => set("phone", e.target.value)}
-              placeholder="+57 …"
+              data-testid="pe-contact-info"
+              value={form.contact_info}
+              onChange={(e) => set("contact_info", e.target.value)}
+              placeholder="Ciudad, horario de contacto o canal preferido"
             />
           </label>
         </div>
@@ -332,6 +338,16 @@ export default function ProfileEdit({ me, onUpdate }) {
                 onChange={(e) => setNewLink((f) => ({ ...f, label: e.target.value }))}
               />
             </label>
+            <label className="field">
+              <span>Icono (emoji opcional)</span>
+              <input
+                data-testid="nl-icon"
+                value={newLink.icon}
+                placeholder="Ej. 🔗"
+                maxLength={4}
+                onChange={(e) => setNewLink((f) => ({ ...f, icon: e.target.value }))}
+              />
+            </label>
           </div>
           <label className="field">
             <span>URL</span>
@@ -355,9 +371,25 @@ export default function ProfileEdit({ me, onUpdate }) {
             const Icon = meta.icon;
             return (
               <li key={l.id} className={l.visible === false ? "hidden" : ""} data-testid={`link-item-${l.id}`}>
-                <Icon size={16} />
+                {l.icon ? <span className="link-custom-icon" aria-hidden="true">{l.icon}</span> : <Icon size={16} />}
                 <div className="link-info">
-                  <b>{l.label || meta.label}</b>
+                  <input
+                    className="link-label-input"
+                    value={l.label || ""}
+                    placeholder={meta.label}
+                    onChange={(e) => setLinks((all) => all.map((x) => (x.id === l.id ? { ...x, label: e.target.value } : x)))}
+                    onBlur={(e) => updateLink(l, { label: e.target.value })}
+                    data-testid={`link-label-${l.id}`}
+                  />
+                  <input
+                    className="link-icon-input"
+                    value={l.icon || ""}
+                    placeholder="🔗"
+                    maxLength={4}
+                    onChange={(e) => setLinks((all) => all.map((x) => (x.id === l.id ? { ...x, icon: e.target.value } : x)))}
+                    onBlur={(e) => updateLink(l, { icon: e.target.value })}
+                    data-testid={`link-icon-${l.id}`}
+                  />
                   <input
                     className={linkErrors[`edit-${l.id}`] ? "invalid" : ""}
                     value={l.url}

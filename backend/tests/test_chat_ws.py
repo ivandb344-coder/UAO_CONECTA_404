@@ -6,7 +6,7 @@ import pytest
 import requests
 import websockets
 
-BASE = os.environ["REACT_APP_BACKEND_URL"].rstrip("/") if os.environ.get("REACT_APP_BACKEND_URL") else "https://campus-connect-1569.preview.emergentagent.com"
+BASE = os.environ["REACT_APP_BACKEND_URL"].rstrip("/") if os.environ.get("REACT_APP_BACKEND_URL") else "https://subject-creator.preview.emergentagent.com"
 WS_BASE = BASE.replace("https://", "wss://").replace("http://", "ws://")
 
 

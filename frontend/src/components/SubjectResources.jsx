@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus, FileText, ExternalLink, Trash2, Upload } from "lucide-react";
-import { api, API } from "@/lib/api";
+import { api } from "@/lib/api";
+import { openProtectedFile } from "@/services/fileService";
 import { Empty } from "@/components/ui/states";
 
 export default function SubjectResources({ subjectId, user }) {
@@ -75,6 +76,17 @@ export default function SubjectResources({ subjectId, user }) {
       load();
     } catch {
       setError("No pudimos eliminar el recurso.");
+    }
+  };
+
+  const openFile = async (resource, download = false) => {
+    try {
+      await openProtectedFile(resource.storage_path, {
+        download,
+        filename: resource.name || resource.title || "recurso",
+      });
+    } catch {
+      setError("No pudimos abrir este archivo. Verifica que tengas permisos.");
     }
   };
 
@@ -169,7 +181,6 @@ export default function SubjectResources({ subjectId, user }) {
       {items.length ? (
         <ul className="resource-list">
           {items.map((r) => {
-            const href = r.kind === "link" ? r.url : `${API}/files/${r.storage_path}`;
             return (
               <li key={r.id} className="resource-item" data-testid={`resource-${r.id}`}>
                 <div className="resource-icon">
@@ -182,9 +193,20 @@ export default function SubjectResources({ subjectId, user }) {
                     {r.owner_name} · {new Date(r.created_at).toLocaleDateString("es-CO", { timeZone: "America/Bogota" })}
                   </small>
                 </div>
-                <a href={href} target="_blank" rel="noreferrer" className="ghost small" data-testid={`open-resource-${r.id}`}>
-                  {r.kind === "file" ? "Descargar" : "Abrir"}
-                </a>
+                {r.kind === "file" ? (
+                  <>
+                    <button type="button" className="ghost small" onClick={() => openFile(r)} data-testid={`open-resource-${r.id}`}>
+                      Abrir / visualizar
+                    </button>
+                    <button type="button" className="ghost small" onClick={() => openFile(r, true)} data-testid={`download-resource-${r.id}`}>
+                      Descargar
+                    </button>
+                  </>
+                ) : (
+                  <a href={r.url} target="_blank" rel="noreferrer" className="ghost small" data-testid={`open-resource-${r.id}`}>
+                    Abrir
+                  </a>
+                )}
                 {user.id === r.owner_id && (
                   <button className="icon-mini danger" onClick={() => remove(r)} data-testid={`delete-resource-${r.id}`}>
                     <Trash2 size={13} />

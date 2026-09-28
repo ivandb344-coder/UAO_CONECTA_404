@@ -31,16 +31,27 @@ export default function Login({ onLogin, initialError = "" }) {
       localStorage.setItem("uao_token", r.data.token);
       onLogin(r.data.user);
     } catch (x) {
-      setError(x.response?.data?.detail || "No pudimos iniciar sesión");
+      const detail = x.response?.data?.detail;
+      if (detail?.fields) setError(Object.values(detail.fields).join(" "));
+      else setError(typeof detail === "string" ? detail : "No pudimos iniciar sesión");
     }
     setBusy(false);
   };
 
   const demo = async (role = "student") => {
-    const path = role === "student" ? "/auth/demo" : "/auth/demo-advisor";
-    const r = await api.post(path);
-    localStorage.setItem("uao_token", r.data.token);
-    onLogin(r.data.user);
+    setBusy(true);
+    setError("");
+    try {
+      const path = role === "student" ? "/auth/demo" : "/auth/demo-advisor";
+      const r = await api.post(path);
+      localStorage.setItem("uao_token", r.data.token);
+      onLogin(r.data.user);
+    } catch (x) {
+      const detail = x.response?.data?.detail;
+      setError(typeof detail === "string" ? detail : "No pudimos iniciar la sesión demo.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (

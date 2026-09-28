@@ -2,48 +2,41 @@ from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File
 from fastapi.responses import StreamingResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from motor.motor_asyncio import AsyncIOMotorClient
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
 from pydantic import BaseModel, Field, EmailStr
 from passlib.context import CryptContext
 from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Set
+from urllib.parse import urlparse
 import os, uuid, jwt, logging, requests, json, asyncio
 
 ROOT = Path(__file__).parent
 load_dotenv(ROOT / ".env")
 client = AsyncIOMotorClient(os.environ["MONGO_URL"])
 db = client[os.environ["DB_NAME"]]
+file_bucket = AsyncIOMotorGridFSBucket(db, bucket_name="uao_files")
 pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SECRET = os.environ.get("JWT_SECRET", "uao-conecta-development-secret")
-STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https://integrations.emergentagent.com"
-STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
-storage_key = None
+async def put_object(path, data, content_type):
+    """Guarda el binario privado en MongoDB GridFS; no depende de la credencial de IA."""
+    await file_bucket.upload_from_stream(
+        path,
+        data,
+        metadata={"content_type": content_type, "storage_provider": "mongodb_gridfs"},
+    )
+    return {"path": path, "size": len(data)}
 
-def init_storage(force=False):
-    global storage_key
-    if storage_key and not force:
-        return storage_key
-    response = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": os.environ["EMERGENT_LLM_KEY"]}, timeout=30)
-    response.raise_for_status()
-    storage_key = response.json()["storage_key"]
-    return storage_key
-
-def put_object(path, data, content_type):
-    key = init_storage()
-    response = requests.put(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key, "Content-Type": content_type}, data=data, timeout=120)
-    response.raise_for_status()
-    return response.json()
-
-def get_object(path):
-    key = init_storage()
-    response = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
-    if response.status_code == 404:
-        key = init_storage(True)
-        response = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
-    response.raise_for_status()
-    return response.content, response.headers.get("Content-Type", "application/octet-stream")
+async def get_object(path):
+    """Lee el binario privado desde MongoDB GridFS."""
+    try:
+        stream = await file_bucket.open_download_stream_by_name(path)
+    except Exception as exc:
+        raise HTTPException(404, "El contenido del archivo no está disponible.") from exc
+    data = await stream.read()
+    metadata = stream.metadata or {}
+    return data, metadata.get("content_type", "application/octet-stream")
 
 app = FastAPI(title="UAO Conecta API")
 api = APIRouter(prefix="/api")
@@ -153,6 +146,19 @@ class AnswerRatingCreate(BaseModel):
     rating: int
     comment: str = ""
 
+class SubjectCreate(BaseModel):
+    name: str
+    code: str
+    description: str = ""
+    program: str
+    semester: int
+    schedule: str = ""
+    additional_info: str = ""
+    color: str = "teal"
+
+class SubjectJoin(BaseModel):
+    code: str
+
 # ---------- Helpers ----------
 def token(user):
     return jwt.encode({"sub": user["id"], "exp": datetime.now(timezone.utc) + timedelta(days=7)}, SECRET, algorithm="HS256")
@@ -171,7 +177,7 @@ async def current_user(authorization: Optional[str] = Header(None)):
 
 def public_user(u):
     keys = ["id", "name", "username", "email", "role", "program", "semester", "bio", "picture",
-            "phone", "academic_info", "links", "rating", "rating_count", "profile_completed"]
+            "phone", "contact_info", "academic_info", "links", "rating", "rating_count", "profile_completed"]
     out = {k: u.get(k) for k in keys}
     if out["profile_completed"] is None:
         out["profile_completed"] = _profile_completed(u)
@@ -187,11 +193,26 @@ def clean(doc):
 def _url_ok(u: str) -> bool:
     if not u or not isinstance(u, str):
         return False
-    u = u.strip()
-    return u.startswith("http://") or u.startswith("https://") or u.startswith("mailto:") or u.startswith("tel:")
+    value = u.strip()
+    if value.startswith(("mailto:", "tel:")):
+        return len(value.split(":", 1)[1].strip()) > 0
+    parsed = urlparse(value)
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
 def _profile_completed(u: dict) -> bool:
-    return bool(u.get("username") and u.get("role") in ROLES and u.get("program") in PROGRAM_NAMES)
+    if not (u.get("username") and u.get("role") in ROLES and u.get("program") in PROGRAM_NAMES):
+        return False
+    if u.get("role") == "student":
+        try:
+            return 1 <= int(u.get("semester")) <= 12
+        except (TypeError, ValueError):
+            return False
+    if u.get("semester") in (None, ""):
+        return True
+    try:
+        return 1 <= int(u.get("semester")) <= 12
+    except (TypeError, ValueError):
+        return False
 
 # ---------- Routes ----------
 @api.get("/")
@@ -200,9 +221,27 @@ async def root():
 
 @api.post("/auth/register")
 async def register(data: Register):
-    if await db.users.find_one({"email": data.email}):
+    errors = {}
+    username = data.username.strip().lower()
+    if len(username) < 3:
+        errors["username"] = "El nombre de usuario debe tener al menos 3 caracteres."
+    elif await db.users.find_one({"username": username}, {"_id": 0}):
+        errors["username"] = "Este nombre de usuario ya está en uso."
+    if data.role not in ROLES:
+        errors["role"] = "Selecciona un rol: Estudiante, Monitor o Profesor."
+    if data.program not in PROGRAM_NAMES:
+        errors["program"] = "Selecciona un programa académico válido."
+    if data.role == "student" and data.semester is None:
+        errors["semester"] = "El semestre es obligatorio para estudiantes."
+    if data.semester is not None and not 1 <= data.semester <= 12:
+        errors["semester"] = "Selecciona un semestre entre 1 y 12."
+    if await db.users.find_one({"email": data.email}, {"_id": 0}):
         raise HTTPException(409, "Este correo ya está registrado")
-    user = {"id": str(uuid.uuid4()), **data.model_dump(exclude={"password"}), "password": pwd.hash(data.password), "bio": "Perfil académico en construcción.", "rating": 0, "rating_count": 0, "created_at": datetime.now(timezone.utc).isoformat()}
+    if errors:
+        raise HTTPException(status_code=422, detail={"fields": errors})
+    payload = data.model_dump(exclude={"password"})
+    payload["username"] = username
+    user = {"id": str(uuid.uuid4()), **payload, "password": pwd.hash(data.password), "bio": "Perfil académico en construcción.", "rating": 0, "rating_count": 0, "profile_completed": True, "links": [], "created_at": datetime.now(timezone.utc).isoformat()}
     await db.users.insert_one(user)
     return {"token": token(user), "user": public_user(user)}
 
@@ -262,6 +301,7 @@ async def google_auth(data: GoogleAuth):
             "semester": None,
             "bio": "",
             "phone": "",
+            "contact_info": "",
             "academic_info": "",
             "links": [],
             "picture": profile.get("picture"),
@@ -308,12 +348,52 @@ async def subjects(user=Depends(current_user)):
     return await db.subjects.find({}, {"_id": 0}).to_list(100)
 
 @api.post("/subjects")
-async def create_subject(data: dict, user=Depends(current_user)):
-    if user["role"] not in ["professor", "monitor"]:
-        raise HTTPException(403, "Solo profesores y monitores pueden crear asignaturas")
-    doc = {"id": str(uuid.uuid4()), **data, "owner_id": user["id"], "professor": user["name"], "created_at": datetime.now(timezone.utc).isoformat()}
+async def create_subject(data: SubjectCreate, user=Depends(current_user)):
+    errors = {}
+    name = data.name.strip()
+    code = data.code.strip().upper()
+    if len(name) < 2:
+        errors["name"] = "Escribe un nombre válido para la asignatura."
+    if len(code) < 2:
+        errors["code"] = "El código debe tener al menos 2 caracteres."
+    if data.program not in PROGRAM_NAMES:
+        errors["program"] = "Selecciona un programa académico válido."
+    if data.semester < 1 or data.semester > 12:
+        errors["semester"] = "Selecciona un semestre entre 1 y 12."
+    if await db.subjects.find_one({"code": code}, {"_id": 0}):
+        errors["code"] = "Ya existe una asignatura con este código."
+    if errors:
+        raise HTTPException(status_code=422, detail={"fields": errors})
+    doc = {
+        "id": str(uuid.uuid4()),
+        "name": name,
+        "code": code,
+        "description": data.description.strip(),
+        "program": data.program,
+        "semester": data.semester,
+        "schedule": data.schedule.strip(),
+        "additional_info": data.additional_info.strip(),
+        "color": data.color if data.color in {"teal", "blue", "red"} else "teal",
+        "owner_id": user["id"],
+        "creator_name": user["name"],
+        "creator_role": user["role"],
+        "professor": user["name"],
+        "access_code": uuid.uuid4().hex[:8].upper(),
+        "members": [user["id"]],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
     await db.subjects.insert_one(doc)
     return clean(doc)
+
+@api.post("/subjects/join")
+async def join_subject(data: SubjectJoin, user=Depends(current_user)):
+    code = data.code.strip().upper()
+    subject = await db.subjects.find_one({"access_code": code}, {"_id": 0})
+    if not subject:
+        raise HTTPException(404, "No encontramos una asignatura con ese código de unión.")
+    await db.subjects.update_one({"id": subject["id"]}, {"$addToSet": {"members": user["id"]}})
+    subject["members"] = list({*(subject.get("members") or []), user["id"]})
+    return subject
 
 @api.get("/subjects/{subject_id}/tasks")
 async def subject_tasks(subject_id: str, user=Depends(current_user)):
@@ -375,18 +455,21 @@ class ProfilePatch(BaseModel):
     bio: Optional[str] = None
     picture: Optional[str] = None
     phone: Optional[str] = None
+    contact_info: Optional[str] = None
     academic_info: Optional[str] = None
 
 class LinkCreate(BaseModel):
     platform: str
     url: str
     label: Optional[str] = None
+    icon: Optional[str] = None
     visible: bool = True
 
 class LinkPatch(BaseModel):
     platform: Optional[str] = None
     url: Optional[str] = None
     label: Optional[str] = None
+    icon: Optional[str] = None
     visible: Optional[bool] = None
 
 @api.get("/profile/username-available")
@@ -448,7 +531,17 @@ async def upload_profile_photo(file: UploadFile = File(...), user=Depends(curren
         raise HTTPException(422, "Solo se permiten imágenes para la foto de perfil.")
     ext = Path(file.filename).suffix.lower() or ".jpg"
     storage_path = f"uao-conecta/avatars/{user['id']}/{uuid.uuid4()}{ext}"
-    result = put_object(storage_path, await file.read(), file.content_type or "image/jpeg")
+    content = await file.read()
+    result = await put_object(storage_path, content, file.content_type or "image/jpeg")
+    await db.files.insert_one({
+        "id": str(uuid.uuid4()),
+        "name": file.filename or "foto-de-perfil",
+        "storage_path": result["path"],
+        "content_type": file.content_type or "image/jpeg",
+        "owner_id": user["id"],
+        "is_deleted": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
     picture_url = f"/api/files/{result['path']}"
     await db.users.update_one({"id": user["id"]}, {"$set": {"picture": picture_url}})
     return {"picture": picture_url}
@@ -460,11 +553,15 @@ async def add_link(data: LinkCreate, user=Depends(current_user)):
         raise HTTPException(status_code=422, detail={"fields": {"platform": "Selecciona una plataforma válida."}})
     if not _url_ok(data.url):
         raise HTTPException(status_code=422, detail={"fields": {"url": "Ingresa una URL válida."}})
+    label = (data.label or "").strip()
+    if platform == "custom" and not label:
+        raise HTTPException(status_code=422, detail={"fields": {"label": "Escribe un nombre para el enlace personalizado."}})
     link = {
         "id": str(uuid.uuid4()),
         "platform": platform,
         "url": data.url.strip(),
-        "label": (data.label or "").strip() or None,
+        "label": label or None,
+        "icon": (data.icon or "").strip() or None,
         "visible": bool(data.visible),
     }
     await db.users.update_one({"id": user["id"]}, {"$push": {"links": link}})
@@ -483,9 +580,13 @@ async def edit_link(lid: str, data: LinkPatch, user=Depends(current_user)):
         errors["url"] = "Ingresa una URL válida."
     if "platform" in updates and updates["platform"] not in LINK_PLATFORMS:
         errors["platform"] = "Selecciona una plataforma válida."
+    final_platform = updates.get("platform", target.get("platform"))
+    final_label = updates.get("label", target.get("label"))
+    if final_platform == "custom" and not (final_label or "").strip():
+        errors["label"] = "Escribe un nombre para el enlace personalizado."
     if errors:
         raise HTTPException(status_code=422, detail={"fields": errors})
-    target.update({k: v for k, v in updates.items() if v is not None})
+    target.update({k: v.strip() if isinstance(v, str) else v for k, v in updates.items() if v is not None})
     await db.users.update_one({"id": user["id"]}, {"$set": {"links": links}})
     return target
 
@@ -838,18 +939,42 @@ async def chat_ws(websocket: WebSocket, room: str, token: str = Query(...)):
 async def upload(file: UploadFile = File(...), user=Depends(current_user)):
     ext = Path(file.filename).suffix.lower() or ".bin"
     storage_path = f"uao-conecta/uploads/{user['id']}/{uuid.uuid4()}{ext}"
-    result = put_object(storage_path, await file.read(), file.content_type or "application/octet-stream")
+    result = await put_object(storage_path, await file.read(), file.content_type or "application/octet-stream")
     item = {"id": str(uuid.uuid4()), "name": file.filename, "storage_path": result["path"], "content_type": file.content_type, "owner_id": user["id"], "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat()}
     await db.files.insert_one(item)
     return clean(item)
+
+async def _file_is_authorized(record: dict, user: dict) -> bool:
+    if record.get("owner_id") == user["id"]:
+        return True
+    path = record.get("storage_path")
+    if await db.resources.find_one({"storage_path": path}, {"_id": 1}):
+        return True
+    if await db.messages.find_one({"file.storage_path": path}, {"_id": 1}):
+        return True
+    submission = await db.submissions.find_one({"file_id": record.get("id")}, {"_id": 0})
+    if submission:
+        if submission.get("student_id") == user["id"]:
+            return True
+        task = await db.tasks.find_one({"id": submission.get("task_id"), "author_id": user["id"]}, {"_id": 1})
+        if task:
+            return True
+    return False
 
 @api.get("/files/{path:path}")
 async def get_file(path: str, user=Depends(current_user)):
     record = await db.files.find_one({"storage_path": path, "is_deleted": False}, {"_id": 0})
     if not record:
         raise HTTPException(404, "Archivo no encontrado")
-    data, content_type = get_object(path)
-    return Response(content=data, media_type=record.get("content_type") or content_type)
+    if not await _file_is_authorized(record, user):
+        raise HTTPException(403, "No tienes permisos para abrir este archivo.")
+    data, content_type = await get_object(path)
+    filename = Path(record.get("name") or "archivo").name.replace('"', "")
+    return Response(
+        content=data,
+        media_type=record.get("content_type") or content_type,
+        headers={"Content-Disposition": f'inline; filename="{filename}"', "Access-Control-Expose-Headers": "Content-Disposition"},
+    )
 
 # ---------- Saved ----------
 @api.post("/saved")
@@ -939,6 +1064,10 @@ async def create_resource(sid: str, data: ResourceCreate, user=Depends(current_u
         errors["url"] = "Ingresa una URL válida."
     if payload["kind"] == "file" and not payload.get("storage_path"):
         errors["file"] = "Sube el archivo antes de publicarlo."
+    if payload["kind"] == "file" and payload.get("storage_path"):
+        owned_file = await db.files.find_one({"storage_path": payload["storage_path"], "owner_id": user["id"], "is_deleted": False}, {"_id": 0})
+        if not owned_file:
+            errors["file"] = "Solo puedes publicar archivos que hayas subido tú."
     if errors:
         raise HTTPException(status_code=422, detail={"fields": errors})
     doc = {
@@ -999,9 +1128,18 @@ app.add_middleware(CORSMiddleware, allow_origins=os.environ.get("CORS_ORIGINS", 
 @app.on_event("startup")
 async def seed():
     try:
-        init_storage()
+        logging.info("File storage ready: MongoDB GridFS bucket uao_files")
     except Exception as exc:
-        logging.warning("Storage init deferred: %s", exc)
+        logging.warning("File storage check deferred: %s", exc)
+    try:
+        await db.users.create_index(
+            "username",
+            unique=True,
+            name="uq_users_username",
+            partialFilterExpression={"username": {"$gt": ""}},
+        )
+    except Exception as exc:
+        logging.warning("Username index deferred: %s", exc)
     if await db.subjects.count_documents({}) == 0:
         await db.subjects.insert_many([{**x, "id": str(uuid.uuid4()), "created_at": datetime.now(timezone.utc).isoformat()} for x in DEMO_SUBJECTS])
     if await db.tasks.count_documents({}) == 0:

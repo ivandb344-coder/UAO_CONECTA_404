@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Paperclip, Send, Users, Wifi, WifiOff, FileText, X as XIcon } from "lucide-react";
 import { api, API } from "@/lib/api";
+import { openProtectedFile } from "@/services/fileService";
+import { useProtectedFileUrl } from "@/hooks/useProtectedFile";
 import { Empty } from "@/components/ui/states";
 import { useChatUnread } from "@/lib/chatUnread";
 
@@ -25,20 +27,23 @@ function AttachmentPreview({ file, onClear }) {
 }
 
 function MessageFile({ file }) {
+  const src = useProtectedFileUrl(file?.storage_path);
   if (!file) return null;
-  const src = `${API}/files/${file.storage_path}`;
   const isImage = (file.content_type || "").startsWith("image/");
+  const open = () => openProtectedFile(file.storage_path, { filename: file.name || "adjunto" }).catch(() => {});
   if (isImage) {
-    return (
+    return src ? (
       <a href={src} target="_blank" rel="noreferrer" className="message-image">
         <img src={src} alt={file.name} loading="lazy" />
       </a>
+    ) : (
+      <span className="message-file">Cargando archivo…</span>
     );
   }
   return (
-    <a href={src} target="_blank" rel="noreferrer" className="message-file">
+    <button type="button" onClick={open} className="message-file">
       <FileText size={14} /> {file.name}
-    </a>
+    </button>
   );
 }
 

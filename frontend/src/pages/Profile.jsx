@@ -5,6 +5,8 @@ import { api } from "@/lib/api";
 import { StarsDisplay } from "@/components/ui/Stars";
 import { Loading } from "@/components/ui/states";
 import { PLATFORMS, platformMeta } from "@/lib/platforms";
+import { useProtectedFileUrl } from "@/hooks/useProtectedFile";
+import { storagePathFromFileUrl } from "@/services/fileService";
 
 const roleLabel = (r) => (r === "professor" ? "Profesor" : r === "monitor" ? "Monitor" : "Estudiante");
 
@@ -14,6 +16,8 @@ export default function Profile({ me }) {
   const [user, setUser] = useState(null);
   const [error, setError] = useState("");
   const targetId = uid || me?.id;
+  const protectedPicture = storagePathFromFileUrl(user?.picture);
+  const protectedPictureUrl = useProtectedFileUrl(protectedPicture);
 
   useEffect(() => {
     if (!targetId) return;
@@ -34,8 +38,8 @@ export default function Profile({ me }) {
     <section className="page profile-page" data-testid="profile-page">
       <div className="profile-hero">
         <div className="profile-avatar">
-          {user.picture ? (
-            <img src={user.picture} alt={user.name} />
+          {user.picture && (protectedPictureUrl || !protectedPicture) ? (
+            <img src={protectedPictureUrl || user.picture} alt={user.name} />
           ) : (
             <span>{(user.name || "?")[0]}</span>
           )}
@@ -73,6 +77,7 @@ export default function Profile({ me }) {
               <span className="pill"><PhoneIcon size={13} /> {user.phone}</span>
             )}
           </div>
+          {user.contact_info && <p className="muted contact-detail">{user.contact_info}</p>}
         </div>
 
         <div className="profile-card">
@@ -85,7 +90,7 @@ export default function Profile({ me }) {
                 return (
                   <li key={l.id}>
                     <a href={l.url} target="_blank" rel="noreferrer" data-testid={`profile-link-${l.id}`}>
-                      <Icon size={16} />
+                      {l.icon ? <span className="link-custom-icon" aria-hidden="true">{l.icon}</span> : <Icon size={16} />}
                       <div>
                         <b>{l.label || meta.label}</b>
                         <small>{l.url}</small>
