@@ -5,8 +5,7 @@ import { api } from "@/lib/api";
 import { StarsDisplay } from "@/components/ui/Stars";
 import { Loading } from "@/components/ui/states";
 import { PLATFORMS, platformMeta } from "@/lib/platforms";
-import { useProtectedFileUrl } from "@/hooks/useProtectedFile";
-import { storagePathFromFileUrl } from "@/services/fileService";
+import Avatar from "@/components/Avatar";
 
 const roleLabel = (r) => (r === "professor" ? "Profesor" : r === "monitor" ? "Monitor" : "Estudiante");
 
@@ -16,8 +15,6 @@ export default function Profile({ me }) {
   const [user, setUser] = useState(null);
   const [error, setError] = useState("");
   const targetId = uid || me?.id;
-  const protectedPicture = storagePathFromFileUrl(user?.picture);
-  const protectedPictureUrl = useProtectedFileUrl(protectedPicture);
 
   useEffect(() => {
     if (!targetId) return;
@@ -37,13 +34,7 @@ export default function Profile({ me }) {
   return (
     <section className="page profile-page" data-testid="profile-page">
       <div className="profile-hero">
-        <div className="profile-avatar">
-          {user.picture && (protectedPictureUrl || !protectedPicture) ? (
-            <img src={protectedPictureUrl || user.picture} alt={user.name} />
-          ) : (
-            <span>{(user.name || "?")[0]}</span>
-          )}
-        </div>
+        <Avatar user={user} testId="profile-avatar" />
         <div className="profile-head">
           <p className="eyebrow">{roleLabel(user.role)} · {user.program || "Sin programa"}</p>
           <h1 data-testid="profile-name">{user.name}</h1>

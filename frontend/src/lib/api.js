@@ -8,6 +8,16 @@ api.interceptors.request.use((c) => {
   if (t) c.headers.Authorization = `Bearer ${t}`;
   return c;
 });
+api.interceptors.response.use(
+  (r) => r,
+  (error) => {
+    const url = error.config?.url || "";
+    if (error.response?.status === 401 && !url.includes("/auth/") && localStorage.getItem("uao_token")) {
+      window.dispatchEvent(new CustomEvent("uao:unauthorized"));
+    }
+    return Promise.reject(error);
+  },
+);
 
 export const bogotaDate = (iso) =>
   new Date(iso).toLocaleString("es-CO", { timeZone: "America/Bogota", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });

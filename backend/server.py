@@ -395,12 +395,53 @@ async def join_subject(data: SubjectJoin, user=Depends(current_user)):
     subject["members"] = list({*(subject.get("members") or []), user["id"]})
     return subject
 
+async def _file_meta(file_id: str):
+    if not file_id:
+        return None
+    record = await db.files.find_one({"id": file_id, "is_deleted": False}, {"_id": 0, "id": 1, "name": 1, "storage_path": 1, "content_type": 1})
+    return record
+
+async def _can_review_task(task: dict, user: dict) -> bool:
+    if user["role"] not in ("professor", "monitor"):
+        return False
+    if task.get("author_id") == user["id"]:
+        return True
+    subject = await db.subjects.find_one({"id": task.get("subject_id")}, {"_id": 0, "owner_id": 1})
+    return bool(subject and subject.get("owner_id") == user["id"])
+
+async def _reviewable_tasks(user: dict):
+    owned = await db.subjects.find({"owner_id": user["id"]}, {"_id": 0, "id": 1}).to_list(500)
+    query = {"$or": [{"author_id": user["id"]}, {"subject_id": {"$in": [s["id"] for s in owned]}}]}
+    return await db.tasks.find(query, {"_id": 0}).to_list(1000)
+
 @api.get("/subjects/{subject_id}/tasks")
 async def subject_tasks(subject_id: str, user=Depends(current_user)):
     tasks = await db.tasks.find({"subject_id": subject_id}, {"_id": 0}).sort("due_date", 1).to_list(100)
     for task in tasks:
-        task["submission"] = await db.submissions.find_one({"task_id": task["id"], "student_id": user["id"]}, {"_id": 0})
+        submission = await db.submissions.find_one({"task_id": task["id"], "student_id": user["id"]}, {"_id": 0})
+        if submission:
+            submission["file"] = await _file_meta(submission.get("file_id"))
+        task["submission"] = submission
+        if user["role"] != "student":
+            task["submissions_count"] = await db.submissions.count_documents({"task_id": task["id"]})
     return tasks
+
+@api.get("/submissions/incoming")
+async def incoming_submissions(user=Depends(current_user)):
+    if user["role"] == "student":
+        raise HTTPException(403, "Solo profesores y monitores tienen bandeja de revisión")
+    tasks = await _reviewable_tasks(user)
+    task_map = {t["id"]: t for t in tasks}
+    subject_ids = list({t["subject_id"] for t in tasks})
+    subjects = {s["id"]: s for s in await db.subjects.find({"id": {"$in": subject_ids}}, {"_id": 0}).to_list(500)}
+    items = await db.submissions.find({"task_id": {"$in": list(task_map)}}, {"_id": 0}).sort("submitted_at", -1).to_list(1000)
+    for item in items:
+        task = task_map[item["task_id"]]
+        subject = subjects.get(task["subject_id"], {})
+        item["task"] = {"id": task["id"], "title": task["title"], "due_date": task.get("due_date"), "due_time": task.get("due_time")}
+        item["subject"] = {"id": subject.get("id"), "name": subject.get("name"), "code": subject.get("code")}
+        item["file"] = await _file_meta(item.get("file_id"))
+    return items
 
 @api.post("/subjects/{subject_id}/tasks")
 async def create_task(subject_id: str, data: TaskCreate, user=Depends(current_user)):
@@ -430,9 +471,14 @@ async def submit_task(task_id: str, data: SubmissionCreate, user=Depends(current
 async def give_feedback(submission_id: str, data: FeedbackCreate, user=Depends(current_user)):
     if user["role"] not in ["professor", "monitor"]:
         raise HTTPException(403, "Solo profesores y monitores pueden revisar entregas")
-    result = await db.submissions.update_one({"id": submission_id}, {"$set": {**data.model_dump(), "reviewed_at": datetime.now(timezone.utc).isoformat()}})
-    if not result.matched_count:
+    submission = await db.submissions.find_one({"id": submission_id}, {"_id": 0})
+    if not submission:
         raise HTTPException(404, "Entrega no encontrada")
+    task = await db.tasks.find_one({"id": submission["task_id"]}, {"_id": 0})
+    if not task or not await _can_review_task(task, user):
+        raise HTTPException(403, "Solo puedes revisar entregas de tus asignaturas o tareas")
+    await db.submissions.update_one({"id": submission_id}, {"$set": {**data.model_dump(), "reviewer_id": user["id"], "reviewer": user["name"], "reviewed_at": datetime.now(timezone.utc).isoformat()}})
+    await _create_notification(submission["student_id"], "entrega_revisada", f"Tu entrega fue {data.status.lower()}", f"{task['title']} — {data.feedback[:120]}", f"/asignaturas/{task['subject_id']}")
     return await db.submissions.find_one({"id": submission_id}, {"_id": 0})
 
 @api.get("/people")
@@ -951,7 +997,9 @@ async def upload(file: UploadFile = File(...), user=Depends(current_user)):
 async def _file_is_authorized(record: dict, user: dict) -> bool:
     if record.get("owner_id") == user["id"]:
         return True
-    path = record.get("storage_path")
+    path = record.get("storage_path") or ""
+    if path.startswith("uao-conecta/avatars/"):
+        return True
     if await db.resources.find_one({"storage_path": path}, {"_id": 1}):
         return True
     if await db.messages.find_one({"file.storage_path": path}, {"_id": 1}):
@@ -960,8 +1008,8 @@ async def _file_is_authorized(record: dict, user: dict) -> bool:
     if submission:
         if submission.get("student_id") == user["id"]:
             return True
-        task = await db.tasks.find_one({"id": submission.get("task_id"), "author_id": user["id"]}, {"_id": 1})
-        if task:
+        task = await db.tasks.find_one({"id": submission.get("task_id")}, {"_id": 0})
+        if task and await _can_review_task(task, user):
             return True
     return False
 
@@ -1150,9 +1198,10 @@ async def seed():
         subjects = await db.subjects.find({}, {"_id": 0}).to_list(2)
         if subjects:
             await db.tasks.insert_many([
-                {"id": "task-demo-1", "subject_id": subjects[0]["id"], "title": "Taller de derivadas", "description": "Resuelve los ejercicios 1 al 8 y explica el procedimiento de cada respuesta.", "due_date": "2026-04-12", "due_time": "23:59", "materials": [], "author": "Dra. Laura Gómez", "author_id": "demo-professor", "created_at": datetime.now(timezone.utc).isoformat()},
-                {"id": "task-demo-2", "subject_id": subjects[0]["id"], "title": "Lectura: aplicaciones del cálculo", "description": "Lee el material y entrega una reflexión breve sobre una aplicación en tu programa.", "due_date": "2026-04-19", "due_time": "18:00", "materials": [], "author": "Dra. Laura Gómez", "author_id": "demo-professor", "created_at": datetime.now(timezone.utc).isoformat()},
+                {"id": "task-demo-1", "subject_id": subjects[0]["id"], "title": "Taller de derivadas", "description": "Resuelve los ejercicios 1 al 8 y explica el procedimiento de cada respuesta.", "due_date": "2026-04-12", "due_time": "23:59", "materials": [], "author": "Laura Gómez", "author_id": "demo-monitor", "created_at": datetime.now(timezone.utc).isoformat()},
+                {"id": "task-demo-2", "subject_id": subjects[0]["id"], "title": "Lectura: aplicaciones del cálculo", "description": "Lee el material y entrega una reflexión breve sobre una aplicación en tu programa.", "due_date": "2026-04-19", "due_time": "18:00", "materials": [], "author": "Laura Gómez", "author_id": "demo-monitor", "created_at": datetime.now(timezone.utc).isoformat()},
             ])
+    await db.tasks.update_many({"author_id": "demo-professor"}, {"$set": {"author_id": "demo-monitor", "author": "Laura Gómez"}})
     # Seed advisories linked to demo advisor for a real end-to-end flow
     demo_advisor = await db.users.find_one({"email": "monitor@uao.edu.co"})
     if not demo_advisor:

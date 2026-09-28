@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Camera, Trash2, Eye, EyeOff, Plus, Save, Check } from "lucide-react";
-import { api, API } from "@/lib/api";
+import { api } from "@/lib/api";
 import { PLATFORMS, platformMeta } from "@/lib/platforms";
 import { Loading } from "@/components/ui/states";
 import { useProtectedFileUrl } from "@/hooks/useProtectedFile";
@@ -113,9 +113,8 @@ export default function ProfileEdit({ me, onUpdate }) {
     fd.append("file", file);
     try {
       const r = await api.post("/profile/photo", fd, { headers: { "Content-Type": "multipart/form-data" } });
-      const abs = r.data.picture.startsWith("http") ? r.data.picture : `${API}${r.data.picture}`;
-      set("picture", abs);
-      onUpdate({ ...me, picture: abs });
+      set("picture", r.data.picture);
+      onUpdate({ ...me, picture: r.data.picture });
     } catch {
       setRemoteMsg("No pudimos subir la foto, intenta de nuevo.");
     }

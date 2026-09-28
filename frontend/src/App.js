@@ -16,12 +16,15 @@ import Profile from "@/pages/Profile";
 import ProfileEdit from "@/pages/ProfileEdit";
 import Notifications from "@/pages/Notifications";
 import SearchResults from "@/pages/SearchResults";
+import Reviews from "@/pages/Reviews";
 import { ChatUnreadProvider } from "@/lib/chatUnread";
 import { NotificationsProvider } from "@/lib/notifications";
+import { clearProtectedFileCache } from "@/services/fileService";
 import "@/App.css";
 import "@/task.css";
 import "@/features.css";
 import "@/profile.css";
+import "@/review.css";
 
 function AuthenticatedShell({ user, setUser, onLogout }) {
   const onUpdate = (u) => setUser((prev) => ({ ...prev, ...u }));
@@ -43,6 +46,7 @@ function AuthenticatedShell({ user, setUser, onLogout }) {
         <Route path="/perfil/:uid" element={<Profile me={user} />} />
         <Route path="/notificaciones" element={<Notifications />} />
         <Route path="/buscar" element={<SearchResults />} />
+        {user.role !== "student" && <Route path="/revisiones" element={<Reviews />} />}
         <Route path="*" element={<Navigate to="/inicio" replace />} />
       </Routes>
     </Layout>
@@ -112,8 +116,20 @@ function AppInner() {
 
   const logout = () => {
     localStorage.removeItem("uao_token");
+    clearProtectedFileCache();
     setUser(null);
   };
+
+  useEffect(() => {
+    const onUnauthorized = () => {
+      localStorage.removeItem("uao_token");
+      clearProtectedFileCache();
+      setUser(null);
+      setAuthError("Tu sesión expiró. Inicia sesión nuevamente.");
+    };
+    window.addEventListener("uao:unauthorized", onUnauthorized);
+    return () => window.removeEventListener("uao:unauthorized", onUnauthorized);
+  }, []);
 
   if (!ready) return null;
   if (returningFromGoogle && !user) {

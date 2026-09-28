@@ -3,6 +3,8 @@ import { Plus, FileText, ExternalLink, Trash2, Upload } from "lucide-react";
 import { api } from "@/lib/api";
 import { openProtectedFile } from "@/services/fileService";
 import { Empty } from "@/components/ui/states";
+import FileActions from "@/components/files/FileActions";
+import FilePreviewModal from "@/components/files/FilePreviewModal";
 
 export default function SubjectResources({ subjectId, user }) {
   const canPublish = user.role === "professor" || user.role === "monitor";
@@ -11,6 +13,7 @@ export default function SubjectResources({ subjectId, user }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [errors, setErrors] = useState({});
+  const [preview, setPreview] = useState(null);
   const [form, setForm] = useState({ title: "", description: "", kind: "link", url: "" });
   const [attach, setAttach] = useState(null); // {storage_path,name,content_type,size}
   const fileRef = useRef(null);
@@ -79,12 +82,9 @@ export default function SubjectResources({ subjectId, user }) {
     }
   };
 
-  const openFile = async (resource, download = false) => {
+  const openFile = async (resource) => {
     try {
-      await openProtectedFile(resource.storage_path, {
-        download,
-        filename: resource.name || resource.title || "recurso",
-      });
+      await openProtectedFile(resource.storage_path, { filename: resource.name || resource.title || "recurso" });
     } catch {
       setError("No pudimos abrir este archivo. Verifica que tengas permisos.");
     }
@@ -194,14 +194,17 @@ export default function SubjectResources({ subjectId, user }) {
                   </small>
                 </div>
                 {r.kind === "file" ? (
-                  <>
+                  <div className="resource-actions">
                     <button type="button" className="ghost small" onClick={() => openFile(r)} data-testid={`open-resource-${r.id}`}>
-                      Abrir / visualizar
+                      Abrir
                     </button>
-                    <button type="button" className="ghost small" onClick={() => openFile(r, true)} data-testid={`download-resource-${r.id}`}>
-                      Descargar
-                    </button>
-                  </>
+                    <FileActions
+                      file={{ storage_path: r.storage_path, name: r.name || r.title, content_type: r.content_type }}
+                      idPrefix={`resource-${r.id}`}
+                      onPreview={setPreview}
+                      onError={setError}
+                    />
+                  </div>
                 ) : (
                   <a href={r.url} target="_blank" rel="noreferrer" className="ghost small" data-testid={`open-resource-${r.id}`}>
                     Abrir
@@ -219,6 +222,7 @@ export default function SubjectResources({ subjectId, user }) {
       ) : (
         <Empty text="Aún no hay recursos publicados." />
       )}
+      {preview && <FilePreviewModal file={preview} onClose={() => setPreview(null)} />}
     </div>
   );
 }

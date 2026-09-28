@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Menu, Search, Bell, LogOut, CheckCheck } from "lucide-react";
-import { NAV, roleLabel } from "@/lib/nav";
+import { navForRole, roleLabel } from "@/lib/nav";
 import { useChatUnread } from "@/lib/chatUnread";
 import { useNotifications } from "@/lib/notifications";
+import Avatar from "@/components/Avatar";
 
 export default function Layout({ user, onLogout, children }) {
   const loc = useLocation();
   const navg = useNavigate();
+  const NAV = navForRole(user.role);
   const [search, setSearch] = useState("");
   const unread = useChatUnread();
   const notif = useNotifications();
@@ -40,9 +42,7 @@ export default function Layout({ user, onLogout, children }) {
           UAO <span>Conecta</span>
         </div>
         <div className="sidebar-user" onClick={() => navg("/perfil")} role="button">
-          <div className="profile-avatar tiny">
-            {user.picture ? <img src={user.picture} alt={user.name} /> : <span>{(user.name || "?")[0]}</span>}
-          </div>
+          <Avatar user={user} size="tiny" testId="sidebar-avatar" />
           <div>
             <strong data-testid="sidebar-user-name">{user.name}</strong>
             <small>{roleLabel(user.role)}</small>
@@ -68,9 +68,7 @@ export default function Layout({ user, onLogout, children }) {
         </nav>
         <div className="sidebar-bottom">
           <button onClick={() => navg("/perfil")} data-testid="nav-profile">
-            <div className="profile-avatar tiny">
-              {user.picture ? <img src={user.picture} alt={user.name} /> : <span>{(user.name || "?")[0]}</span>}
-            </div>{" "}
+            <Avatar user={user} size="tiny" testId="sidebar-bottom-avatar" />{" "}
             Mi perfil
           </button>
           <button onClick={onLogout} data-testid="logout-button">

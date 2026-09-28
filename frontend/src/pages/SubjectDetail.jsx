@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, Plus, X, CheckCircle2, MessageCircle, Upload, FileText } from "lucide-react";
+import { ArrowRight, Plus, X, CheckCircle2, MessageCircle, Upload, FileText, ClipboardCheck } from "lucide-react";
 import { api } from "@/lib/api";
 import { Empty } from "@/components/ui/states";
 import SubjectResources from "@/components/SubjectResources";
+import FileActions from "@/components/files/FileActions";
+import FilePreviewModal from "@/components/files/FilePreviewModal";
 
 export default function SubjectDetail({ user }) {
   const { id } = useParams();
@@ -11,6 +13,7 @@ export default function SubjectDetail({ user }) {
   const [tasks, setTasks] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [preview, setPreview] = useState(null);
   const [form, setForm] = useState({ title: "", description: "", due_date: "", due_time: "23:59" });
   const [text, setText] = useState("");
   const [attachment, setAttachment] = useState(null);
@@ -214,6 +217,16 @@ export default function SubjectDetail({ user }) {
                     {t.submission.grade !== null && ` · ${t.submission.grade}/5`}
                   </div>
                 )}
+                {t.submission?.file && (
+                  <div className="submission-attached" data-testid={`task-submission-file-${t.id}`}>
+                    <FileActions file={t.submission.file} idPrefix={`task-${t.id}`} onPreview={setPreview} onError={setError} showName />
+                  </div>
+                )}
+                {user.role !== "student" && (
+                  <button className="ghost small review-shortcut" onClick={() => nav("/revisiones")} data-testid={`task-submissions-${t.id}`}>
+                    <ClipboardCheck size={13} /> {t.submissions_count || 0} entregas recibidas
+                  </button>
+                )}
               </div>
               {user.role === "student" && (
                 <button
@@ -275,6 +288,7 @@ export default function SubjectDetail({ user }) {
       )}
 
       <SubjectResources subjectId={id} user={user} />
+      {preview && <FilePreviewModal file={preview} onClose={() => setPreview(null)} />}
     </section>
   );
 }
