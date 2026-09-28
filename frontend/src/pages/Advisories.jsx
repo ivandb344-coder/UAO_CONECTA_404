@@ -21,16 +21,19 @@ function BookingStatusPill({ status }) {
   );
 }
 
-function BrowseAdvisories({ items, onBook }) {
+function BrowseAdvisories({ items, user, onBook, onManage }) {
   return (
     <div className="advisory-list">
       {items.length ? (
-        items.map((x) => (
+        items.map((x) => {
+          const mine = user && x.advisor_id === user.id;
+          return (
           <div className="advisory" key={x.id} data-testid={`advisory-${x.id}`}>
             <div className="advisor-avatar">{(x.advisor || "?")[0]}</div>
             <div className="advisory-info">
               <div className="advisory-meta">
                 <span>{x.role}</span>
+                {mine && <span className="status info">Tu espacio</span>}
                 <span className={`availability ${x.available === 0 ? "full" : ""}`}>
                   <i /> {x.available === 0 ? "Cupo lleno" : `${x.available} cupos disponibles`}
                 </span>
@@ -55,16 +58,27 @@ function BrowseAdvisories({ items, onBook }) {
                 </div>
               )}
             </div>
-            <button
-              className="primary small"
-              disabled={x.available === 0}
-              onClick={() => onBook(x)}
-              data-testid={`book-advisory-${x.id}`}
-            >
-              {x.available === 0 ? "Cupo lleno" : "Solicitar cupo"}
-            </button>
+            {mine ? (
+              <button
+                className="ghost small"
+                onClick={onManage}
+                data-testid={`manage-advisory-${x.id}`}
+                title="Este es tu espacio: no puedes solicitarte a ti mismo"
+              >
+                Gestionar
+              </button>
+            ) : (
+              <button
+                className="primary small"
+                disabled={x.available === 0}
+                onClick={() => onBook(x)}
+                data-testid={`book-advisory-${x.id}`}
+              >
+                {x.available === 0 ? "Cupo lleno" : "Solicitar cupo"}
+              </button>
+            )}
           </div>
-        ))
+        );})
       ) : (
         <Empty text="No hay asesorías publicadas todavía" />
       )}
@@ -482,7 +496,17 @@ export default function Advisories({ user }) {
         />
       )}
 
-      {tab === "browse" && <BrowseAdvisories items={advisories} onBook={(x) => { setSelected(x); setBooked(false); }} />}
+      {tab === "browse" && (
+        <BrowseAdvisories
+          items={advisories}
+          user={user}
+          onBook={(x) => {
+            setSelected(x);
+            setBooked(false);
+          }}
+          onManage={() => setTab(isAdvisor ? "agenda" : "browse")}
+        />
+      )}
       {tab === "mine" && <MyBookings bookings={bookings} onCancel={cancelBooking} />}
       {tab === "agenda" && (
         <MyAgenda

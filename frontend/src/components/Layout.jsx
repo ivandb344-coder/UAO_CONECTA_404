@@ -2,11 +2,14 @@ import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Menu, Search, Bell, LogOut } from "lucide-react";
 import { NAV, roleLabel } from "@/lib/nav";
+import { useChatUnread } from "@/lib/chatUnread";
 
 export default function Layout({ user, onLogout, children }) {
   const loc = useLocation();
   const navg = useNavigate();
   const [search, setSearch] = useState("");
+  const unread = useChatUnread();
+  const totalUnread = unread.total || 0;
   return (
     <div className="shell">
       <aside>
@@ -21,17 +24,22 @@ export default function Layout({ user, onLogout, children }) {
           </div>
         </div>
         <nav>
-          {NAV.map((n) => (
-            <button
-              key={n.path}
-              className={loc.pathname.startsWith(n.path) ? "active" : ""}
-              data-testid={`nav-${n.label.toLowerCase().replaceAll(" ", "-")}`}
-              onClick={() => navg(n.path)}
-            >
-              <n.icon size={18} />
-              {n.label}
-            </button>
-          ))}
+          {NAV.map((n) => {
+            const active = loc.pathname.startsWith(n.path);
+            const chatDot = n.path === "/chat" && totalUnread > 0;
+            return (
+              <button
+                key={n.path}
+                className={active ? "active" : ""}
+                data-testid={`nav-${n.label.toLowerCase().replaceAll(" ", "-")}`}
+                onClick={() => navg(n.path)}
+              >
+                <n.icon size={18} />
+                {n.label}
+                {chatDot && <em className="nav-badge" data-testid="nav-chat-badge">{totalUnread}</em>}
+              </button>
+            );
+          })}
         </nav>
         <div className="sidebar-bottom">
           <button onClick={() => navg("/perfil")} data-testid="nav-profile">
@@ -56,25 +64,38 @@ export default function Layout({ user, onLogout, children }) {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <button className="icon-btn" data-testid="notifications-button">
+          <button
+            className="icon-btn"
+            data-testid="notifications-button"
+            onClick={() => navg("/chat")}
+            aria-label="Notificaciones"
+          >
             <Bell size={19} />
-            <i />
+            {totalUnread > 0 && (
+              <em className="bell-badge" data-testid="notifications-badge">
+                {totalUnread > 9 ? "9+" : totalUnread}
+              </em>
+            )}
           </button>
         </header>
         {children}
       </main>
       <div className="bottom-nav">
-        {NAV.slice(0, 5).map((n) => (
-          <button
-            key={n.path}
-            className={loc.pathname.startsWith(n.path) ? "active" : ""}
-            onClick={() => navg(n.path)}
-            data-testid={`mobile-nav-${n.label}`}
-          >
-            <n.icon size={18} />
-            <span>{n.label}</span>
-          </button>
-        ))}
+        {NAV.slice(0, 5).map((n) => {
+          const chatDot = n.path === "/chat" && totalUnread > 0;
+          return (
+            <button
+              key={n.path}
+              className={loc.pathname.startsWith(n.path) ? "active" : ""}
+              onClick={() => navg(n.path)}
+              data-testid={`mobile-nav-${n.label}`}
+            >
+              <n.icon size={18} />
+              <span>{n.label}</span>
+              {chatDot && <em className="mobile-nav-dot" />}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

@@ -155,7 +155,7 @@ async def current_user(authorization: Optional[str] = Header(None)):
     return user
 
 def public_user(u):
-    return {k: u.get(k) for k in ["id", "name", "username", "email", "role", "program", "semester", "bio", "rating", "rating_count"]}
+    return {k: u.get(k) for k in ["id", "name", "username", "email", "role", "program", "semester", "bio", "picture", "rating", "rating_count"]}
 
 def clean(doc):
     if not doc:
@@ -197,6 +197,52 @@ async def demo_advisor_login():
     if not user:
         user = {"id": "demo-monitor", "name": "Laura Gómez", "username": "laura.g", "email": "monitor@uao.edu.co", "password": pwd.hash("UAOdemo2026!"), "role": "monitor", "program": "Ingeniería Informática", "semester": None, "bio": "Monitora de Cálculo y Programación.", "rating": 4.9, "rating_count": 32}
         await db.users.insert_one(user)
+    return {"token": token(user), "user": public_user(user)}
+
+class GoogleAuth(BaseModel):
+    session_id: str
+
+@api.post("/auth/google")
+async def google_auth(data: GoogleAuth):
+    # Exchange Emergent session_id for user profile
+    try:
+        resp = requests.get(
+            "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
+            headers={"X-Session-ID": data.session_id},
+            timeout=15,
+        )
+    except Exception as exc:
+        raise HTTPException(502, f"No pudimos contactar el proveedor de autenticación: {exc}")
+    if resp.status_code != 200:
+        raise HTTPException(401, "Sesión de Google inválida o expirada")
+    profile = resp.json()
+    email = (profile.get("email") or "").lower()
+    if not email:
+        raise HTTPException(400, "Google no devolvió un correo válido")
+    user = await db.users.find_one({"email": email})
+    if not user:
+        user = {
+            "id": str(uuid.uuid4()),
+            "name": profile.get("name") or email.split("@")[0].title(),
+            "username": email.split("@")[0],
+            "email": email,
+            "password": pwd.hash(str(uuid.uuid4())),
+            "role": "student",
+            "program": "Ingeniería Informática",
+            "semester": None,
+            "bio": "Perfil creado con Google.",
+            "picture": profile.get("picture"),
+            "auth_provider": "google",
+            "rating": 0,
+            "rating_count": 0,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.users.insert_one(user)
+    else:
+        # Keep the newest picture; don't overwrite role/program on returning users
+        update = {"picture": profile.get("picture"), "last_login": datetime.now(timezone.utc).isoformat()}
+        await db.users.update_one({"email": email}, {"$set": update})
+        user = await db.users.find_one({"email": email})
     return {"token": token(user), "user": public_user(user)}
 
 @api.get("/auth/me")
@@ -453,32 +499,41 @@ async def update_booking_status(bid: str, data: BookingStatus, user=Depends(curr
 # ---------- Chat (HTTP history + WebSocket realtime) ----------
 class ConnectionManager:
     def __init__(self):
-        self.rooms: Dict[str, Set[WebSocket]] = {}
+        # room -> list of {"ws": ws, "user": {id,name,role,initial}}
+        self.rooms: Dict[str, List[dict]] = {}
         self.lock = asyncio.Lock()
 
-    async def connect(self, room: str, ws: WebSocket):
+    async def connect(self, room: str, ws: WebSocket, user_meta: dict):
         await ws.accept()
         async with self.lock:
-            self.rooms.setdefault(room, set()).add(ws)
+            self.rooms.setdefault(room, []).append({"ws": ws, "user": user_meta})
 
     async def disconnect(self, room: str, ws: WebSocket):
         async with self.lock:
-            self.rooms.get(room, set()).discard(ws)
+            entries = self.rooms.get(room, [])
+            self.rooms[room] = [e for e in entries if e["ws"] is not ws]
             if room in self.rooms and not self.rooms[room]:
                 self.rooms.pop(room, None)
 
     async def broadcast(self, room: str, payload: dict):
+        raw = json.dumps(payload)
         dead = []
-        for ws in list(self.rooms.get(room, set())):
+        for entry in list(self.rooms.get(room, [])):
             try:
-                await ws.send_text(json.dumps(payload))
+                await entry["ws"].send_text(raw)
             except Exception:
-                dead.append(ws)
+                dead.append(entry["ws"])
         for ws in dead:
             await self.disconnect(room, ws)
 
-    def room_size(self, room: str) -> int:
-        return len(self.rooms.get(room, set()))
+    def presence_payload(self, room: str) -> dict:
+        # Deduplicate by user id so multiple tabs from the same user count once
+        seen = {}
+        for entry in self.rooms.get(room, []):
+            u = entry["user"]
+            seen[u["id"]] = u
+        users = list(seen.values())
+        return {"type": "presence", "size": len(users), "users": users}
 
 manager = ConnectionManager()
 
@@ -490,13 +545,47 @@ def _user_from_token(token: Optional[str]):
     except Exception:
         return None
 
+@api.get("/chat/summary")
+async def chat_summary(user=Depends(current_user)):
+    """Returns unread message counts per room for the current user."""
+    seen_docs = await db.chat_seen.find({"user_id": user["id"]}, {"_id": 0}).to_list(500)
+    seen_map = {s["room"]: s["seen_at"] for s in seen_docs}
+    pipeline = [
+        {"$match": {"user_id": {"$ne": user["id"]}}},
+        {"$group": {"_id": "$room", "last": {"$max": "$created_at"}, "count": {"$sum": 1}}},
+    ]
+    rooms = await db.messages.aggregate(pipeline).to_list(200)
+    result = {}
+    total = 0
+    for r in rooms:
+        room = r["_id"]
+        seen_at = seen_map.get(room)
+        if not seen_at:
+            unread = r["count"]
+        else:
+            unread = await db.messages.count_documents({"room": room, "user_id": {"$ne": user["id"]}, "created_at": {"$gt": seen_at}})
+        if unread:
+            result[room] = unread
+            total += unread
+    return {"total": total, "rooms": result}
+
 @api.get("/chat/{room}")
 async def chat(room: str, user=Depends(current_user)):
     return await db.messages.find({"room": room}, {"_id": 0}).sort("created_at", 1).to_list(200)
 
+@api.post("/chat/{room}/seen")
+async def chat_mark_seen(room: str, user=Depends(current_user)):
+    now = datetime.now(timezone.utc).isoformat()
+    await db.chat_seen.update_one(
+        {"user_id": user["id"], "room": room},
+        {"$set": {"user_id": user["id"], "room": room, "seen_at": now}},
+        upsert=True,
+    )
+    return {"ok": True, "seen_at": now}
+
 @api.post("/chat")
 async def send_chat(data: ChatMessage, user=Depends(current_user)):
-    item = {"id": str(uuid.uuid4()), "body": data.body, "room": data.room, "author": user["name"], "user_id": user["id"], "created_at": datetime.now(timezone.utc).isoformat()}
+    item = {"id": str(uuid.uuid4()), "body": data.body, "room": data.room, "author": user["name"], "user_id": user["id"], "role": user["role"], "created_at": datetime.now(timezone.utc).isoformat()}
     await db.messages.insert_one(item)
     await manager.broadcast(data.room, {"type": "message", "message": clean(dict(item))})
     return clean(item)
@@ -511,10 +600,18 @@ async def chat_ws(websocket: WebSocket, room: str, token: str = Query(...)):
     if not user:
         await websocket.close(code=4401)
         return
-    await manager.connect(room, websocket)
+    user_meta = {
+        "id": user["id"],
+        "name": user["name"],
+        "role": user["role"],
+        "initial": (user["name"] or "?")[0].upper(),
+        "picture": user.get("picture"),
+    }
+    await manager.connect(room, websocket, user_meta)
     try:
-        await websocket.send_text(json.dumps({"type": "presence", "size": manager.room_size(room)}))
-        await manager.broadcast(room, {"type": "presence", "size": manager.room_size(room)})
+        # Send current presence to the new client and broadcast update to others
+        await websocket.send_text(json.dumps(manager.presence_payload(room)))
+        await manager.broadcast(room, manager.presence_payload(room))
         while True:
             raw = await websocket.receive_text()
             try:
@@ -522,7 +619,8 @@ async def chat_ws(websocket: WebSocket, room: str, token: str = Query(...)):
             except Exception:
                 continue
             body = (payload.get("body") or "").strip()
-            if not body:
+            file_info = payload.get("file")
+            if not body and not file_info:
                 continue
             item = {
                 "id": str(uuid.uuid4()),
@@ -530,15 +628,23 @@ async def chat_ws(websocket: WebSocket, room: str, token: str = Query(...)):
                 "room": room,
                 "author": user["name"],
                 "user_id": user["id"],
+                "role": user["role"],
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }
+            if isinstance(file_info, dict) and file_info.get("storage_path"):
+                item["file"] = {
+                    "name": (file_info.get("name") or "adjunto")[:120],
+                    "storage_path": file_info["storage_path"],
+                    "content_type": file_info.get("content_type") or "application/octet-stream",
+                    "size": int(file_info.get("size") or 0),
+                }
             await db.messages.insert_one(item)
             await manager.broadcast(room, {"type": "message", "message": clean(dict(item))})
     except WebSocketDisconnect:
         pass
     finally:
         await manager.disconnect(room, websocket)
-        await manager.broadcast(room, {"type": "presence", "size": manager.room_size(room)})
+        await manager.broadcast(room, manager.presence_payload(room))
 
 # ---------- Files ----------
 @api.post("/files")

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, Plus, X, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Plus, X, CheckCircle2, MessageCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { Empty } from "@/components/ui/states";
 
@@ -75,8 +75,26 @@ export default function SubjectDetail({ user }) {
           </p>
         </div>
         {user.role !== "student" && (
-          <button className="primary" onClick={() => setShowCreate(!showCreate)} data-testid="new-task-button">
-            <Plus size={17} /> Nueva tarea
+          <div className="head-actions">
+            <button
+              className="ghost"
+              onClick={() => nav(`/chat/${subject.id}`)}
+              data-testid="open-subject-chat"
+            >
+              <MessageCircle size={15} /> Abrir chat
+            </button>
+            <button className="primary" onClick={() => setShowCreate(!showCreate)} data-testid="new-task-button">
+              <Plus size={17} /> Nueva tarea
+            </button>
+          </div>
+        )}
+        {user.role === "student" && (
+          <button
+            className="ghost"
+            onClick={() => nav(`/chat/${subject.id}`)}
+            data-testid="open-subject-chat"
+          >
+            <MessageCircle size={15} /> Abrir chat
           </button>
         )}
       </div>
