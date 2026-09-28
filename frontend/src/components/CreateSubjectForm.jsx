@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { X, Save } from "lucide-react";
 import { api } from "@/lib/api";
+import { SEMESTERS } from "@/lib/programs";
 
 function fieldError(errors, key) {
   return errors[key] ? <span className="field-error">{errors[key]}</span> : null;
@@ -93,7 +94,7 @@ export default function CreateSubjectForm({ onCreated, onCancel }) {
           <span>Semestre</span>
           <select data-testid="subject-semester-input" value={form.semester} onChange={(event) => update("semester", event.target.value)} className={errors.semester ? "invalid" : ""} required>
             <option value="">— Selecciona —</option>
-            {Array.from({ length: 12 }, (_, index) => index + 1).map((semester) => <option key={semester} value={semester}>{semester}° semestre</option>)}
+            {SEMESTERS.map((semester) => <option key={semester} value={semester}>{semester}° semestre</option>)}
           </select>
           {fieldError(errors, "semester")}
         </label>

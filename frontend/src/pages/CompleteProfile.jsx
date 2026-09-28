@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { api } from "@/lib/api";
+import { SEMESTERS } from "@/lib/programs";
 
 const ROLE_OPTIONS = [
   { value: "student", label: "Estudiante" },
@@ -193,7 +194,7 @@ export default function CompleteProfile({ user, onDone }) {
               className={errors.semester ? "invalid" : ""}
             >
               <option value="">— Selecciona tu semestre —</option>
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+              {SEMESTERS.map((n) => (
                 <option key={n} value={n}>
                   {n}° semestre
                 </option>

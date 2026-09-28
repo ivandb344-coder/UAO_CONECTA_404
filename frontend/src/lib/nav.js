@@ -1,4 +1,4 @@
-import { Home, BookOpen, MessageCircle, CalendarDays, Bot, CircleHelp, ClipboardCheck } from "lucide-react";
+import { Home, BookOpen, MessageCircle, CalendarDays, Bot, CircleHelp, ClipboardCheck, Settings } from "lucide-react";
 
 export const NAV = [
   { path: "/inicio", label: "Inicio", icon: Home },
@@ -8,6 +8,7 @@ export const NAV = [
   { path: "/chat", label: "Chat", icon: MessageCircle },
   { path: "/revisiones", label: "Revisiones", icon: ClipboardCheck, roles: ["professor", "monitor"] },
   { path: "/asistente-ia", label: "Asistente IA", icon: Bot },
+  { path: "/configuracion", label: "Configuración", icon: Settings },
 ];
 
 export const navForRole = (role) => NAV.filter((n) => !n.roles || n.roles.includes(role));

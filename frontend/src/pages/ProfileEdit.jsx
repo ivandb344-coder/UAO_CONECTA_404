@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Camera, Trash2, Eye, EyeOff, Plus, Save, Check } from "lucide-react";
 import { api } from "@/lib/api";
+import { SEMESTERS } from "@/lib/programs";
 import { PLATFORMS, platformMeta } from "@/lib/platforms";
 import { Loading } from "@/components/ui/states";
 import { useProtectedFileUrl } from "@/hooks/useProtectedFile";
@@ -260,7 +261,7 @@ export default function ProfileEdit({ me, onUpdate }) {
                 className={errors.semester ? "invalid" : ""}
               >
                 <option value="">— Selecciona —</option>
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                {SEMESTERS.map((n) => (
                   <option key={n} value={n}>{n}° semestre</option>
                 ))}
               </select>

@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { api } from "@/lib/api";
+import { PROGRAM_NAMES, SEMESTERS } from "@/lib/programs";
+import { formatApiError } from "@/lib/errors";
 
 // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
 function startGoogleAuth() {
@@ -8,7 +10,7 @@ function startGoogleAuth() {
   window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirect)}`;
 }
 
-export default function Login({ onLogin, initialError = "" }) {
+export default function Login({ onLogin, initialError = "", initialNotice = "" }) {
   const [mode, setMode] = useState("login"); // 'login' | 'register'
   const [form, setForm] = useState({
     name: "",
@@ -20,20 +22,44 @@ export default function Login({ onLogin, initialError = "" }) {
     semester: 3,
   });
   const [error, setError] = useState(initialError);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [notice, setNotice] = useState(initialNotice);
   const [busy, setBusy] = useState(false);
+
+  const checkEmail = async () => {
+    if (mode !== "register" || !form.email.includes("@")) return;
+    try {
+      const r = await api.get("/auth/email-available", { params: { email: form.email } });
+      setFieldErrors((f) => ({ ...f, email: r.data.available ? "" : r.data.reason }));
+    } catch {
+      /* la validación definitiva ocurre en el backend */
+    }
+  };
 
   const submit = async (e) => {
     e.preventDefault();
+    if (mode === "register" && fieldErrors.email) {
+      setError(fieldErrors.email);
+      return;
+    }
     setBusy(true);
     setError("");
+    setNotice("");
     try {
-      const r = await api.post(mode === "register" ? "/auth/register" : "/auth/login", form);
+      const payload = mode === "register" ? { ...form, semester: form.role === "student" ? Number(form.semester) : null } : { email: form.email, password: form.password };
+      const r = await api.post(mode === "register" ? "/auth/register" : "/auth/login", payload);
       localStorage.setItem("uao_token", r.data.token);
       onLogin(r.data.user);
     } catch (x) {
       const detail = x.response?.data?.detail;
-      if (detail?.fields) setError(Object.values(detail.fields).join(" "));
-      else setError(typeof detail === "string" ? detail : "No pudimos iniciar sesión");
+      if (detail?.fields) {
+        setFieldErrors(detail.fields);
+        setError("Revisa los campos marcados para continuar.");
+      } else {
+        const message = formatApiError(detail, mode === "register" ? "No pudimos crear tu cuenta." : "No pudimos iniciar sesión. Verifica tu correo y contraseña.");
+        setError(message);
+        if (x.response?.status === 409) setFieldErrors({ email: message });
+      }
     }
     setBusy(false);
   };
@@ -104,6 +130,7 @@ export default function Login({ onLogin, initialError = "" }) {
                 <input
                   data-testid="register-name-input"
                   required
+                  autoComplete="name"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                 />
@@ -113,9 +140,13 @@ export default function Login({ onLogin, initialError = "" }) {
                 <input
                   data-testid="register-username-input"
                   required
+                  minLength={3}
+                  autoComplete="username"
+                  aria-invalid={!!fieldErrors.username}
                   value={form.username}
                   onChange={(e) => setForm({ ...form, username: e.target.value })}
                 />
+                {fieldErrors.username && <span className="field-error" role="alert" data-testid="register-username-error">{fieldErrors.username}</span>}
               </label>
             </>
           )}
@@ -126,9 +157,16 @@ export default function Login({ onLogin, initialError = "" }) {
               data-testid="auth-email-input"
               type="email"
               required
+              autoComplete="email"
+              aria-invalid={!!fieldErrors.email}
               value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, email: e.target.value });
+                setFieldErrors((f) => ({ ...f, email: "" }));
+              }}
+              onBlur={checkEmail}
             />
+            {fieldErrors.email && <span className="field-error" role="alert" data-testid="auth-email-error">{fieldErrors.email}</span>}
           </label>
           <label>
             Contraseña
@@ -136,9 +174,13 @@ export default function Login({ onLogin, initialError = "" }) {
               data-testid="auth-password-input"
               type="password"
               required
+              minLength={mode === "register" ? 6 : undefined}
+              autoComplete={mode === "register" ? "new-password" : "current-password"}
+              aria-invalid={!!fieldErrors.password}
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
             />
+            {fieldErrors.password && <span className="field-error" role="alert" data-testid="auth-password-error">{fieldErrors.password}</span>}
           </label>
 
           {mode === "register" && (
@@ -162,24 +204,37 @@ export default function Login({ onLogin, initialError = "" }) {
                   value={form.program}
                   onChange={(e) => setForm({ ...form, program: e.target.value })}
                 >
-                  <option>Ingeniería Informática</option>
-                  <option>Ingeniería de Datos e Inteligencia Artificial</option>
-                  <option>Ingeniería Multimedia</option>
-                  <option>Ingeniería Industrial</option>
-                  <option>Ingeniería Mecatrónica</option>
-                  <option>Ingeniería de Manufactura</option>
-                  <option>Ingeniería Mecánica</option>
-                  <option>Ingeniería Eléctrica</option>
-                  <option>Ingeniería Electrónica y Telecomunicaciones</option>
-                  <option>Ingeniería Biomédica</option>
-                  <option>Ingeniería Ambiental</option>
+                  {PROGRAM_NAMES.map((p) => (
+                    <option key={p}>{p}</option>
+                  ))}
                 </select>
               </label>
+              {form.role === "student" && (
+                <label>
+                  Semestre
+                  <select
+                    data-testid="register-semester-select"
+                    value={form.semester}
+                    aria-invalid={!!fieldErrors.semester}
+                    onChange={(e) => setForm({ ...form, semester: e.target.value })}
+                  >
+                    {SEMESTERS.map((s) => (
+                      <option key={s} value={s}>{s}° semestre</option>
+                    ))}
+                  </select>
+                  {fieldErrors.semester && <span className="field-error" role="alert">{fieldErrors.semester}</span>}
+                </label>
+              )}
             </>
           )}
 
+          {notice && (
+            <div className="auth-notice" role="status" data-testid="auth-notice">
+              <CheckCircle2 size={15} aria-hidden="true" /> {notice}
+            </div>
+          )}
           {error && (
-            <div className="error" data-testid="auth-error">
+            <div className="error" role="alert" data-testid="auth-error">
               {error}
             </div>
           )}
@@ -205,6 +260,7 @@ export default function Login({ onLogin, initialError = "" }) {
               onClick={() => {
                 setMode(mode === "register" ? "login" : "register");
                 setError("");
+                setFieldErrors({});
               }}
             >
               {mode === "register" ? "Ya tengo cuenta" : "Crear una cuenta"}

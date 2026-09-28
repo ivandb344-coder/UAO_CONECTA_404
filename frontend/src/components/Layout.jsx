@@ -5,6 +5,7 @@ import { navForRole, roleLabel } from "@/lib/nav";
 import { useChatUnread } from "@/lib/chatUnread";
 import { useNotifications } from "@/lib/notifications";
 import Avatar from "@/components/Avatar";
+import LogoutDialog from "@/components/LogoutDialog";
 
 export default function Layout({ user, onLogout, children }) {
   const loc = useLocation();
@@ -15,6 +16,7 @@ export default function Layout({ user, onLogout, children }) {
   const notif = useNotifications();
   const totalUnread = unread.total || 0;
   const [notifOpen, setNotifOpen] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -37,18 +39,19 @@ export default function Layout({ user, onLogout, children }) {
 
   return (
     <div className="shell">
-      <aside>
+      <a href="#contenido" className="skip-link" data-testid="skip-link">Saltar al contenido principal</a>
+      <aside aria-label="Navegación principal">
         <div className="brand-mark">
           UAO <span>Conecta</span>
         </div>
-        <div className="sidebar-user" onClick={() => navg("/perfil")} role="button">
+        <div className="sidebar-user" onClick={() => navg("/perfil")} role="button" tabIndex={0} aria-label="Ir a mi perfil" onKeyDown={(e) => e.key === "Enter" && navg("/perfil")}>
           <Avatar user={user} size="tiny" testId="sidebar-avatar" />
           <div>
             <strong data-testid="sidebar-user-name">{user.name}</strong>
             <small>{roleLabel(user.role)}</small>
           </div>
         </div>
-        <nav>
+        <nav aria-label="Secciones">
           {NAV.map((n) => {
             const active = loc.pathname.startsWith(n.path);
             const chatDot = n.path === "/chat" && totalUnread > 0;
@@ -56,10 +59,11 @@ export default function Layout({ user, onLogout, children }) {
               <button
                 key={n.path}
                 className={active ? "active" : ""}
+                aria-current={active ? "page" : undefined}
                 data-testid={`nav-${n.label.toLowerCase().replaceAll(" ", "-")}`}
                 onClick={() => navg(n.path)}
               >
-                <n.icon size={18} />
+                <n.icon size={18} aria-hidden="true" />
                 {n.label}
                 {chatDot && <em className="nav-badge" data-testid="nav-chat-badge">{totalUnread}</em>}
               </button>
@@ -71,20 +75,21 @@ export default function Layout({ user, onLogout, children }) {
             <Avatar user={user} size="tiny" testId="sidebar-bottom-avatar" />{" "}
             Mi perfil
           </button>
-          <button onClick={onLogout} data-testid="logout-button">
-            <LogOut size={17} /> Salir
+          <button onClick={() => setConfirmLogout(true)} data-testid="logout-button">
+            <LogOut size={17} aria-hidden="true" /> Cerrar sesión
           </button>
         </div>
       </aside>
-      <main className="content">
+      <main className="content" id="contenido" tabIndex={-1}>
         <header>
-          <button className="mobile-menu">
-            <Menu />
+          <button className="mobile-menu" aria-label="Abrir menú" onClick={() => navg("/configuracion")}>
+            <Menu aria-hidden="true" />
           </button>
-          <form className="search" onSubmit={runSearch}>
-            <Search size={18} />
+          <form className="search" onSubmit={runSearch} role="search">
+            <Search size={18} aria-hidden="true" />
             <input
               data-testid="global-search-input"
+              aria-label="Buscar en UAO Conecta"
               placeholder="Buscar una asignatura, duda, persona o recurso…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -95,9 +100,10 @@ export default function Layout({ user, onLogout, children }) {
               className="icon-btn"
               data-testid="notifications-button"
               onClick={() => setNotifOpen((o) => !o)}
-              aria-label="Notificaciones"
+              aria-label={bellCount ? `Notificaciones, ${bellCount} sin leer` : "Notificaciones"}
+              aria-expanded={notifOpen}
             >
-              <Bell size={19} />
+              <Bell size={19} aria-hidden="true" />
               {bellCount > 0 && (
                 <em className="bell-badge" data-testid="notifications-badge">
                   {bellCount > 9 ? "9+" : bellCount}
@@ -154,23 +160,25 @@ export default function Layout({ user, onLogout, children }) {
         </header>
         {children}
       </main>
-      <div className="bottom-nav">
+      <LogoutDialog open={confirmLogout} onCancel={() => setConfirmLogout(false)} onConfirm={() => { setConfirmLogout(false); onLogout(); }} />
+      <nav className="bottom-nav" aria-label="Navegación móvil">
         {NAV.slice(0, 5).map((n) => {
           const chatDot = n.path === "/chat" && totalUnread > 0;
           return (
             <button
               key={n.path}
               className={loc.pathname.startsWith(n.path) ? "active" : ""}
+              aria-current={loc.pathname.startsWith(n.path) ? "page" : undefined}
               onClick={() => navg(n.path)}
               data-testid={`mobile-nav-${n.label}`}
             >
-              <n.icon size={18} />
+              <n.icon size={18} aria-hidden="true" />
               <span>{n.label}</span>
               {chatDot && <em className="mobile-nav-dot" />}
             </button>
           );
         })}
-      </div>
+      </nav>
     </div>
   );
 }
