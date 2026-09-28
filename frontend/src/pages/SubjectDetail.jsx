@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowRight, Plus, X, CheckCircle2, MessageCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { Empty } from "@/components/ui/states";
+import SubjectResources from "@/components/SubjectResources";
 
 export default function SubjectDetail({ user }) {
   const { id } = useParams();
@@ -228,6 +229,8 @@ export default function SubjectDetail({ user }) {
           </div>
         </div>
       )}
+
+      <SubjectResources subjectId={id} user={user} />
     </section>
   );
 }

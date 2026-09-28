@@ -11,12 +11,20 @@ import SubjectDetail from "@/pages/SubjectDetail";
 import Advisories from "@/pages/Advisories";
 import Chat from "@/pages/Chat";
 import AI from "@/pages/AI";
+import CompleteProfile from "@/pages/CompleteProfile";
+import Profile from "@/pages/Profile";
+import ProfileEdit from "@/pages/ProfileEdit";
+import Notifications from "@/pages/Notifications";
+import SearchResults from "@/pages/SearchResults";
 import { ChatUnreadProvider } from "@/lib/chatUnread";
+import { NotificationsProvider } from "@/lib/notifications";
 import "@/App.css";
 import "@/task.css";
 import "@/features.css";
+import "@/profile.css";
 
-function AuthenticatedShell({ user, onLogout }) {
+function AuthenticatedShell({ user, setUser, onLogout }) {
+  const onUpdate = (u) => setUser((prev) => ({ ...prev, ...u }));
   return (
     <Layout user={user} onLogout={onLogout}>
       <Routes>
@@ -30,14 +38,17 @@ function AuthenticatedShell({ user, onLogout }) {
         <Route path="/chat" element={<Chat user={user} />} />
         <Route path="/chat/:room" element={<Chat user={user} />} />
         <Route path="/asistente-ia" element={<AI />} />
+        <Route path="/perfil" element={<Profile me={user} />} />
+        <Route path="/perfil/editar" element={<ProfileEdit me={user} onUpdate={onUpdate} />} />
+        <Route path="/perfil/:uid" element={<Profile me={user} />} />
+        <Route path="/notificaciones" element={<Notifications />} />
+        <Route path="/buscar" element={<SearchResults />} />
         <Route path="*" element={<Navigate to="/inicio" replace />} />
       </Routes>
     </Layout>
   );
 }
 
-// Reads the Emergent Auth session_id from the URL fragment, exchanges it
-// against our backend, stores the JWT and hands the user back to the shell.
 function GoogleCallback({ hash, onLogin, onError }) {
   const nav = useNavigate();
   useEffect(() => {
@@ -51,7 +62,7 @@ function GoogleCallback({ hash, onLogin, onError }) {
         if (cancelled) return;
         localStorage.setItem("uao_token", r.data.token);
         onLogin(r.data.user);
-        nav("/inicio", { replace: true });
+        nav(r.data.user.profile_completed ? "/inicio" : "/perfil/completar", { replace: true });
       })
       .catch((x) => {
         if (cancelled) return;
@@ -84,7 +95,6 @@ function AppInner() {
 
   useEffect(() => {
     if (returningFromGoogle) {
-      // GoogleCallback will handle it; do not call /auth/me yet.
       setReady(true);
       return;
     }
@@ -108,16 +118,29 @@ function AppInner() {
   if (!ready) return null;
   if (returningFromGoogle && !user) {
     return (
-      <ChatUnreadProvider enabled={false}>
-        <GoogleCallback hash={location.hash} onLogin={setUser} onError={setAuthError} />
-      </ChatUnreadProvider>
+      <NotificationsProvider enabled={false}>
+        <ChatUnreadProvider enabled={false}>
+          <GoogleCallback hash={location.hash} onLogin={setUser} onError={setAuthError} />
+        </ChatUnreadProvider>
+      </NotificationsProvider>
     );
   }
   if (!user) return <Login onLogin={setUser} initialError={authError} />;
+  if (!user.profile_completed) {
+    return (
+      <NotificationsProvider enabled={false}>
+        <ChatUnreadProvider enabled={false}>
+          <CompleteProfile user={user} onDone={(u) => setUser((prev) => ({ ...prev, ...u, profile_completed: true }))} />
+        </ChatUnreadProvider>
+      </NotificationsProvider>
+    );
+  }
   return (
-    <ChatUnreadProvider enabled={!!user}>
-      <AuthenticatedShell user={user} onLogout={logout} />
-    </ChatUnreadProvider>
+    <NotificationsProvider enabled={!!user}>
+      <ChatUnreadProvider enabled={!!user}>
+        <AuthenticatedShell user={user} setUser={setUser} onLogout={logout} />
+      </ChatUnreadProvider>
+    </NotificationsProvider>
   );
 }
 

@@ -48,7 +48,22 @@ def get_object(path):
 app = FastAPI(title="UAO Conecta API")
 api = APIRouter(prefix="/api")
 
-PROGRAMS = ["Ingeniería Informática", "Ingeniería de Datos e Inteligencia Artificial", "Ingeniería Multimedia", "Ingeniería Industrial", "Ingeniería Mecatrónica", "Ingeniería de Manufactura", "Ingeniería Mecánica", "Ingeniería Eléctrica", "Ingeniería Electrónica y Telecomunicaciones", "Ingeniería Biomédica", "Ingeniería Ambiental"]
+PROGRAMS = [
+    {"group": "Computación y Contenidos Digitales", "name": "Ingeniería Informática"},
+    {"group": "Computación y Contenidos Digitales", "name": "Ingeniería de Datos e Inteligencia Artificial"},
+    {"group": "Computación y Contenidos Digitales", "name": "Ingeniería Multimedia"},
+    {"group": "Automatización e Industria", "name": "Ingeniería Industrial"},
+    {"group": "Automatización e Industria", "name": "Ingeniería Mecatrónica"},
+    {"group": "Automatización e Industria", "name": "Ingeniería de Manufactura"},
+    {"group": "Ingenierías", "name": "Ingeniería Mecánica"},
+    {"group": "Ingenierías", "name": "Ingeniería Eléctrica"},
+    {"group": "Ingenierías", "name": "Ingeniería Electrónica y Telecomunicaciones"},
+    {"group": "Ingenierías", "name": "Ingeniería Biomédica"},
+    {"group": "Ingenierías", "name": "Ingeniería Ambiental"},
+]
+PROGRAM_NAMES = [p["name"] for p in PROGRAMS]
+ROLES = {"student", "monitor", "professor"}
+LINK_PLATFORMS = {"moodle", "whatsapp", "discord", "meet", "teams", "piazza", "telegram", "email", "linkedin", "custom"}
 DEMO_SUBJECTS = [
     {"name": "Cálculo I", "code": "MAT101", "program": "Ingeniería Informática", "semester": 1, "professor": "Dra. Laura Gómez", "color": "teal"},
     {"name": "Programación", "code": "INF201", "program": "Ingeniería Informática", "semester": 2, "professor": "Dr. Andrés Rojas", "color": "blue"},
@@ -155,13 +170,28 @@ async def current_user(authorization: Optional[str] = Header(None)):
     return user
 
 def public_user(u):
-    return {k: u.get(k) for k in ["id", "name", "username", "email", "role", "program", "semester", "bio", "picture", "rating", "rating_count"]}
+    keys = ["id", "name", "username", "email", "role", "program", "semester", "bio", "picture",
+            "phone", "academic_info", "links", "rating", "rating_count", "profile_completed"]
+    out = {k: u.get(k) for k in keys}
+    if out["profile_completed"] is None:
+        out["profile_completed"] = _profile_completed(u)
+    out["links"] = out.get("links") or []
+    return out
 
 def clean(doc):
     if not doc:
         return doc
     doc.pop("_id", None)
     return doc
+
+def _url_ok(u: str) -> bool:
+    if not u or not isinstance(u, str):
+        return False
+    u = u.strip()
+    return u.startswith("http://") or u.startswith("https://") or u.startswith("mailto:") or u.startswith("tel:")
+
+def _profile_completed(u: dict) -> bool:
+    return bool(u.get("username") and u.get("role") in ROLES and u.get("program") in PROGRAM_NAMES)
 
 # ---------- Routes ----------
 @api.get("/")
@@ -224,23 +254,30 @@ async def google_auth(data: GoogleAuth):
         user = {
             "id": str(uuid.uuid4()),
             "name": profile.get("name") or email.split("@")[0].title(),
-            "username": email.split("@")[0],
+            "username": "",  # pending on Complete Profile
             "email": email,
             "password": pwd.hash(str(uuid.uuid4())),
-            "role": "student",
-            "program": "Ingeniería Informática",
+            "role": "",
+            "program": "",
             "semester": None,
-            "bio": "Perfil creado con Google.",
+            "bio": "",
+            "phone": "",
+            "academic_info": "",
+            "links": [],
             "picture": profile.get("picture"),
             "auth_provider": "google",
             "rating": 0,
             "rating_count": 0,
+            "profile_completed": False,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
         await db.users.insert_one(user)
     else:
-        # Keep the newest picture; don't overwrite role/program on returning users
         update = {"picture": profile.get("picture"), "last_login": datetime.now(timezone.utc).isoformat()}
+        # Recompute profile_completed in case old accounts miss the flag
+        merged = {**user, **update}
+        merged["profile_completed"] = _profile_completed(merged)
+        update["profile_completed"] = merged["profile_completed"]
         await db.users.update_one({"email": email}, {"$set": update})
         user = await db.users.find_one({"email": email})
     return {"token": token(user), "user": public_user(user)}
@@ -251,7 +288,7 @@ async def me(user=Depends(current_user)):
 
 @api.get("/programs")
 async def programs():
-    return [{"name": p, "group": "Ingenierías" if "Ingeniería" in p else "Programas"} for p in PROGRAMS]
+    return PROGRAMS
 
 @api.get("/dashboard")
 async def dashboard(user=Depends(current_user)):
@@ -327,6 +364,135 @@ async def profile(uid: str, user=Depends(current_user)):
     if not item:
         raise HTTPException(404, "Perfil no encontrado")
     return item
+
+# ---------- Profile edit + Links ----------
+class ProfilePatch(BaseModel):
+    name: Optional[str] = None
+    username: Optional[str] = None
+    role: Optional[str] = None
+    program: Optional[str] = None
+    semester: Optional[int] = None
+    bio: Optional[str] = None
+    picture: Optional[str] = None
+    phone: Optional[str] = None
+    academic_info: Optional[str] = None
+
+class LinkCreate(BaseModel):
+    platform: str
+    url: str
+    label: Optional[str] = None
+    visible: bool = True
+
+class LinkPatch(BaseModel):
+    platform: Optional[str] = None
+    url: Optional[str] = None
+    label: Optional[str] = None
+    visible: Optional[bool] = None
+
+@api.get("/profile/username-available")
+async def username_available(u: str, user=Depends(current_user)):
+    u = (u or "").strip().lower()
+    if not u:
+        return {"available": False, "reason": "El nombre de usuario es obligatorio."}
+    if len(u) < 3:
+        return {"available": False, "reason": "El nombre de usuario debe tener al menos 3 caracteres."}
+    other = await db.users.find_one({"username": u, "id": {"$ne": user["id"]}}, {"_id": 0})
+    if other:
+        return {"available": False, "reason": "Este nombre de usuario ya está en uso."}
+    return {"available": True}
+
+@api.patch("/profile/me")
+async def update_profile(data: ProfilePatch, user=Depends(current_user)):
+    payload = data.model_dump(exclude_unset=True)
+    errors = {}
+    if "username" in payload:
+        username = (payload["username"] or "").strip().lower()
+        if not username:
+            errors["username"] = "El nombre de usuario es obligatorio."
+        elif len(username) < 3:
+            errors["username"] = "El nombre de usuario debe tener al menos 3 caracteres."
+        else:
+            other = await db.users.find_one({"username": username, "id": {"$ne": user["id"]}}, {"_id": 0})
+            if other:
+                errors["username"] = "Este nombre de usuario ya está en uso."
+        payload["username"] = username
+    if "role" in payload:
+        if payload["role"] not in ROLES:
+            errors["role"] = "Selecciona un rol: Estudiante, Monitor o Profesor."
+    if "program" in payload:
+        if payload["program"] not in PROGRAM_NAMES:
+            errors["program"] = "Selecciona tu programa académico."
+    if "semester" in payload and payload["semester"] is not None:
+        try:
+            s = int(payload["semester"])
+            if s < 1 or s > 12:
+                errors["semester"] = "Selecciona un semestre entre 1 y 12."
+            else:
+                payload["semester"] = s
+        except (TypeError, ValueError):
+            errors["semester"] = "Selecciona un semestre válido."
+    if "name" in payload and not (payload["name"] or "").strip():
+        errors["name"] = "El nombre visible no puede quedar vacío."
+    if errors:
+        raise HTTPException(status_code=422, detail={"fields": errors})
+    merged = {**user, **payload}
+    payload["profile_completed"] = _profile_completed(merged)
+    payload["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one({"id": user["id"]}, {"$set": payload})
+    updated = await db.users.find_one({"id": user["id"]}, {"_id": 0, "password": 0})
+    return public_user(updated)
+
+@api.post("/profile/photo")
+async def upload_profile_photo(file: UploadFile = File(...), user=Depends(current_user)):
+    if not (file.content_type or "").startswith("image/"):
+        raise HTTPException(422, "Solo se permiten imágenes para la foto de perfil.")
+    ext = Path(file.filename).suffix.lower() or ".jpg"
+    storage_path = f"uao-conecta/avatars/{user['id']}/{uuid.uuid4()}{ext}"
+    result = put_object(storage_path, await file.read(), file.content_type or "image/jpeg")
+    picture_url = f"/api/files/{result['path']}"
+    await db.users.update_one({"id": user["id"]}, {"$set": {"picture": picture_url}})
+    return {"picture": picture_url}
+
+@api.post("/profile/links")
+async def add_link(data: LinkCreate, user=Depends(current_user)):
+    platform = (data.platform or "").lower()
+    if platform not in LINK_PLATFORMS:
+        raise HTTPException(status_code=422, detail={"fields": {"platform": "Selecciona una plataforma válida."}})
+    if not _url_ok(data.url):
+        raise HTTPException(status_code=422, detail={"fields": {"url": "Ingresa una URL válida."}})
+    link = {
+        "id": str(uuid.uuid4()),
+        "platform": platform,
+        "url": data.url.strip(),
+        "label": (data.label or "").strip() or None,
+        "visible": bool(data.visible),
+    }
+    await db.users.update_one({"id": user["id"]}, {"$push": {"links": link}})
+    return link
+
+@api.patch("/profile/links/{lid}")
+async def edit_link(lid: str, data: LinkPatch, user=Depends(current_user)):
+    doc = await db.users.find_one({"id": user["id"]}, {"_id": 0, "links": 1})
+    links = doc.get("links") or []
+    target = next((l for l in links if l["id"] == lid), None)
+    if not target:
+        raise HTTPException(404, "Enlace no encontrado")
+    updates = data.model_dump(exclude_unset=True)
+    errors = {}
+    if "url" in updates and not _url_ok(updates["url"]):
+        errors["url"] = "Ingresa una URL válida."
+    if "platform" in updates and updates["platform"] not in LINK_PLATFORMS:
+        errors["platform"] = "Selecciona una plataforma válida."
+    if errors:
+        raise HTTPException(status_code=422, detail={"fields": errors})
+    target.update({k: v for k, v in updates.items() if v is not None})
+    await db.users.update_one({"id": user["id"]}, {"$set": {"links": links}})
+    return target
+
+@api.delete("/profile/links/{lid}")
+async def delete_link(lid: str, user=Depends(current_user)):
+    await db.users.update_one({"id": user["id"]}, {"$pull": {"links": {"id": lid}}})
+    return {"ok": True}
 
 # ---------- Dudas ----------
 @api.get("/questions")
@@ -494,6 +660,21 @@ async def update_booking_status(bid: str, data: BookingStatus, user=Depends(curr
         if booking.get("advisor_id") != user["id"]:
             raise HTTPException(403, "Solo el asesor puede cambiar este estado")
     await db.bookings.update_one({"id": bid}, {"$set": {"status": data.status, "updated_at": datetime.now(timezone.utc).isoformat()}})
+    # Fan-out notifications
+    subject = booking.get("subject", "")
+    topic = booking.get("topic", "")
+    when = f"{booking.get('date','')} · {booking.get('time','')}".strip()
+    notif_map = {
+        "Aceptada":   {"target": booking["user_id"],    "title": "Tu asesoría fue aceptada", "body": f"{subject} · {topic} — {when}"},
+        "Rechazada":  {"target": booking["user_id"],    "title": "Tu asesoría fue rechazada", "body": f"{subject} · {topic} — {when}"},
+        "Cancelada":  {"target": booking["user_id"] if booking.get("advisor_id") == user["id"] else booking.get("advisor_id"),
+                       "title": "Se canceló una asesoría", "body": f"{subject} · {topic} — {when}"},
+        "Completada": {"target": booking["user_id"],    "title": "Asesoría completada", "body": f"{subject} · {topic} — {when}"},
+        "No asistió": {"target": booking["user_id"],    "title": "Se marcó 'No asistió'", "body": f"{subject} · {topic} — {when}"},
+    }
+    n = notif_map.get(data.status)
+    if n and n["target"]:
+        await _create_notification(n["target"], data.status.lower().replace(" ", "_"), n["title"], n["body"], "/mis-asesorias" if n["target"] == booking["user_id"] else "/asesorias")
     return {"ok": True, "status": data.status}
 
 # ---------- Chat (HTTP history + WebSocket realtime) ----------
@@ -696,6 +877,121 @@ async def ai(data: AIQuestion, user=Depends(current_user)):
                 break
 
     return StreamingResponse(stream(), media_type="text/plain", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+# ---------- Notifications, Resources, Search ----------
+async def _create_notification(user_id: str, kind: str, title: str, body: str, link: str = ""):
+    doc = {
+        "id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "kind": kind,
+        "title": title,
+        "body": body,
+        "link": link,
+        "read": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.notifications.insert_one(doc)
+    return doc
+
+@api.get("/notifications")
+async def list_notifications(user=Depends(current_user)):
+    items = await db.notifications.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    unread = sum(1 for i in items if not i.get("read"))
+    return {"unread": unread, "items": items}
+
+@api.post("/notifications/{nid}/read")
+async def read_notification(nid: str, user=Depends(current_user)):
+    await db.notifications.update_one({"id": nid, "user_id": user["id"]}, {"$set": {"read": True}})
+    return {"ok": True}
+
+@api.post("/notifications/read-all")
+async def read_all_notifications(user=Depends(current_user)):
+    await db.notifications.update_many({"user_id": user["id"], "read": False}, {"$set": {"read": True}})
+    return {"ok": True}
+
+class ResourceCreate(BaseModel):
+    title: str
+    description: str = ""
+    kind: str  # 'file' | 'link'
+    url: Optional[str] = None
+    storage_path: Optional[str] = None
+    name: Optional[str] = None
+    content_type: Optional[str] = None
+    size: Optional[int] = None
+
+@api.get("/subjects/{sid}/resources")
+async def list_resources(sid: str, user=Depends(current_user)):
+    return await db.resources.find({"subject_id": sid}, {"_id": 0}).sort("created_at", -1).to_list(200)
+
+@api.post("/subjects/{sid}/resources")
+async def create_resource(sid: str, data: ResourceCreate, user=Depends(current_user)):
+    if user["role"] not in ("professor", "monitor"):
+        raise HTTPException(403, "Solo profesores y monitores pueden publicar recursos")
+    if not await db.subjects.find_one({"id": sid}):
+        raise HTTPException(404, "Asignatura no encontrada")
+    if data.kind not in ("file", "link"):
+        raise HTTPException(422, "Tipo de recurso no válido")
+    payload = data.model_dump()
+    errors = {}
+    if not (payload.get("title") or "").strip():
+        errors["title"] = "Escribe un título para el recurso."
+    if payload["kind"] == "link" and not _url_ok(payload.get("url") or ""):
+        errors["url"] = "Ingresa una URL válida."
+    if payload["kind"] == "file" and not payload.get("storage_path"):
+        errors["file"] = "Sube el archivo antes de publicarlo."
+    if errors:
+        raise HTTPException(status_code=422, detail={"fields": errors})
+    doc = {
+        "id": str(uuid.uuid4()),
+        "subject_id": sid,
+        **payload,
+        "owner_id": user["id"],
+        "owner_name": user["name"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.resources.insert_one(doc)
+    return clean(doc)
+
+@api.delete("/resources/{rid}")
+async def delete_resource(rid: str, user=Depends(current_user)):
+    res = await db.resources.find_one({"id": rid}, {"_id": 0})
+    if not res:
+        raise HTTPException(404, "Recurso no encontrado")
+    if res.get("owner_id") != user["id"]:
+        raise HTTPException(403, "Solo el autor puede eliminar el recurso")
+    await db.resources.delete_one({"id": rid})
+    return {"ok": True}
+
+@api.get("/search")
+async def search(q: str = "", user=Depends(current_user)):
+    q = (q or "").strip()
+    if not q:
+        return {"people": [], "subjects": [], "questions": [], "resources": []}
+    rx = {"$regex": q, "$options": "i"}
+    people = await db.users.find(
+        {"$or": [{"name": rx}, {"username": rx}, {"program": rx}]},
+        {"_id": 0, "password": 0},
+    ).limit(15).to_list(15)
+    subjects = await db.subjects.find(
+        {"$or": [{"name": rx}, {"code": rx}, {"professor": rx}, {"program": rx}]},
+        {"_id": 0},
+    ).limit(15).to_list(15)
+    questions = await db.questions.find(
+        {"$or": [{"title": rx}, {"description": rx}, {"subject": rx}]},
+        {"_id": 0},
+    ).limit(15).to_list(15)
+    resources = await db.resources.find(
+        {"$or": [{"title": rx}, {"description": rx}]},
+        {"_id": 0},
+    ).limit(15).to_list(15)
+    return {
+        "people": [public_user(p) for p in people],
+        "subjects": subjects,
+        "questions": questions,
+        "resources": resources,
+    }
+
+
 
 app.include_router(api)
 app.add_middleware(CORSMiddleware, allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","), allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
