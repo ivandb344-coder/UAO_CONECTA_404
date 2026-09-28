@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, Header
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, Header, WebSocket, WebSocketDisconnect, Query
 from fastapi.responses import StreamingResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -8,8 +8,8 @@ from passlib.context import CryptContext
 from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
-from typing import Optional, List
-import os, uuid, jwt, logging, requests
+from typing import Optional, List, Dict, Set
+import os, uuid, jwt, logging, requests, json, asyncio
 
 ROOT = Path(__file__).parent
 load_dotenv(ROOT / ".env")
@@ -450,16 +450,95 @@ async def update_booking_status(bid: str, data: BookingStatus, user=Depends(curr
     await db.bookings.update_one({"id": bid}, {"$set": {"status": data.status, "updated_at": datetime.now(timezone.utc).isoformat()}})
     return {"ok": True, "status": data.status}
 
-# ---------- Chat ----------
+# ---------- Chat (HTTP history + WebSocket realtime) ----------
+class ConnectionManager:
+    def __init__(self):
+        self.rooms: Dict[str, Set[WebSocket]] = {}
+        self.lock = asyncio.Lock()
+
+    async def connect(self, room: str, ws: WebSocket):
+        await ws.accept()
+        async with self.lock:
+            self.rooms.setdefault(room, set()).add(ws)
+
+    async def disconnect(self, room: str, ws: WebSocket):
+        async with self.lock:
+            self.rooms.get(room, set()).discard(ws)
+            if room in self.rooms and not self.rooms[room]:
+                self.rooms.pop(room, None)
+
+    async def broadcast(self, room: str, payload: dict):
+        dead = []
+        for ws in list(self.rooms.get(room, set())):
+            try:
+                await ws.send_text(json.dumps(payload))
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            await self.disconnect(room, ws)
+
+    def room_size(self, room: str) -> int:
+        return len(self.rooms.get(room, set()))
+
+manager = ConnectionManager()
+
+def _user_from_token(token: Optional[str]):
+    if not token:
+        return None
+    try:
+        return jwt.decode(token, SECRET, algorithms=["HS256"])["sub"]
+    except Exception:
+        return None
+
 @api.get("/chat/{room}")
 async def chat(room: str, user=Depends(current_user)):
-    return await db.messages.find({"room": room}, {"_id": 0}).sort("created_at", 1).to_list(100)
+    return await db.messages.find({"room": room}, {"_id": 0}).sort("created_at", 1).to_list(200)
 
 @api.post("/chat")
 async def send_chat(data: ChatMessage, user=Depends(current_user)):
     item = {"id": str(uuid.uuid4()), "body": data.body, "room": data.room, "author": user["name"], "user_id": user["id"], "created_at": datetime.now(timezone.utc).isoformat()}
     await db.messages.insert_one(item)
+    await manager.broadcast(data.room, {"type": "message", "message": clean(dict(item))})
     return clean(item)
+
+@app.websocket("/api/ws/chat/{room}")
+async def chat_ws(websocket: WebSocket, room: str, token: str = Query(...)):
+    uid = _user_from_token(token)
+    if not uid:
+        await websocket.close(code=4401)
+        return
+    user = await db.users.find_one({"id": uid}, {"_id": 0})
+    if not user:
+        await websocket.close(code=4401)
+        return
+    await manager.connect(room, websocket)
+    try:
+        await websocket.send_text(json.dumps({"type": "presence", "size": manager.room_size(room)}))
+        await manager.broadcast(room, {"type": "presence", "size": manager.room_size(room)})
+        while True:
+            raw = await websocket.receive_text()
+            try:
+                payload = json.loads(raw)
+            except Exception:
+                continue
+            body = (payload.get("body") or "").strip()
+            if not body:
+                continue
+            item = {
+                "id": str(uuid.uuid4()),
+                "body": body[:2000],
+                "room": room,
+                "author": user["name"],
+                "user_id": user["id"],
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+            await db.messages.insert_one(item)
+            await manager.broadcast(room, {"type": "message", "message": clean(dict(item))})
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await manager.disconnect(room, websocket)
+        await manager.broadcast(room, {"type": "presence", "size": manager.room_size(room)})
 
 # ---------- Files ----------
 @api.post("/files")

@@ -26,7 +26,8 @@ function AuthenticatedShell({ user, onLogout }) {
         <Route path="/asignaturas" element={<Subjects />} />
         <Route path="/asignaturas/:id" element={<SubjectDetail user={user} />} />
         <Route path="/asesorias" element={<Advisories user={user} />} />
-        <Route path="/chat" element={<Chat />} />
+        <Route path="/chat" element={<Chat user={user} />} />
+        <Route path="/chat/:room" element={<Chat user={user} />} />
         <Route path="/asistente-ia" element={<AI />} />
         <Route path="*" element={<Navigate to="/inicio" replace />} />
       </Routes>

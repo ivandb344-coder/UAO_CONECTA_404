@@ -59,6 +59,22 @@
 .section-title.compact h3 { font-size:15px; }
 .section-title.compact span { font-size:11px; color: var(--muted); }
 
+/* Chat realtime */
+.room-tabs { display:flex; gap:6px; margin-bottom: 14px; overflow-x:auto; padding-bottom:2px; }
+.room-tabs .tab { border:1px solid var(--line); border-radius:999px; padding:8px 14px; font-size:11px; color: var(--muted); background:#fff; }
+.room-tabs .tab.active { background:#e8f7f4; color: var(--teal); border-color:#9ad7cf; }
+.room-tabs .tab:hover { color: var(--ink); }
+.live.on { color:#07834f; }
+.live.off { color:#c53d28; }
+.live.off i { background:#ef4444; }
+.live { display:inline-flex; align-items:center; gap:6px; font-size:11px; }
+.message.mine { flex-direction: row-reverse; }
+.message.mine p { background: var(--teal); color:#fff; }
+.message.mine small { text-align: right; display:block; }
+.message.mine > div { text-align: right; }
+.message.mine p { margin-left:auto; }
+.messages { scroll-behavior: smooth; }
+
 @media (max-width: 850px) {
   .answer-card { padding:18px; }
   .answer-foot { flex-direction: column; align-items:flex-start; }
