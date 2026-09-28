@@ -47,6 +47,9 @@ class AnswerCreate(BaseModel): body: str
 class BookingCreate(BaseModel): advisor: str; subject: str; date: str; time: str; mode: str; topic: str; note: str = ""
 class ChatMessage(BaseModel): body: str; room: str = "general"
 class AIQuestion(BaseModel): message: str; history: List[dict] = []
+class TaskCreate(BaseModel): title: str; description: str; due_date: str; due_time: str = "23:59"; materials: List[str] = []
+class SubmissionCreate(BaseModel): text: str = ""; link: str = ""; file_id: str = ""
+class FeedbackCreate(BaseModel): feedback: str; grade: Optional[float] = None; status: str = "Revisada"
 
 def token(user): return jwt.encode({"sub": user["id"], "exp": datetime.now(timezone.utc)+timedelta(days=7)}, SECRET, algorithm="HS256")
 async def current_user(authorization: Optional[str] = Header(None)):
@@ -95,6 +98,30 @@ async def subjects(user=Depends(current_user)): return await db.subjects.find({}
 async def create_subject(data: dict, user=Depends(current_user)):
     if user["role"] not in ["professor","monitor"]: raise HTTPException(403,"Solo profesores y monitores pueden crear asignaturas")
     doc={"id":str(uuid.uuid4()),**data,"owner_id":user["id"],"professor":user["name"],"created_at":datetime.now(timezone.utc).isoformat()}; await db.subjects.insert_one(doc); doc.pop("_id",None); return doc
+@api.get("/subjects/{subject_id}/tasks")
+async def subject_tasks(subject_id: str, user=Depends(current_user)):
+    tasks = await db.tasks.find({"subject_id": subject_id}, {"_id": 0}).sort("due_date", 1).to_list(100)
+    for task in tasks:
+        task["submission"] = await db.submissions.find_one({"task_id": task["id"], "student_id": user["id"]}, {"_id": 0})
+    return tasks
+@api.post("/subjects/{subject_id}/tasks")
+async def create_task(subject_id: str, data: TaskCreate, user=Depends(current_user)):
+    if user["role"] not in ["professor", "monitor"]: raise HTTPException(403, "Solo profesores y monitores pueden crear tareas")
+    if not await db.subjects.find_one({"id": subject_id}): raise HTTPException(404, "Asignatura no encontrada")
+    task={"id":str(uuid.uuid4()),"subject_id":subject_id,**data.model_dump(),"author":user["name"],"author_id":user["id"],"created_at":datetime.now(timezone.utc).isoformat()}
+    await db.tasks.insert_one(task); return {k:v for k,v in task.items() if k != "_id"}
+@api.post("/tasks/{task_id}/submissions")
+async def submit_task(task_id: str, data: SubmissionCreate, user=Depends(current_user)):
+    if user["role"] != "student": raise HTTPException(403, "Las entregas están disponibles para estudiantes")
+    if not await db.tasks.find_one({"id":task_id}): raise HTTPException(404, "Tarea no encontrada")
+    submission={"id":str(uuid.uuid4()),"task_id":task_id,"student_id":user["id"],"student":user["name"],**data.model_dump(),"status":"Entregada","submitted_at":datetime.now(timezone.utc).isoformat(),"feedback":"","grade":None}
+    await db.submissions.update_one({"task_id":task_id,"student_id":user["id"]},{"$set":submission},upsert=True); return {k:v for k,v in submission.items() if k != "_id"}
+@api.patch("/submissions/{submission_id}/feedback")
+async def give_feedback(submission_id: str, data: FeedbackCreate, user=Depends(current_user)):
+    if user["role"] not in ["professor","monitor"]: raise HTTPException(403, "Solo profesores y monitores pueden revisar entregas")
+    result=await db.submissions.update_one({"id":submission_id},{"$set":{**data.model_dump(),"reviewed_at":datetime.now(timezone.utc).isoformat()}})
+    if not result.matched_count: raise HTTPException(404, "Entrega no encontrada")
+    return await db.submissions.find_one({"id":submission_id},{"_id":0})
 @api.get("/people")
 async def people(q: str = "", role: str = "", user=Depends(current_user)):
     filt={"$or":[{"name":{"$regex":q,"$options":"i"}},{"username":{"$regex":q,"$options":"i"}},{"program":{"$regex":q,"$options":"i"}}]}
@@ -181,5 +208,12 @@ async def seed():
     except Exception as exc: logging.warning("Storage init deferred: %s", exc)
     if await db.subjects.count_documents({})==0:
         await db.subjects.insert_many([{**x,"id":str(uuid.uuid4()),"created_at":datetime.now(timezone.utc).isoformat()} for x in DEMO_SUBJECTS])
+    if await db.tasks.count_documents({})==0:
+        subjects = await db.subjects.find({}, {"_id": 0}).to_list(2)
+        if subjects:
+            await db.tasks.insert_many([
+                {"id":"task-demo-1","subject_id":subjects[0]["id"],"title":"Taller de derivadas","description":"Resuelve los ejercicios 1 al 8 y explica el procedimiento de cada respuesta.","due_date":"2026-04-12","due_time":"23:59","materials":[],"author":"Dra. Laura Gómez","author_id":"demo-professor","created_at":datetime.now(timezone.utc).isoformat()},
+                {"id":"task-demo-2","subject_id":subjects[0]["id"],"title":"Lectura: aplicaciones del cálculo","description":"Lee el material y entrega una reflexión breve sobre una aplicación en tu programa.","due_date":"2026-04-19","due_time":"18:00","materials":[],"author":"Dra. Laura Gómez","author_id":"demo-professor","created_at":datetime.now(timezone.utc).isoformat()}
+            ])
     if await db.advisories.count_documents({})==0:
         await db.advisories.insert_many([{"id":"adv-1","advisor":"Laura Gómez","role":"Monitor","subject":"Cálculo I","topic":"Derivadas","date":"Martes","time":"3:00 p. m. – 3:30 p. m.","mode":"Virtual","slots":4,"booked":2},{"id":"adv-2","advisor":"Andrés Rojas","role":"Profesor","subject":"Programación","topic":"Estructuras de datos","date":"Jueves","time":"10:00 a. m. – 11:00 a. m.","mode":"Presencial","slots":3,"booked":1}])
