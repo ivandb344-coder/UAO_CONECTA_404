@@ -51,6 +51,13 @@ Construir una aplicación académica real para conectar estudiantes, monitores y
   - Adjuntos (imagen o PDF ≤8MB) vía `/api/files` + payload WS `{body, file}`. Validación en backend: solo se aceptan `storage_path` del propio usuario.
 - Testing agent: 13/13 backend + UI, sin bugs.
 
+### 2026-06 (iteración 6)
+- **Foto de perfil**: avatares privados en GridFS visibles para cualquier usuario autenticado (`_file_is_authorized`), componente `Avatar.jsx` con blob URL protegida, caché de blobs en `fileService.js` keyed por token (se vacía al cambiar sesión), interceptor axios 401 → evento `uao:unauthorized` → logout limpio. Sidebar/Profile ya no usan `<img src="/api/files/...">` directo.
+- **Revisión docente**: `GET /api/submissions/incoming` (profesor/monitor autor de la tarea o dueño de la asignatura) con task/subject/file enriquecidos; `PATCH /submissions/{id}/feedback` ahora valida permiso de revisor y notifica al estudiante. Página `/revisiones` (nav solo para profesor/monitor) con filtros, vista previa, descarga y formulario de retroalimentación (nota + estado Revisada/Aprobada/Rechazada). Tareas demo migradas a `demo-monitor`.
+- **Vista previa inline**: `FilePreviewModal` (imagen/PDF/video, fallback) + `FileActions` (Vista previa / Descargar) reutilizados en Recursos, entregas del estudiante (`subject_tasks` devuelve `submission.file`) y bandeja docente.
+- **Google E2E**: verificado `POST /auth/google` con sesión inválida → 401 y usuario `profile_completed=false` forzado a `/perfil/completar`. El consentimiento real de Google debe probarse manualmente en la URL publicada.
+- Testing agent iteración 6: 8/8 backend + todos los flujos frontend sin bugs.
+
 ## Prioritized backlog
 - P0: OAuth Google real y recuperación de contraseña por correo.
 - P1: Notificaciones (Fase 22, 31) y valoración de asesorías (Fase 23).

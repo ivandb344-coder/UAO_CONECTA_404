@@ -1,0 +1,28 @@
+{
+  "summary": "Iteration 6 — validated 4 improvements: (1) profile photo cross-role visibility & no stale avatar/401 on session switch, (2) teacher review tray /revisiones (monitor only), (3) inline file preview modal for images/PDF in submissions + resources, (4) Google auth 401 on bad session_id and JWT sub=google-incomplete forces /perfil/completar. Backend: 8/8 pytest cases pass. Frontend: end-to-end monitor review flow (preview modal, close, feedback save with status Aprobada + grade badge), student sees Aprobada + feedback + submission file preview/download on Cálculo I → Taller de derivadas, student sidebar hides nav-revisiones, avatar upload switches to blob URL, logout+monitor login shows initial 'L' (no stale student photo, no /api/files 401s), monitor viewing /perfil/demo-student sees student's blob avatar, google-incomplete JWT lands on 'Completa tu perfil', monitor publishes file resource with preview-resource/download-resource/open-resource all present and inline preview modal renders image.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iteration6.py",
+    "/app/test_reports/pytest/iteration_6_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now 1215 lines — 70% over the 700-line threshold. Reviews/submissions logic (/submissions/incoming, /submissions/{id}/feedback, subject_tasks) should be extracted to routes/reviews.py; auth endpoints (register/login/demo/demo-advisor/google/me) to routes/auth.py; files/GridFS handlers to routes/files.py. This grew again in this iteration.",
+  "SubjectResources.jsx uses testid submit-resource-button but the review request expected publish-resource-{id} for existing resources (which DO exist). The naming is inconsistent: submit-resource-button (create form) vs preview-resource-{id}/download-resource-{id}/open-resource-{id} (per row). Consider unifying to publish-resource-button.",
+    "Resource form's file input has no data-testid — testers must locate it via nth query on generic input[type=file]. Add data-testid='resource-file-input'.",
+    "Backend /profile/photo returns only {picture: '/api/files/...'} but /auth/me exposes storage under 'picture'. The mixing of picture=absolute-api-path vs storage_path in other endpoints is inconsistent; consider always returning both {picture, storage_path} for clients that want to build blob URLs.",
+    "test_iteration6 warns InsecureKeyLengthWarning: JWT_SECRET 'uao-conecta-development-secret' is 30 bytes (<32). Non-blocking but should be rotated to a 32+ byte secret before production."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration6.py",
+    "/app/test_reports/iteration_6.json"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "estudiante@uao.edu.co / UAOdemo2026! (demo-login-button); monitor@uao.edu.co / UAOdemo2026! (demo-advisor-button). JWT HS256 secret 'uao-conecta-development-secret' with sub='google-incomplete' works to force /perfil/completar.",
+  "seed_data_creation": "Created 1 student submission via POST /api/tasks/task-demo-1/submissions (text 'TEST_iter6 entrega', 1x1 PNG file). Set feedback 'TEST_iter6 UI feedback', grade 4.5, status Aprobada. Registered 1 TEST outsider monitor (test_outsider_<hex>@uao.edu.co). Uploaded 1x1 PNG avatars for demo-student. Published 1 file resource 'TEST_iter6 res preview' on Cálculo I. All prefixed TEST_ for easy cleanup.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Testids: reviews-page, reviews-pending-count, reviews-filter-{all|Entregada|reviewed}, review-card-{subId}, review-status-{subId}, review-grade-{subId}, toggle-feedback-{subId}, feedback-input-{subId}, grade-input-{subId}, status-select-{subId}, save-feedback-{subId}. File actions: preview-{idPrefix}, download-{idPrefix}, file-name-{idPrefix} where idPrefix='submission-{subId}' in reviews and 'task-{taskId}' in student subject task, and 'resource-{resourceId}' in resources. Modal: file-preview-modal, file-preview-image, file-preview-pdf, file-preview-error, close-file-preview. Sidebar nav: nav-revisiones (monitor/professor only). Sidebar avatar: sidebar-avatar (img.blob: when photo exists, else initial letter). Profile page avatar: profile-avatar. Resource form: new-resource-button toggles, then resource-title, resource-kind (select with 'file'/'link'/'url' etc), resource-description, resource-url (link), and submit-resource-button (NOT 'publish-resource'). Logout: logout-button. Cálculo I subject_id in current DB: 42e9c94a-b4d5-405c-b836-45a060a16344 (may change on reseed). Task ids: task-demo-1 (Taller de derivadas, Aprobada after this run), task-demo-2 (Lectura, Pendiente).",
+  "rca of the issue": "No bugs found. All 4 features work as designed and all documented testids are present."
+}
