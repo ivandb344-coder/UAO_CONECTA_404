@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
 import os
+from openai import AsyncOpenAI
 
 from app.core.security import current_user
 from app.models.schemas import AIQuestion
-from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 router = APIRouter()
 
@@ -19,39 +19,45 @@ async def ai(data: AIQuestion, user=Depends(current_user)):
             detail="Escribe un mensaje para el asistente.",
         )
 
-    api_key = os.getenv("EMERGENT_LLM_KEY", "").strip()
+    # Acepta OPENAI_API_KEY o EMERGENT_LLM_KEY para mantener compatibilidad
+    api_key = (os.getenv("OPENAI_API_KEY") or os.getenv("EMERGENT_LLM_KEY", "")).strip()
 
     if not api_key:
         raise HTTPException(
             status_code=500,
-            detail="El asistente de IA no está configurado. Falta EMERGENT_LLM_KEY en el backend.",
+            detail="El asistente de IA no está configurado. Falta OPENAI_API_KEY o EMERGENT_LLM_KEY en el backend.",
         )
 
     try:
-        chat = (
-            LlmChat(
-                api_key=api_key,
-                session_id=f"uao-{user['id']}",
-                system_message=(
-                    "Eres el asistente de UAO Conecta. "
-                    "Responde siempre en español, de forma clara, "
-                    "amable y breve. "
-                    "Ayuda al usuario a orientarse dentro de la plataforma "
-                    "y sobre temas académicos generales. "
-                    "No inventes información institucional. "
-                    "Si no tienes certeza sobre un dato institucional, "
-                    "indícalo claramente y recomienda consultar fuentes oficiales."
-                ),
-            )
-            .with_model("openai", "gpt-4o-mini")
+        client = AsyncOpenAI(api_key=api_key)
+
+        response = await client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Eres el asistente de UAO Conecta. "
+                        "Responde siempre en español, de forma clara, "
+                        "amable y breve. "
+                        "Ayuda al usuario a orientarse dentro de la plataforma "
+                        "y sobre temas académicos generales. "
+                        "No inventes información institucional. "
+                        "Si no tienes certeza sobre un dato institucional, "
+                        "indícalo claramente y recomienda consultar fuentes oficiales."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": message
+                }
+            ]
         )
 
-        response = await chat.send_message(
-            UserMessage(text=message)
-        )
+        content = response.choices[0].message.content or "No recibí una respuesta del asistente."
 
         return PlainTextResponse(
-            content=response or "No recibí una respuesta del asistente.",
+            content=content,
             media_type="text/plain; charset=utf-8",
         )
 
