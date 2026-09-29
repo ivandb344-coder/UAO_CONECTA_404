@@ -1,17 +1,24 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { PROGRAM_NAMES, SEMESTERS } from "@/lib/programs";
 import { formatApiError } from "@/lib/errors";
 
-// REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
+// Login con Emergent Auth.
+// No cambiar la URL ni agregar fallbacks o redirects manuales.
 function startGoogleAuth() {
   const redirect = window.location.origin + "/inicio";
   window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirect)}`;
 }
 
-export default function Login({ onLogin, initialError = "", initialNotice = "" }) {
+export default function Login({
+  onLogin,
+  initialError = "",
+  initialNotice = "",
+}) {
   const [mode, setMode] = useState("login"); // 'login' | 'register'
+
   const [form, setForm] = useState({
     name: "",
     username: "",
@@ -21,60 +28,109 @@ export default function Login({ onLogin, initialError = "", initialNotice = "" }
     program: "Ingeniería Informática",
     semester: 3,
   });
+
   const [error, setError] = useState(initialError);
   const [fieldErrors, setFieldErrors] = useState({});
   const [notice, setNotice] = useState(initialNotice);
   const [busy, setBusy] = useState(false);
 
   const checkEmail = async () => {
-    if (mode !== "register" || !form.email.includes("@")) return;
+    if (
+      mode !== "register" ||
+      !form.email.includes("@")
+    ) {
+      return;
+    }
+
     try {
-      const r = await api.get("/auth/email-available", { params: { email: form.email } });
-      setFieldErrors((f) => ({ ...f, email: r.data.available ? "" : r.data.reason }));
+      const r = await api.get(
+        "/auth/email-available",
+        {
+          params: {
+            email: form.email,
+          },
+        }
+      );
+
+      setFieldErrors((f) => ({
+        ...f,
+        email: r.data.available
+          ? ""
+          : r.data.reason,
+      }));
     } catch {
-      /* la validación definitiva ocurre en el backend */
+      // La validación definitiva ocurre en el backend.
     }
   };
 
   const submit = async (e) => {
     e.preventDefault();
-    if (mode === "register" && fieldErrors.email) {
+
+    if (
+      mode === "register" &&
+      fieldErrors.email
+    ) {
       setError(fieldErrors.email);
       return;
     }
+
     setBusy(true);
     setError("");
     setNotice("");
+
     try {
-      const payload = mode === "register" ? { ...form, semester: form.role === "student" ? Number(form.semester) : null } : { email: form.email, password: form.password };
-      const r = await api.post(mode === "register" ? "/auth/register" : "/auth/login", payload);
-      localStorage.setItem("uao_token", r.data.token);
+      const payload =
+        mode === "register"
+          ? {
+              ...form,
+              semester:
+                form.role === "student"
+                  ? Number(form.semester)
+                  : null,
+            }
+          : {
+              email: form.email,
+              password: form.password,
+            };
+
+      const r = await api.post(
+        mode === "register"
+          ? "/auth/register"
+          : "/auth/login",
+        payload
+      );
+
+      localStorage.setItem(
+        "uao_token",
+        r.data.token
+      );
+
       onLogin(r.data.user);
     } catch (x) {
-      const detail = x.response?.data?.detail;
+      const detail =
+        x.response?.data?.detail;
+
       if (detail?.fields) {
         setFieldErrors(detail.fields);
-        setError("Revisa los campos marcados para continuar.");
+        setError(
+          "Revisa los campos marcados para continuar."
+        );
       } else {
-        const message = formatApiError(detail, mode === "register" ? "No pudimos crear tu cuenta." : "No pudimos iniciar sesión. Verifica tu correo y contraseña.");
-        setError(message);
-        if (x.response?.status === 409) setFieldErrors({ email: message });
-      }
-    }
-    setBusy(false);
-  };
+        const message = formatApiError(
+          detail,
+          mode === "register"
+            ? "No pudimos crear tu cuenta."
+            : "No pudimos iniciar sesión. Verifica tu correo y contraseña."
+        );
 
-  const demo = async (role = "student") => {
-    setBusy(true);
-    setError("");
-    try {
-      const path = role === "student" ? "/auth/demo" : "/auth/demo-advisor";
-      const r = await api.post(path);
-      localStorage.setItem("uao_token", r.data.token);
-      onLogin(r.data.user);
-    } catch (x) {
-      const detail = x.response?.data?.detail;
-      setError(typeof detail === "string" ? detail : "No pudimos iniciar la sesión demo.");
+        setError(message);
+
+        if (x.response?.status === 409) {
+          setFieldErrors({
+            email: message,
+          });
+        }
+      }
     } finally {
       setBusy(false);
     }
@@ -86,73 +142,152 @@ export default function Login({ onLogin, initialError = "", initialNotice = "" }
         <div className="brand-mark">
           UAO <span>Conecta</span>
         </div>
+
         <div>
-          <p className="eyebrow">ENCONTRAR · COORDINAR · SABER</p>
+          <p className="eyebrow">
+            ENCONTRAR · COORDINAR · SABER
+          </p>
+
           <h1>
             La universidad,
             <br />
             <em>más cerca.</em>
           </h1>
-          <p className="auth-copy">Personas, respuestas y apoyo académico en un solo lugar.</p>
+
+          <p className="auth-copy">
+            Personas, respuestas y apoyo académico
+            en un solo lugar.
+          </p>
         </div>
-        <div className="quote">“Siempre hay alguien que sabe cómo ayudarte.”</div>
+
+        <div className="quote">
+          “Siempre hay alguien que sabe cómo ayudarte.”
+        </div>
       </div>
 
       <div className="auth-form-wrap">
-        <form className="auth-form" onSubmit={submit}>
+        <form
+          className="auth-form"
+          onSubmit={submit}
+        >
           <div className="brand-mobile brand-mark">
             UAO <span>Conecta</span>
           </div>
-          <p className="eyebrow">{mode === "register" ? "CREA TU PERFIL" : "BIENVENIDO DE NUEVO"}</p>
-          <h2>{mode === "register" ? "Únete a tu comunidad académica" : "Entra a tu espacio"}</h2>
+
+          <p className="eyebrow">
+            {mode === "register"
+              ? "CREA TU PERFIL"
+              : "BIENVENIDO DE NUEVO"}
+          </p>
+
+          <h2>
+            {mode === "register"
+              ? "Únete a tu comunidad académica"
+              : "Entra a tu espacio"}
+          </h2>
+
           <p className="muted">
             {mode === "register"
               ? "Tu perfil te conecta con personas y oportunidades."
               : "Todo lo que necesitas para seguir avanzando."}
           </p>
 
-          {/* Highlighted Google — always visible at the top */}
+          {/* Inicio de sesión con Google */}
           <button
             type="button"
             className="google featured"
             data-testid="google-login-button"
             onClick={startGoogleAuth}
+            disabled={busy}
           >
-            <span className="g-icon" aria-hidden="true">G</span>
-            <span>Continuar con Google</span>
+            <span
+              className="g-icon"
+              aria-hidden="true"
+            >
+              G
+            </span>
+
+            <span>
+              Continuar con Google
+            </span>
           </button>
-          <div className="or-divider" aria-hidden="true"><span>o con tu correo</span></div>
+
+          <div
+            className="or-divider"
+            aria-hidden="true"
+          >
+            <span>o con tu correo</span>
+          </div>
 
           {mode === "register" && (
             <>
               <label>
                 Nombre completo
+
                 <input
                   data-testid="register-name-input"
                   required
                   autoComplete="name"
                   value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      name: e.target.value,
+                    })
+                  }
                 />
+
+                {fieldErrors.name && (
+                  <span
+                    className="field-error"
+                    role="alert"
+                  >
+                    {fieldErrors.name}
+                  </span>
+                )}
               </label>
+
               <label>
                 Usuario
+
                 <input
                   data-testid="register-username-input"
                   required
                   minLength={3}
                   autoComplete="username"
-                  aria-invalid={!!fieldErrors.username}
+                  aria-invalid={
+                    !!fieldErrors.username
+                  }
                   value={form.username}
-                  onChange={(e) => setForm({ ...form, username: e.target.value })}
+                  onChange={(e) => {
+                    setForm({
+                      ...form,
+                      username: e.target.value,
+                    });
+
+                    setFieldErrors((f) => ({
+                      ...f,
+                      username: "",
+                    }));
+                  }}
                 />
-                {fieldErrors.username && <span className="field-error" role="alert" data-testid="register-username-error">{fieldErrors.username}</span>}
+
+                {fieldErrors.username && (
+                  <span
+                    className="field-error"
+                    role="alert"
+                    data-testid="register-username-error"
+                  >
+                    {fieldErrors.username}
+                  </span>
+                )}
               </label>
             </>
           )}
 
           <label>
             Correo
+
             <input
               data-testid="auth-email-input"
               type="email"
@@ -161,128 +296,259 @@ export default function Login({ onLogin, initialError = "", initialNotice = "" }
               aria-invalid={!!fieldErrors.email}
               value={form.email}
               onChange={(e) => {
-                setForm({ ...form, email: e.target.value });
-                setFieldErrors((f) => ({ ...f, email: "" }));
+                setForm({
+                  ...form,
+                  email: e.target.value,
+                });
+
+                setFieldErrors((f) => ({
+                  ...f,
+                  email: "",
+                }));
               }}
               onBlur={checkEmail}
             />
-            {fieldErrors.email && <span className="field-error" role="alert" data-testid="auth-email-error">{fieldErrors.email}</span>}
+
+            {fieldErrors.email && (
+              <span
+                className="field-error"
+                role="alert"
+                data-testid="auth-email-error"
+              >
+                {fieldErrors.email}
+              </span>
+            )}
           </label>
+
           <label>
             Contraseña
+
             <input
               data-testid="auth-password-input"
               type="password"
               required
-              minLength={mode === "register" ? 6 : undefined}
-              autoComplete={mode === "register" ? "new-password" : "current-password"}
-              aria-invalid={!!fieldErrors.password}
+              minLength={
+                mode === "register"
+                  ? 6
+                  : undefined
+              }
+              autoComplete={
+                mode === "register"
+                  ? "new-password"
+                  : "current-password"
+              }
+              aria-invalid={
+                !!fieldErrors.password
+              }
               value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              onChange={(e) => {
+                setForm({
+                  ...form,
+                  password: e.target.value,
+                });
+
+                setFieldErrors((f) => ({
+                  ...f,
+                  password: "",
+                }));
+              }}
             />
-            {fieldErrors.password && <span className="field-error" role="alert" data-testid="auth-password-error">{fieldErrors.password}</span>}
+
+            {fieldErrors.password && (
+              <span
+                className="field-error"
+                role="alert"
+              >
+                {fieldErrors.password}
+              </span>
+            )}
           </label>
 
           {mode === "register" && (
             <>
               <label>
                 Rol
+
                 <select
                   data-testid="register-role-select"
                   value={form.role}
-                  onChange={(e) => setForm({ ...form, role: e.target.value })}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      role: e.target.value,
+                    })
+                  }
                 >
-                  <option value="student">Estudiante</option>
-                  <option value="monitor">Monitor</option>
-                  <option value="professor">Profesor</option>
+                  <option value="student">
+                    Estudiante
+                  </option>
+
+                  <option value="monitor">
+                    Monitor
+                  </option>
+
+                  <option value="professor">
+                    Profesor
+                  </option>
                 </select>
+
+                {fieldErrors.role && (
+                  <span
+                    className="field-error"
+                    role="alert"
+                  >
+                    {fieldErrors.role}
+                  </span>
+                )}
               </label>
+
               <label>
                 Programa
+
                 <select
                   data-testid="register-program-select"
                   value={form.program}
-                  onChange={(e) => setForm({ ...form, program: e.target.value })}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      program: e.target.value,
+                    })
+                  }
                 >
                   {PROGRAM_NAMES.map((p) => (
-                    <option key={p}>{p}</option>
+                    <option
+                      key={p}
+                      value={p}
+                    >
+                      {p}
+                    </option>
                   ))}
                 </select>
+
+                {fieldErrors.program && (
+                  <span
+                    className="field-error"
+                    role="alert"
+                  >
+                    {fieldErrors.program}
+                  </span>
+                )}
               </label>
+
               {form.role === "student" && (
                 <label>
                   Semestre
+
                   <select
                     data-testid="register-semester-select"
                     value={form.semester}
-                    aria-invalid={!!fieldErrors.semester}
-                    onChange={(e) => setForm({ ...form, semester: e.target.value })}
+                    aria-invalid={
+                      !!fieldErrors.semester
+                    }
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        semester:
+                          e.target.value,
+                      })
+                    }
                   >
                     {SEMESTERS.map((s) => (
-                      <option key={s} value={s}>{s}° semestre</option>
+                      <option
+                        key={s}
+                        value={s}
+                      >
+                        {s}° semestre
+                      </option>
                     ))}
                   </select>
-                  {fieldErrors.semester && <span className="field-error" role="alert">{fieldErrors.semester}</span>}
+
+                  {fieldErrors.semester && (
+                    <span
+                      className="field-error"
+                      role="alert"
+                    >
+                      {fieldErrors.semester}
+                    </span>
+                  )}
                 </label>
               )}
             </>
           )}
 
           {notice && (
-            <div className="auth-notice" role="status" data-testid="auth-notice">
-              <CheckCircle2 size={15} aria-hidden="true" /> {notice}
+            <div
+              className="auth-notice"
+              role="status"
+              data-testid="auth-notice"
+            >
+              <CheckCircle2
+                size={15}
+                aria-hidden="true"
+              />{" "}
+              {notice}
             </div>
           )}
+
           {error && (
-            <div className="error" role="alert" data-testid="auth-error">
+            <div
+              className="error"
+              role="alert"
+              data-testid="auth-error"
+            >
               {error}
             </div>
           )}
-          <button className="primary wide" data-testid="auth-submit-button" disabled={busy}>
-            {mode === "register" ? "Crear mi cuenta" : "Iniciar sesión"} <ArrowRight size={17} />
+
+          <button
+            type="submit"
+            className="primary wide"
+            data-testid="auth-submit-button"
+            disabled={busy}
+          >
+            {mode === "register"
+              ? "Crear mi cuenta"
+              : "Iniciar sesión"}
+
+            <ArrowRight size={17} />
           </button>
 
           <div className="auth-links">
-            <button
-              type="button"
+            {/* Recuperación real de contraseña */}
+            <Link
+              to="/recuperar-contrasena"
               className="link"
               data-testid="forgot-password-button"
-              onClick={() =>
-                setError("Enviaremos un correo con las instrucciones al email registrado.")
-              }
+              aria-disabled={busy}
+              onClick={(e) => {
+                if (busy) {
+                  e.preventDefault();
+                }
+              }}
             >
               ¿Olvidaste tu contraseña?
-            </button>
+            </Link>
+
             <button
               type="button"
               className="link"
               data-testid="toggle-auth-mode"
               onClick={() => {
-                setMode(mode === "register" ? "login" : "register");
+                setMode(
+                  mode === "register"
+                    ? "login"
+                    : "register"
+                );
+
                 setError("");
+                setNotice("");
                 setFieldErrors({});
               }}
+              disabled={busy}
             >
-              {mode === "register" ? "Ya tengo cuenta" : "Crear una cuenta"}
-            </button>
-          </div>
-
-          <div className="auth-demo-row">
-            <button
-              type="button"
-              className="demo"
-              data-testid="demo-login-button"
-              onClick={() => demo("student")}
-            >
-              Demo estudiante
-            </button>
-            <button
-              type="button"
-              className="demo"
-              data-testid="demo-advisor-button"
-              onClick={() => demo("monitor")}
-            >
-              Demo monitor
+              {mode === "register"
+                ? "Ya tengo cuenta"
+                : "Crear una cuenta"}
             </button>
           </div>
         </form>
