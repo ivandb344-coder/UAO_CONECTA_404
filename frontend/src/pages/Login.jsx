@@ -5,10 +5,10 @@ import { api } from "@/lib/api";
 import { PROGRAM_NAMES, SEMESTERS } from "@/lib/programs";
 import { formatApiError } from "@/lib/errors";
 
-// Login con Emergent Auth.
-// No cambiar la URL ni agregar fallbacks o redirects manuales.
+// Login con Emergent Auth adaptado para entornos con subrutas (ej. GitHub Pages)
 function startGoogleAuth() {
-  const redirect = window.location.origin + "/inicio";
+  const currentPath = window.location.pathname.replace(/\/login\/?$/, "");
+  const redirect = `${window.location.origin}${currentPath}/inicio`;
   window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirect)}`;
 }
 
@@ -189,7 +189,7 @@ export default function Login({
           <p className="muted">
             {mode === "register"
               ? "Tu perfil te conecta con personas y oportunidades."
-              : "Todo lo que necesitas para seguir avanzando."}
+              : "Todo lo que necesitas para seguir advancing."}
           </p>
 
           {/* Inicio de sesión con Google */}
@@ -514,7 +514,6 @@ export default function Login({
           </button>
 
           <div className="auth-links">
-            {/* Recuperación real de contraseña */}
             <Link
               to="/recuperar-contrasena"
               className="link"

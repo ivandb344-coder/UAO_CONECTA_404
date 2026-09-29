@@ -2,6 +2,7 @@ import os
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from app.core.config import CORS_ORIGINS
 from app.routers import (
@@ -12,15 +13,18 @@ from app.services.seed import seed
 
 app = FastAPI(title="UAO Conecta API")
 
-# 1. FIX LOGIN GOOGLE: Middleware para guardar la sesión temporal del OAuth state
+# 1. Reconocer HTTPS detrás del proxy de Render
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
+
+# 2. Cookie de sesión Cross-Site para Google OAuth (entre github.io y onrender.com)
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.getenv("SECRET_KEY", "clave_secreta_uao_conecta_2026_xyz"),
-    https_only=True,
-    same_site="lax"
+    secret_key=os.getenv("SECRET_KEY", "uao_conecta_secret_key_2026_xyz"),
+    same_site="none",  # Permitir cookies entre dominios distintos
+    https_only=True   # Requerido por los navegadores al usar same_site="none"
 )
 
-# 2. Configuración de CORS
+# 3. Configuración de CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -29,12 +33,12 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# 3. FIX 404 EN LA RAÍZ: Muestra un mensaje en lugar de 404 al entrar a la URL base
+# Mensaje de confirmación en la raíz
 @app.get("/")
 def root():
     return {"status": "online", "message": "UAO Conecta API activa"}
 
-# 4. Modulos y prefijos de la API
+# Agrupar rutas bajo el prefijo /api
 api = APIRouter(prefix="/api")
 for module in (auth, dashboard, subjects, profile, questions, advisories, chat, files, ai, notifications):
     api.include_router(module.router)
