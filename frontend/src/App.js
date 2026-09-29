@@ -1,7 +1,6 @@
-
 import { useEffect, useRef, useState } from "react";
 import {
-  BrowserRouter,
+  HashRouter,
   Routes,
   Route,
   Navigate,
@@ -212,8 +211,6 @@ function GoogleCallback({
     const oauthErrorDescription =
       params.get("error_description");
 
-    /* Google/Emergent Auth devolvió
-       una cancelación o error. */
     if (!sessionId) {
       if (
         oauthError === "access_denied" ||
@@ -261,10 +258,6 @@ function GoogleCallback({
           );
         }
 
-        /*
-         * Se mantiene el comportamiento actual
-         * porque el backend devuelve token + user.
-         */
         localStorage.setItem(
           "uao_token",
           r.data.token
@@ -372,11 +365,6 @@ function PublicAuthRoutes() {
   );
 }
 
-
-/*
- * Este componente existe solamente para mantener
- * Login en la ruta pública principal.
- */
 function LoginWrapper() {
   return <Navigate to="/" replace />;
 }
@@ -702,9 +690,8 @@ function AppInner() {
 
 export default function Root() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <AppInner />
-    </BrowserRouter>
+    </HashRouter>
   );
 }
-
