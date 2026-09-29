@@ -5,11 +5,21 @@ import { api } from "@/lib/api";
 import { PROGRAM_NAMES, SEMESTERS } from "@/lib/programs";
 import { formatApiError } from "@/lib/errors";
 
-// Login con Emergent Auth adaptado para entornos con subrutas (ej. GitHub Pages)
+// Redirección al flujo de inicio de sesión con Google en tu propio backend
 function startGoogleAuth() {
-  const currentPath = window.location.pathname.replace(/\/login\/?$/, "");
-  const redirect = `${window.location.origin}${currentPath}/inicio`;
-  window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirect)}`;
+  const cleanPath = window.location.pathname.replace(/index\.html$/, "");
+  const redirect = `${window.location.origin}${cleanPath}`;
+
+  // Obtiene la URL base del backend desde la configuración de la API
+  const backendBaseUrl =
+    process.env.REACT_APP_API_URL ||
+    api.defaults?.baseURL ||
+    "http://localhost:8000";
+
+  // Redirige al endpoint del backend para iniciar OAuth con Google
+  window.location.href = `${backendBaseUrl}/auth/google/login?redirect=${encodeURIComponent(
+    redirect
+  )}`;
 }
 
 export default function Login({
@@ -35,28 +45,18 @@ export default function Login({
   const [busy, setBusy] = useState(false);
 
   const checkEmail = async () => {
-    if (
-      mode !== "register" ||
-      !form.email.includes("@")
-    ) {
+    if (mode !== "register" || !form.email.includes("@")) {
       return;
     }
 
     try {
-      const r = await api.get(
-        "/auth/email-available",
-        {
-          params: {
-            email: form.email,
-          },
-        }
-      );
+      const r = await api.get("/auth/email-available", {
+        params: { email: form.email },
+      });
 
       setFieldErrors((f) => ({
         ...f,
-        email: r.data.available
-          ? ""
-          : r.data.reason,
+        email: r.data.available ? "" : r.data.reason,
       }));
     } catch {
       // La validación definitiva ocurre en el backend.
@@ -66,10 +66,7 @@ export default function Login({
   const submit = async (e) => {
     e.preventDefault();
 
-    if (
-      mode === "register" &&
-      fieldErrors.email
-    ) {
+    if (mode === "register" && fieldErrors.email) {
       setError(fieldErrors.email);
       return;
     }
@@ -84,9 +81,7 @@ export default function Login({
           ? {
               ...form,
               semester:
-                form.role === "student"
-                  ? Number(form.semester)
-                  : null,
+                form.role === "student" ? Number(form.semester) : null,
             }
           : {
               email: form.email,
@@ -94,27 +89,18 @@ export default function Login({
             };
 
       const r = await api.post(
-        mode === "register"
-          ? "/auth/register"
-          : "/auth/login",
+        mode === "register" ? "/auth/register" : "/auth/login",
         payload
       );
 
-      localStorage.setItem(
-        "uao_token",
-        r.data.token
-      );
-
+      localStorage.setItem("uao_token", r.data.token);
       onLogin(r.data.user);
     } catch (x) {
-      const detail =
-        x.response?.data?.detail;
+      const detail = x.response?.data?.detail;
 
       if (detail?.fields) {
         setFieldErrors(detail.fields);
-        setError(
-          "Revisa los campos marcados para continuar."
-        );
+        setError("Revisa los campos marcados para continuar.");
       } else {
         const message = formatApiError(
           detail,
@@ -126,9 +112,7 @@ export default function Login({
         setError(message);
 
         if (x.response?.status === 409) {
-          setFieldErrors({
-            email: message,
-          });
+          setFieldErrors({ email: message });
         }
       }
     } finally {
@@ -144,19 +128,14 @@ export default function Login({
         </div>
 
         <div>
-          <p className="eyebrow">
-            ENCONTRAR · COORDINAR · SABER
-          </p>
-
+          <p className="eyebrow">ENCONTRAR · COORDINAR · SABER</p>
           <h1>
             La universidad,
             <br />
             <em>más cerca.</em>
           </h1>
-
           <p className="auth-copy">
-            Personas, respuestas y apoyo académico
-            en un solo lugar.
+            Personas, respuestas y apoyo académico en un solo lugar.
           </p>
         </div>
 
@@ -166,18 +145,13 @@ export default function Login({
       </div>
 
       <div className="auth-form-wrap">
-        <form
-          className="auth-form"
-          onSubmit={submit}
-        >
+        <form className="auth-form" onSubmit={submit}>
           <div className="brand-mobile brand-mark">
             UAO <span>Conecta</span>
           </div>
 
           <p className="eyebrow">
-            {mode === "register"
-              ? "CREA TU PERFIL"
-              : "BIENVENIDO DE NUEVO"}
+            {mode === "register" ? "CREA TU PERFIL" : "BIENVENIDO DE NUEVO"}
           </p>
 
           <h2>
@@ -189,7 +163,7 @@ export default function Login({
           <p className="muted">
             {mode === "register"
               ? "Tu perfil te conecta con personas y oportunidades."
-              : "Todo lo que necesitas para seguir advancing."}
+              : "Todo lo que necesitas para seguir avanzando."}
           </p>
 
           {/* Inicio de sesión con Google */}
@@ -200,22 +174,13 @@ export default function Login({
             onClick={startGoogleAuth}
             disabled={busy}
           >
-            <span
-              className="g-icon"
-              aria-hidden="true"
-            >
+            <span className="g-icon" aria-hidden="true">
               G
             </span>
-
-            <span>
-              Continuar con Google
-            </span>
+            <span>Continuar con Google</span>
           </button>
 
-          <div
-            className="or-divider"
-            aria-hidden="true"
-          >
+          <div className="or-divider" aria-hidden="true">
             <span>o con tu correo</span>
           </div>
 
@@ -223,25 +188,17 @@ export default function Login({
             <>
               <label>
                 Nombre completo
-
                 <input
                   data-testid="register-name-input"
                   required
                   autoComplete="name"
                   value={form.name}
                   onChange={(e) =>
-                    setForm({
-                      ...form,
-                      name: e.target.value,
-                    })
+                    setForm({ ...form, name: e.target.value })
                   }
                 />
-
                 {fieldErrors.name && (
-                  <span
-                    className="field-error"
-                    role="alert"
-                  >
+                  <span className="field-error" role="alert">
                     {fieldErrors.name}
                   </span>
                 )}
@@ -249,29 +206,18 @@ export default function Login({
 
               <label>
                 Usuario
-
                 <input
                   data-testid="register-username-input"
                   required
                   minLength={3}
                   autoComplete="username"
-                  aria-invalid={
-                    !!fieldErrors.username
-                  }
+                  aria-invalid={!!fieldErrors.username}
                   value={form.username}
                   onChange={(e) => {
-                    setForm({
-                      ...form,
-                      username: e.target.value,
-                    });
-
-                    setFieldErrors((f) => ({
-                      ...f,
-                      username: "",
-                    }));
+                    setForm({ ...form, username: e.target.value });
+                    setFieldErrors((f) => ({ ...f, username: "" }));
                   }}
                 />
-
                 {fieldErrors.username && (
                   <span
                     className="field-error"
@@ -287,7 +233,6 @@ export default function Login({
 
           <label>
             Correo
-
             <input
               data-testid="auth-email-input"
               type="email"
@@ -296,19 +241,11 @@ export default function Login({
               aria-invalid={!!fieldErrors.email}
               value={form.email}
               onChange={(e) => {
-                setForm({
-                  ...form,
-                  email: e.target.value,
-                });
-
-                setFieldErrors((f) => ({
-                  ...f,
-                  email: "",
-                }));
+                setForm({ ...form, email: e.target.value });
+                setFieldErrors((f) => ({ ...f, email: "" }));
               }}
               onBlur={checkEmail}
             />
-
             {fieldErrors.email && (
               <span
                 className="field-error"
@@ -322,43 +259,23 @@ export default function Login({
 
           <label>
             Contraseña
-
             <input
               data-testid="auth-password-input"
               type="password"
               required
-              minLength={
-                mode === "register"
-                  ? 6
-                  : undefined
-              }
+              minLength={mode === "register" ? 6 : undefined}
               autoComplete={
-                mode === "register"
-                  ? "new-password"
-                  : "current-password"
+                mode === "register" ? "new-password" : "current-password"
               }
-              aria-invalid={
-                !!fieldErrors.password
-              }
+              aria-invalid={!!fieldErrors.password}
               value={form.password}
               onChange={(e) => {
-                setForm({
-                  ...form,
-                  password: e.target.value,
-                });
-
-                setFieldErrors((f) => ({
-                  ...f,
-                  password: "",
-                }));
+                setForm({ ...form, password: e.target.value });
+                setFieldErrors((f) => ({ ...f, password: "" }));
               }}
             />
-
             {fieldErrors.password && (
-              <span
-                className="field-error"
-                role="alert"
-              >
+              <span className="field-error" role="alert">
                 {fieldErrors.password}
               </span>
             )}
@@ -368,35 +285,19 @@ export default function Login({
             <>
               <label>
                 Rol
-
                 <select
                   data-testid="register-role-select"
                   value={form.role}
                   onChange={(e) =>
-                    setForm({
-                      ...form,
-                      role: e.target.value,
-                    })
+                    setForm({ ...form, role: e.target.value })
                   }
                 >
-                  <option value="student">
-                    Estudiante
-                  </option>
-
-                  <option value="monitor">
-                    Monitor
-                  </option>
-
-                  <option value="professor">
-                    Profesor
-                  </option>
+                  <option value="student">Estudiante</option>
+                  <option value="monitor">Monitor</option>
+                  <option value="professor">Profesor</option>
                 </select>
-
                 {fieldErrors.role && (
-                  <span
-                    className="field-error"
-                    role="alert"
-                  >
+                  <span className="field-error" role="alert">
                     {fieldErrors.role}
                   </span>
                 )}
@@ -404,32 +305,21 @@ export default function Login({
 
               <label>
                 Programa
-
                 <select
                   data-testid="register-program-select"
                   value={form.program}
                   onChange={(e) =>
-                    setForm({
-                      ...form,
-                      program: e.target.value,
-                    })
+                    setForm({ ...form, program: e.target.value })
                   }
                 >
                   {PROGRAM_NAMES.map((p) => (
-                    <option
-                      key={p}
-                      value={p}
-                    >
+                    <option key={p} value={p}>
                       {p}
                     </option>
                   ))}
                 </select>
-
                 {fieldErrors.program && (
-                  <span
-                    className="field-error"
-                    role="alert"
-                  >
+                  <span className="field-error" role="alert">
                     {fieldErrors.program}
                   </span>
                 )}
@@ -438,36 +328,22 @@ export default function Login({
               {form.role === "student" && (
                 <label>
                   Semestre
-
                   <select
                     data-testid="register-semester-select"
                     value={form.semester}
-                    aria-invalid={
-                      !!fieldErrors.semester
-                    }
+                    aria-invalid={!!fieldErrors.semester}
                     onChange={(e) =>
-                      setForm({
-                        ...form,
-                        semester:
-                          e.target.value,
-                      })
+                      setForm({ ...form, semester: e.target.value })
                     }
                   >
                     {SEMESTERS.map((s) => (
-                      <option
-                        key={s}
-                        value={s}
-                      >
+                      <option key={s} value={s}>
                         {s}° semestre
                       </option>
                     ))}
                   </select>
-
                   {fieldErrors.semester && (
-                    <span
-                      className="field-error"
-                      role="alert"
-                    >
+                    <span className="field-error" role="alert">
                       {fieldErrors.semester}
                     </span>
                   )}
@@ -482,11 +358,7 @@ export default function Login({
               role="status"
               data-testid="auth-notice"
             >
-              <CheckCircle2
-                size={15}
-                aria-hidden="true"
-              />{" "}
-              {notice}
+              <CheckCircle2 size={15} aria-hidden="true" /> {notice}
             </div>
           )}
 
@@ -506,10 +378,7 @@ export default function Login({
             data-testid="auth-submit-button"
             disabled={busy}
           >
-            {mode === "register"
-              ? "Crear mi cuenta"
-              : "Iniciar sesión"}
-
+            {mode === "register" ? "Crear mi cuenta" : "Iniciar sesión"}
             <ArrowRight size={17} />
           </button>
 
@@ -520,9 +389,7 @@ export default function Login({
               data-testid="forgot-password-button"
               aria-disabled={busy}
               onClick={(e) => {
-                if (busy) {
-                  e.preventDefault();
-                }
+                if (busy) e.preventDefault();
               }}
             >
               ¿Olvidaste tu contraseña?
@@ -533,21 +400,14 @@ export default function Login({
               className="link"
               data-testid="toggle-auth-mode"
               onClick={() => {
-                setMode(
-                  mode === "register"
-                    ? "login"
-                    : "register"
-                );
-
+                setMode(mode === "register" ? "login" : "register");
                 setError("");
                 setNotice("");
                 setFieldErrors({});
               }}
               disabled={busy}
             >
-              {mode === "register"
-                ? "Ya tengo cuenta"
-                : "Crear una cuenta"}
+              {mode === "register" ? "Ya tengo cuenta" : "Crear una cuenta"}
             </button>
           </div>
         </form>
