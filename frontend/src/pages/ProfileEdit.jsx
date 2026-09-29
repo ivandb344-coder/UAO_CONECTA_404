@@ -123,8 +123,12 @@ export default function ProfileEdit({ me, onUpdate }) {
 
   const addLink = async () => {
     setLinkErrors({});
+    const linkToSend = {
+      ...newLink,
+      label: newLink.label.trim() || (newLink.platform === "custom" ? "Otro enlace" : ""),
+    };
     try {
-      const r = await api.post("/profile/links", newLink);
+      const r = await api.post("/profile/links", linkToSend);
       setLinks((l) => [...l, r.data]);
       setNewLink({ platform: "linkedin", url: "", label: "", icon: "" });
     } catch (x) {
@@ -140,7 +144,7 @@ export default function ProfileEdit({ me, onUpdate }) {
       setLinks((l) => l.map((x) => (x.id === link.id ? { ...x, ...r.data } : x)));
     } catch (x) {
       const d = x.response?.data?.detail;
-      if (d?.fields) setLinkErrors({ [`edit-${link.id}`]: d.fields.url || d.fields.platform || "Datos inválidos" });
+      if (d?.fields) setLinkErrors({ [`edit-${link.id}`]: d.fields.url || d.fields.label || d.fields.platform || "Datos inválidos" });
     }
   };
 
@@ -330,13 +334,15 @@ export default function ProfileEdit({ me, onUpdate }) {
               </select>
             </label>
             <label className="field">
-              <span>Etiqueta (opcional)</span>
+              <span>Etiqueta {newLink.platform === "custom" ? "(requerida)" : "(opcional)"}</span>
               <input
                 data-testid="nl-label"
                 value={newLink.label}
-                placeholder="Ej. Grupo del semestre"
+                placeholder={newLink.platform === "custom" ? "Ej. Mi Portafolio / Blog" : "Ej. Grupo del semestre"}
                 onChange={(e) => setNewLink((f) => ({ ...f, label: e.target.value }))}
+                className={linkErrors.label ? "invalid" : ""}
               />
+              {linkErrors.label && <span className="field-error" data-testid="err-nl-label">{linkErrors.label}</span>}
             </label>
             <label className="field">
               <span>Icono (emoji opcional)</span>
