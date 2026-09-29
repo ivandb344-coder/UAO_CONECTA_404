@@ -1,17 +1,27 @@
+import os
+from pathlib import Path
+import certifi
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
 from passlib.context import CryptContext
-from pathlib import Path
-import os
 
 ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(ROOT / ".env")
-client = AsyncIOMotorClient(os.environ["MONGO_URL"])
-db = client[os.environ["DB_NAME"]]
+
+mongo_url = os.getenv("MONGO_URL", "mongodb://localhost:27017")
+db_name = os.getenv("DB_NAME", "uao_conecta")
+
+# Conexión a MongoDB usando certifi para prevenir errores de SSL/TLS en Render
+client = AsyncIOMotorClient(mongo_url, tlsCAFile=certifi.where())
+db = client[db_name]
+
 file_bucket = AsyncIOMotorGridFSBucket(db, bucket_name="uao_files")
 pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SECRET = os.environ.get("JWT_SECRET", "uao-conecta-development-secret")
-CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*").split(",")
+
+# Limpieza estricta de CORS_ORIGINS para ignorar espacios accidentales al separar por coma
+raw_origins = os.environ.get("CORS_ORIGINS", "*")
+CORS_ORIGINS = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
 
 PROGRAMS = [
     {"group": "Computación y Contenidos Digitales", "name": "Ingeniería Informática"},
