@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/UAO_CONECTA_404/static/css/main.1881b19d.css",
-    "main.js": "/UAO_CONECTA_404/static/js/main.52230abb.js",
+    "main.js": "/UAO_CONECTA_404/static/js/main.ff2d8c49.js",
     "index.html": "/UAO_CONECTA_404/index.html",
     "main.1881b19d.css.map": "/UAO_CONECTA_404/static/css/main.1881b19d.css.map",
-    "main.52230abb.js.map": "/UAO_CONECTA_404/static/js/main.52230abb.js.map"
+    "main.ff2d8c49.js.map": "/UAO_CONECTA_404/static/js/main.ff2d8c49.js.map"
   },
   "entrypoints": [
     "static/css/main.1881b19d.css",
-    "static/js/main.52230abb.js"
+    "static/js/main.ff2d8c49.js"
   ]
 }
