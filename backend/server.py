@@ -45,4 +45,4 @@ for module in (auth, dashboard, subjects, profile, questions, advisories, chat, 
 
 app.include_router(api)
 
-app.add_event_handler("startup", seed)
+app.on_event("startup")(seed)

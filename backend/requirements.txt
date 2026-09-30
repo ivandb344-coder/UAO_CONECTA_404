@@ -29,3 +29,4 @@ openai>=1.0.0
 itsdangerous
 #emergentintegrations==0.2.1
 itsdangerous
+aiosmtplib

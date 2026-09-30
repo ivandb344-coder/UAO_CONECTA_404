@@ -5,13 +5,20 @@ from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
 from passlib.context import CryptContext
 
-ROOT = Path(__file__).resolve().parents[2]
-load_dotenv(ROOT / ".env")
+# Apunta directamente a la carpeta backend donde está guardado el .env
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+ENV_FILE = BACKEND_DIR / ".env"
 
-mongo_url = os.getenv("MONGO_URL", "mongodb://localhost:27017")
+if ENV_FILE.exists():
+    load_dotenv(dotenv_path=ENV_FILE)
+else:
+    load_dotenv()
+
+# Lee la URL de MongoDB desde las variables cargadas
+mongo_url = os.getenv("MONGODB_URL") or os.getenv("MONGO_URL") or "mongodb://localhost:27017"
 db_name = os.getenv("DB_NAME", "uao_conecta")
 
-# Conexión a MongoDB usando certifi para prevenir errores de SSL/TLS en Render
+# Conexión a MongoDB usando certifi
 client = AsyncIOMotorClient(mongo_url, tlsCAFile=certifi.where())
 db = client[db_name]
 
@@ -19,7 +26,7 @@ file_bucket = AsyncIOMotorGridFSBucket(db, bucket_name="uao_files")
 pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SECRET = os.environ.get("JWT_SECRET", "uao-conecta-development-secret")
 
-# Limpieza estricta de CORS_ORIGINS para ignorar espacios accidentales al separar por coma
+# Limpieza estricta de CORS_ORIGINS
 raw_origins = os.environ.get("CORS_ORIGINS", "*")
 CORS_ORIGINS = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
 

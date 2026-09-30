@@ -121,7 +121,7 @@ async def _send_reset_email_async(to_email: str, reset_url: str, user_name: str)
 # ENDPOINTS / RUTAS DE AUTENTICACIÓN
 # ==========================================
 
-@router.post("/register", status_code=status.HTTP_21_CREATED)
+@router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(data: RegisterRequest):
     """Registro de usuario mediante correo y contraseña."""
     email = data.email.strip().lower()
