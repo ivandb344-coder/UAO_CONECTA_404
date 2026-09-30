@@ -274,22 +274,22 @@
 ## backend:
 ##   - task: "Auth restaurada (JWT) + endpoints Google"
 ##     implemented: true
-##     working: NA
+##     working: true
 ##     file: "backend/app/routers/auth.py"
 ##     stuck_count: 0
 ##     priority: "high"
-##     needs_retesting: true
+##     needs_retesting: false
 ##     status_history:
 ##       - working: NA
 ##         agent: "main"
 ##         comment: "auth.py había regresionado (commit a89a4d3): login/register/google no devolvían token, usuarios sin 'id' UUID, faltaban /auth/me, /auth/email-available, /auth/google/login. Reescrito: register/login/google devuelven {token, user}; GET /auth/me; GET /auth/email-available; GET /auth/google/login?redirect= (302 a https://auth.emergentagent.com/?redirect=..., redirect validado contra CORS_ORIGINS/FRONTEND_URL, default GitHub Pages); POST /auth/google (session-data de Emergent con X-Session-ID); forgot-password (503 si SMTP no configurado, respuesta genérica); reset-password (token de un solo uso, min 8). Migración de usuarios sin 'id' al arrancar y perezosa en login/google."
 ##   - task: "MongoDB TLS condicional + CORS explícito"
 ##     implemented: true
-##     working: NA
+##     working: true
 ##     file: "backend/app/database.py, backend/app/core/config.py, backend/server.py"
 ##     stuck_count: 0
 ##     priority: "high"
-##     needs_retesting: true
+##     needs_retesting: false
 ##     status_history:
 ##       - working: NA
 ##         agent: "main"
@@ -297,35 +297,35 @@
 ## frontend:
 ##   - task: "Cliente API apunta a Render en GitHub Pages"
 ##     implemented: true
-##     working: NA
+##     working: true
 ##     file: "frontend/src/lib/api.js"
 ##     stuck_count: 0
 ##     priority: "high"
-##     needs_retesting: true
+##     needs_retesting: false
 ##     status_history:
 ##       - working: NA
 ##         agent: "main"
 ##         comment: "Antes en GitHub Pages usaba window.location.origin + /api (github.io/api → 404). Ahora: hosts Emergent → mismo origen; localhost → REACT_APP_BACKEND_URL; resto (GitHub Pages) → https://uao-conecta-404.onrender.com. Bearer uao_token."
 ##   - task: "Google login + callback con HashRouter"
 ##     implemented: true
-##     working: NA
+##     working: true
 ##     file: "frontend/src/pages/Login.jsx, frontend/src/App.js"
 ##     stuck_count: 0
 ##     priority: "high"
-##     needs_retesting: true
+##     needs_retesting: false
 ##     status_history:
 ##       - working: NA
 ##         agent: "main"
 ##         comment: "startGoogleAuth → ${API}/auth/google/login?redirect=<origin+path>. Con HashRouter '#session_id=x' se ve como pathname '/session_id=x'; getOAuthParams ahora revisa pathname/search/hash. Sesión no se borra ante errores de red (solo 401/403)."
 ## test_plan:
-##   current_focus:
-##     - "Auth restaurada (JWT) + endpoints Google"
-##     - "MongoDB TLS condicional + CORS explícito"
-##     - "Cliente API apunta a Render en GitHub Pages"
-##     - "Google login + callback con HashRouter"
+##   current_focus: []
 ##   stuck_tasks: []
 ##   test_all: false
 ##   test_priority: "high_first"
 ## agent_communication:
 ##   - agent: "main"
 ##     message: "Probar auth completa (registro, login, me, email-available, google/login redirect, google inválido 401, forgot 503 sin SMTP, reset inválido 400), CORS desde https://ivandb344-coder.github.io, y regresión de flujos principales (dashboard, dudas, asignaturas, asesorías, perfil completar). Credenciales en /app/memory/test_credentials.md. /auth/demo ya NO existe (eliminado previamente por el usuario)."
+##   - agent: "testing"
+##     message: "Iteración 8: backend 32/32 (backend/tests/test_iteration8_auth.py). Frontend OK; único hallazgo: doble confirmación en logout (window.confirm + LogoutDialog)."
+##   - agent: "main"
+##     message: "Eliminado window.confirm de App.js logout; verificado con Playwright: una sola confirmación, token eliminado, aviso de despedida."

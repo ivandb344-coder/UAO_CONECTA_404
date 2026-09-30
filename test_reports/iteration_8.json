@@ -1,0 +1,38 @@
+{
+  "summary": "Iteration 8 — Backend + frontend regression for UAO Conecta after the demo-login removal and Google/CORS rewrite. Wrote pytest suite backend/tests/test_iteration8_auth.py (32 tests, 100% pass) covering register/login/me/email-available/google/forgot/reset/CORS/authenticated regression endpoints. Frontend flows verified via Playwright on the preview URL: monitor login → dashboard 'Hola, Laura.', invalid credentials show auth-error, new student registration (native <select> role/program/semester) → dashboard with token in localStorage.uao_token, page reload keeps session, fake session_id callback lands at #/ with proper auth-error 'La autenticación con Google no fue autorizada o expiró.', google-login-button 302s to https://auth.emergentagent.com/oauth/, forgot-password shows 503 SMTP-unavailable message, reset-password screen renders with validation. ONE integration bug: logout uses BOTH a custom LogoutDialog and a native window.confirm() in App.js, so confirming the modal triggers a second native browser confirm — a real user is asked twice, and headless automation is blocked outright.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Logout (Cerrar sesión)",
+        "issue": "Double confirmation. Layout.jsx opens a custom LogoutDialog (data-testid=logout-dialog). Clicking logout-confirm-button calls onLogout, which in App.js `logout` (line 298) also calls window.confirm('¿Estás seguro de que deseas cerrar sesión?'). If the user clicks 'Sí, cerrar sesión' in the modal, they immediately get a second native browser confirm; users who dismiss it (or automation) stay logged in. Fix: remove window.confirm from App.js `logout` since LogoutDialog already gates the action.",
+        "affected_selectors": ["[data-testid=\"logout-confirm-button\"]", "App.js:298 logout()"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration8_auth.py",
+    "/app/test_reports/pytest/iteration_8_results.xml"
+  ],
+  "action_items": [
+    "In /app/frontend/src/App.js, remove the `window.confirm(...)` block (lines 299–300) inside the `logout` function; the LogoutDialog in Layout.jsx already asks for confirmation before calling onLogout, so the native confirm is redundant and blocks logout in browsers where the confirm is dismissed."
+  ],
+  "critical_code_review_comments": [
+    "App.js `logout` mixes UI concerns: it fires window.confirm AFTER the custom modal already confirmed. Remove the native confirm.",
+    "Login.jsx uses native <select> elements for role/program/semester (fine for a11y), but tests / callers must use page.select_option (not shadcn get_by_role('option'))—consider standardising with the rest of the app or documenting.",
+    "server.py is still large (previous iterations flagged); no change this iteration.",
+    "JWT_SECRET 'uao-conecta-preview-jwt-secret-…' is preview-only; ensure production uses a stronger secret before deploy."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration8_auth.py"
+  ],
+  "success_rate": {"backend": "100% (32/32)", "frontend": "~95% (logout works only when native confirm is auto-accepted)"},
+  "test_credentials": "Monitor seed: monitor@uao.edu.co / UAOdemo2026!. New students created ad-hoc via /api/auth/register.",
+  "seed_data_creation": "Created a few TEST_ students via register endpoint (auto-generated emails ui_stu_<hex>@uao.edu.co).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Preview URL: https://c2489761-4a7d-4b07-8806-80311e3a6aa2.preview.emergentagent.com. Backend routes under /api. Register form uses NATIVE <select> — use page.select_option, NOT get_by_role('option'). Logout requires page.on('dialog', lambda d: d.accept()) until App.js is fixed. /api/auth/demo* endpoints are gone. CORS behavior verified: https://ivandb344-coder.github.io and http://localhost:3000 allowed; https://evil.com rejected (400, no ACAO). google/login default 302 → https://auth.emergentagent.com/?redirect=https%3A%2F%2Fivandb344-coder.github.io%2FUAO_CONECTA_404%2F. All 6 authenticated regression endpoints (/dashboard,/subjects,/questions,/advisories,/notifications,/chat/summary) plus PATCH /profile/me return 200 with a fresh JWT.",
+  "rca_of_the_issue": "Cerrar sesión bug: App.js line 299 `const confirmed = window.confirm(...)`. Path: Layout.jsx logout-button → setConfirmLogout(true) → LogoutDialog opens → user clicks logout-confirm-button → onConfirm=() => { setConfirmLogout(false); onLogout(); } → App.js logout() calls window.confirm(). If confirm is cancelled/dismissed (or headless without dialog handler), the function returns early and the user stays logged in. Deleting the two lines fixes the double-confirm and unblocks automation."
+}

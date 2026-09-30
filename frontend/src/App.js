@@ -295,10 +295,8 @@ function AppInner() {
      CERRAR SESIÓN
      ========================================================== */
 
+  // La confirmación la gestiona LogoutDialog (Layout.jsx) antes de llamar a onLogout.
   const logout = () => {
-    const confirmed = window.confirm("¿Estás seguro de que deseas cerrar sesión?");
-    if (!confirmed) return;
-
     localStorage.removeItem("uao_token");
     clearProtectedFileCache();
     setUser(null);

@@ -65,14 +65,32 @@ cp frontend/.env.example frontend/.env
 
 | Archivo | Variable | Descripción |
 |---|---|---|
-| backend/.env | `MONGO_URL` | Cadena de conexión a MongoDB |
-| backend/.env | `DB_NAME` | Nombre de la base de datos |
+| backend/.env | `MONGODB_URL` / `MONGO_URI` / `MONGO_URL` | Cadena de conexión a MongoDB (se usa la primera definida). TLS con `certifi` se activa solo para Atlas / hosts remotos |
+| backend/.env | `DB_NAME` | Nombre de la base de datos (por defecto `uao_conecta`) |
 | backend/.env | `JWT_SECRET` | Secreto largo y aleatorio para firmar JWT |
-| backend/.env | `CORS_ORIGINS` | Orígenes permitidos separados por coma |
-| backend/.env | `EMERGENT_LLM_KEY` | Solo para el asistente IA (`/api/ai`) |
-| frontend/.env | `REACT_APP_BACKEND_URL` | URL pública del backend (sin `/api`) |
+| backend/.env | `CORS_ORIGINS` | Orígenes extra separados por coma (siempre se permiten `https://ivandb344-coder.github.io` y `http://localhost:3000`) |
+| backend/.env | `FRONTEND_URL` | URL pública del frontend (por defecto `https://ivandb344-coder.github.io/UAO_CONECTA_404`). Se usa en correos y como destino por defecto de Google |
+| backend/.env | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Correo de recuperación de contraseña (sin SMTP, `/forgot-password` responde 503) |
+| backend/.env | `OPENAI_API_KEY` | Asistente IA (`/api/ai`) |
+| frontend/.env | `REACT_APP_BACKEND_URL` | URL pública del backend (sin `/api`). En GitHub Pages, si falta o apunta a localhost, se usa `https://uao-conecta-404.onrender.com` |
 
 Nunca subas `.env`, claves, contraseñas ni tokens al repositorio.
+
+## Despliegue en producción
+
+| Pieza | URL |
+|---|---|
+| Backend (Render) | `https://uao-conecta-404.onrender.com` · API en `/api` · salud en `/api/health` |
+| Frontend (GitHub Pages) | `https://ivandb344-coder.github.io/UAO_CONECTA_404` (HashRouter: rutas `#/…`) |
+| Base de datos | MongoDB Atlas (Motor, TLS) |
+
+1. **Backend (Render)**: variables de entorno en el panel → `MONGODB_URL` (o `MONGO_URL`), `DB_NAME`, `JWT_SECRET`, y opcionalmente `FRONTEND_URL`, `CORS_ORIGINS`, `SMTP_*`, `OPENAI_API_KEY`. Build: `pip install -r requirements.txt` · Start: `uvicorn server:app --host 0.0.0.0 --port $PORT` (directorio `backend`). El `requirements.txt` de la raíz incluye el de `backend/`.
+2. **Frontend (GitHub Pages)**: `cd frontend && npm install && npm run deploy` (construye y publica la rama `gh-pages`).
+3. **Verificación**: `GET https://uao-conecta-404.onrender.com/api/health` → `{"status":"ok","database":true,"tls":true}`.
+
+### Flujo de Google (Emergent Auth)
+
+`Continuar con Google` → `GET /api/auth/google/login?redirect=<URL actual>` → `https://auth.emergentagent.com/?redirect=…` → Google → `<redirect>#session_id=…` → el frontend llama `POST /api/auth/google {session_id}` → el backend valida en `https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data` (`X-Session-ID`) y responde `{token, user}`. El `redirect` solo se acepta si su origen está en CORS/`FRONTEND_URL`.
 
 ## Ejecución en desarrollo
 
@@ -88,7 +106,7 @@ yarn install
 yarn start
 ```
 
-Todas las rutas del backend viven bajo el prefijo `/api`. El frontend usa `REACT_APP_BACKEND_URL`; si la app se sirve desde otro dominio que enruta `/api` al backend, `lib/api.js` usa el mismo origen del navegador para evitar errores CORS.
+Todas las rutas del backend viven bajo el prefijo `/api`. `frontend/src/lib/api.js` resuelve el backend así: GitHub Pages u otro hosting estático → Render; previews de Emergent → mismo origen; `localhost` → `REACT_APP_BACKEND_URL`.
 
 ## Pruebas
 
@@ -99,7 +117,7 @@ REACT_APP_BACKEND_URL=http://localhost:8001 pytest
 
 ## Cuentas demo
 
-Los botones "Demo estudiante" y "Demo monitor" del login crean/usan cuentas de prueba (`estudiante@uao.edu.co`, `monitor@uao.edu.co`).
+El backend siembra la cuenta de monitor `monitor@uao.edu.co` para pruebas. Los estudiantes se crean desde "Crear una cuenta".
 
 ## Seguridad y almacenamiento
 

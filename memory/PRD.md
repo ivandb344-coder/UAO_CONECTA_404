@@ -59,6 +59,13 @@ Construir una aplicación académica real para conectar estudiantes, monitores y
 - Testing agent iteración 6: 8/8 backend + todos los flujos frontend sin bugs.
 - **Fix Network Error / Google (iteración 7)**: el usuario navegaba por el alias `subject-creator.preview.emergentagent.com` mientras `.env` apunta a `7858e35c-…`; el proxy reescribe `Origin` y las llamadas cross-origin fallaban (login demo y `POST /auth/google`). `lib/api.js` ahora usa `window.location.origin` cuando el host del navegador (no local) difiere del de `.env`, así API y WebSocket son same-origin. Verificado en ambos hosts por testing agent.
 
+### 2026-09-30 (iteración 8) — Auditoría y sincronización producción (Render + GitHub Pages)
+- **Causa raíz**: el commit `a89a4d3` reemplazó `auth.py` por una versión que no devolvía JWT, creaba usuarios sin `id` UUID y omitía `/auth/me`, `/auth/email-available` y `/auth/google/login`; además `lib/api.js` en GitHub Pages llamaba a `github.io/api` (404) y el callback de Google no se detectaba con HashRouter.
+- **Backend**: `auth.py` reescrito (register/login/google → `{token, user}`, `/me`, `/email-available`, `/logout`, `/google/login` → 302 a `https://auth.emergentagent.com/?redirect=` con allowlist, forgot/reset con token de un solo uso, bcrypt seguro ≤72 bytes). `database.py` centraliza Motor (MONGODB_URL|MONGODB_URI|MONGO_URI|MONGO_URL) con TLS `certifi` solo para Atlas/remoto. CORS explícito (github.io + localhost:3000 + CORS_ORIGINS). `/api/` y `/api/health`. Migración de usuarios heredados sin `id` (arranque + perezosa).
+- **Frontend**: `api.js` resuelve Render en GitHub Pages; `startGoogleAuth` → `${API}/auth/google/login?redirect=`; `getOAuthParams` detecta `session_id` en pathname/hash/search; sesión no se borra ante errores de red; logout sin doble confirmación.
+- Verificado: 32/32 backend (testing agent), flujos UI en preview y simulación GitHub Pages → Render (bundle de producción + CORS real).
+- Nota: la URL `demobackend.emergentagent.com/auth/v1/env/oauth/login` sugerida devuelve 404; se usa la entrada oficial `auth.emergentagent.com`.
+
 ## Prioritized backlog
 - P0: OAuth Google real y recuperación de contraseña por correo.
 - P1: Notificaciones (Fase 22, 31) y valoración de asesorías (Fase 23).
