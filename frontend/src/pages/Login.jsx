@@ -5,19 +5,36 @@ import { api } from "@/lib/api";
 import { PROGRAM_NAMES, SEMESTERS } from "@/lib/programs";
 import { formatApiError } from "@/lib/errors";
 
-// Redirección al flujo de inicio de sesión con Google en tu propio backend
+// Redirección al flujo de inicio de sesión con Google en Render
 function startGoogleAuth() {
   const cleanPath = window.location.pathname.replace(/index\.html$/, "");
   const redirect = `${window.location.origin}${cleanPath}`;
 
-  // Obtiene la URL base del backend desde la configuración de la API
-  const backendBaseUrl =
+  // 1. Prioriza las variables de entorno de producción
+  let backendBaseUrl =
+    process.env.REACT_APP_BACKEND_URL ||
     process.env.REACT_APP_API_URL ||
     api.defaults?.baseURL ||
-    "http://localhost:8000";
+    "https://uao-conecta-404.onrender.com";
 
-  // Redirige al endpoint del backend para iniciar OAuth con Google
-  window.location.href = `${backendBaseUrl}/auth/google/login?redirect=${encodeURIComponent(
+  // 2. Si la URL base es relativa (ej: "/api"), antepone el dominio de Render
+  if (!backendBaseUrl.startsWith("http")) {
+    const cleanRelative = backendBaseUrl.startsWith("/")
+      ? backendBaseUrl
+      : `/${backendBaseUrl}`;
+    backendBaseUrl = `https://uao-conecta-404.onrender.com${cleanRelative}`;
+  }
+
+  // 3. Limpia diagonales duplicadas al final
+  backendBaseUrl = backendBaseUrl.replace(/\/$/, "");
+
+  // 4. Determina la ruta correcta según si la URL base ya incluye "/api"
+  const endpoint = backendBaseUrl.endsWith("/api")
+    ? "/auth/google/login"
+    : "/api/auth/google/login";
+
+  // Redirige directamente al servidor backend en Render
+  window.location.href = `${backendBaseUrl}${endpoint}?redirect=${encodeURIComponent(
     redirect
   )}`;
 }
