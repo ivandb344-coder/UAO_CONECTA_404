@@ -17,10 +17,10 @@
   "seed_data_creation": "None new. Relied on prior iteration 6 seed (demo-student avatar, task-demo-1 submission with feedback).",
   "retest_needed": false,
   "should_main_agent_self_test": false,
-  "context_for_next_testing_agent": "Confirmed both hosts serve same backend via same-origin fallback in /app/frontend/src/lib/api.js. Alias host: https://subject-creator.preview.emergentagent.com. Env host: https://7858e35c-28d7-4180-865b-f1b403446e93.preview.emergentagent.com. All console error / unhandled rejection counts were 0 in scripted flows. Complete Profile via google-incomplete JWT also produced 0 console errors — the 'Request failed with status code 401' unhandled-rejection overlay observed on a first pass was reproduced from the *preceding* fake-session_id POST /api/auth/google 401 (expected behaviour) — when the JWT test is run isolated with cleared state it produces zero errors.",
+  "context_for_next_testing_agent": "Confirmed both hosts serve same backend via same-origin fallback in /app/frontend/src/lib/api.js. Alias host: https://audit-sync-repair.preview.emergentagent.com. Env host: https://audit-sync-repair.preview.emergentagent.com. All console error / unhandled rejection counts were 0 in scripted flows. Complete Profile via google-incomplete JWT also produced 0 console errors — the 'Request failed with status code 401' unhandled-rejection overlay observed on a first pass was reproduced from the *preceding* fake-session_id POST /api/auth/google 401 (expected behaviour) — when the JWT test is run isolated with cleared state it produces zero errors.",
   "test_results_detail": {
     "alias_host_flows": {
-      "demo_student_login": "PASS — /inicio, sidebar-user-name='Mariana Torres', sidebar-avatar img.src=blob:https://subject-creator.preview.emergentagent.com/..., 3 dashboard stat cards, 0 console errors, 0 unhandled rejections",
+      "demo_student_login": "PASS — /inicio, sidebar-user-name='Mariana Torres', sidebar-avatar img.src=blob:https://audit-sync-repair.preview.emergentagent.com/..., 3 dashboard stat cards, 0 console errors, 0 unhandled rejections",
       "logout_then_demo_advisor": "PASS — /inicio, nav-revisiones visible, /revisiones shows 5 review cards, 0 errors",
       "chat_websocket": "PASS — /chat shows chat-connection-state='En línea' within ~5s, 6 existing messages rendered",
       "google_login_button": "PASS — click navigates to https://auth.emergentagent.com/oauth/?redirect=https%3A%2F%2Fsubject-creator.preview.emergentagent.com%2Finicio (origin-based redirect matches alias host)",

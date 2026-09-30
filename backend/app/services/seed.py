@@ -26,7 +26,42 @@ async def merge_duplicate_emails():
             logging.warning("Cuenta duplicada fusionada: %s -> %s (%s)", dup["id"], keep["id"], group["_id"])
         await db.users.update_one({"id": keep["id"]}, {"$set": {"email": group["_id"]}})
 
+async def migrate_legacy_users():
+    """Normaliza usuarios creados por versiones anteriores del backend.
+
+    - Asigna el UUID ``id`` (lo usa ``current_user``) a cuentas que solo tenían el ``_id`` de Mongo.
+    - Convierte fechas BSON (datetime) a ISO 8601 para mantener un único formato.
+    - Completa campos por defecto usados por el frontend.
+    """
+    migrated = 0
+    async for u in db.users.find({"$or": [{"id": {"$exists": False}}, {"id": None}, {"id": ""}]}, {"_id": 1}):
+        await db.users.update_one({"_id": u["_id"]}, {"$set": {"id": str(uuid.uuid4())}})
+        migrated += 1
+    for field in ("created_at", "last_login", "updated_at"):
+        async for u in db.users.find({field: {"$type": "date"}}, {"_id": 1, field: 1}):
+            value = u[field]
+            if value.tzinfo is None:
+                value = value.replace(tzinfo=timezone.utc)
+            await db.users.update_one({"_id": u["_id"]}, {"$set": {field: value.isoformat()}})
+    await db.users.update_many({"rating": {"$exists": False}}, {"$set": {"rating": 0, "rating_count": 0}})
+    await db.users.update_many({"links": {"$exists": False}}, {"$set": {"links": []}})
+    if migrated:
+        logging.warning("Usuarios heredados migrados a id UUID: %s", migrated)
+
+
 async def seed():
+    try:
+        await _seed()
+    except Exception as exc:
+        # La API debe arrancar aunque MongoDB tarde en responder; /api/health reporta el estado.
+        logging.error("Seed/migración inicial no completada: %s", exc)
+
+
+async def _seed():
+    try:
+        await migrate_legacy_users()
+    except Exception as exc:
+        logging.warning("Migración de usuarios diferida: %s", exc)
     try:
         logging.info("File storage ready: MongoDB GridFS bucket uao_files")
     except Exception as exc:

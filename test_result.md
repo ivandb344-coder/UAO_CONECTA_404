@@ -266,3 +266,66 @@
 
 ##   - agent: "testing"
 ##     message: "✅ FRONTEND FILE SUBMISSIONS - COMPLETADO. Testing completo del flujo de entregas con archivos en navegador. Todos los requisitos verificados: 1) Login estudiante y navegación a asignatura con tareas ✓. 2) Modal 'Entregar/Actualizar entrega' funciona ✓. 3) Entrega solo texto sigue funcionando ✓. 4) Selector submission-file-input permite adjuntar PDF pequeño ✓. 5) Indicador de subida muestra 'Cambiar archivo' y nombre de archivo ✓. 6) Envío con archivo exitoso sin errores de consola ✓. 7) Actualizar entrega reemplazando archivo funciona ✓. 8) Validación 25MB muestra mensaje específico ✓. 9) Monitor/profesor NO ve botón entregar, SÍ ve 'Nueva tarea' ✓. 10) UI usa POST /api/files autenticado, sin URLs públicas expuestas ✓. Sistema de entregas con archivos completamente funcional en producción."
+
+#====================================================================================================
+# ITERACIÓN: Auditoría y sincronización producción (Render + GitHub Pages) — 2026-09-30
+#====================================================================================================
+## user_problem_statement: "Auditar, reparar y sincronizar UAO Conecta para que producción funcione: backend Render (https://uao-conecta-404.onrender.com/api) + frontend GitHub Pages (https://ivandb344-coder.github.io/UAO_CONECTA_404) + MongoDB Atlas."
+## backend:
+##   - task: "Auth restaurada (JWT) + endpoints Google"
+##     implemented: true
+##     working: NA
+##     file: "backend/app/routers/auth.py"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: true
+##     status_history:
+##       - working: NA
+##         agent: "main"
+##         comment: "auth.py había regresionado (commit a89a4d3): login/register/google no devolvían token, usuarios sin 'id' UUID, faltaban /auth/me, /auth/email-available, /auth/google/login. Reescrito: register/login/google devuelven {token, user}; GET /auth/me; GET /auth/email-available; GET /auth/google/login?redirect= (302 a https://auth.emergentagent.com/?redirect=..., redirect validado contra CORS_ORIGINS/FRONTEND_URL, default GitHub Pages); POST /auth/google (session-data de Emergent con X-Session-ID); forgot-password (503 si SMTP no configurado, respuesta genérica); reset-password (token de un solo uso, min 8). Migración de usuarios sin 'id' al arrancar y perezosa en login/google."
+##   - task: "MongoDB TLS condicional + CORS explícito"
+##     implemented: true
+##     working: NA
+##     file: "backend/app/database.py, backend/app/core/config.py, backend/server.py"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: true
+##     status_history:
+##       - working: NA
+##         agent: "main"
+##         comment: "database.py usa MONGODB_URL|MONGODB_URI|MONGO_URI|MONGO_URL; tlsCAFile=certifi solo para Atlas/remoto (mongodb+srv, tls/ssl=true o host no local). CORS: https://ivandb344-coder.github.io + http://localhost:3000 + CORS_ORIGINS (sin '*'), allow_credentials=True. Nuevos GET /api/ y GET /api/health."
+## frontend:
+##   - task: "Cliente API apunta a Render en GitHub Pages"
+##     implemented: true
+##     working: NA
+##     file: "frontend/src/lib/api.js"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: true
+##     status_history:
+##       - working: NA
+##         agent: "main"
+##         comment: "Antes en GitHub Pages usaba window.location.origin + /api (github.io/api → 404). Ahora: hosts Emergent → mismo origen; localhost → REACT_APP_BACKEND_URL; resto (GitHub Pages) → https://uao-conecta-404.onrender.com. Bearer uao_token."
+##   - task: "Google login + callback con HashRouter"
+##     implemented: true
+##     working: NA
+##     file: "frontend/src/pages/Login.jsx, frontend/src/App.js"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: true
+##     status_history:
+##       - working: NA
+##         agent: "main"
+##         comment: "startGoogleAuth → ${API}/auth/google/login?redirect=<origin+path>. Con HashRouter '#session_id=x' se ve como pathname '/session_id=x'; getOAuthParams ahora revisa pathname/search/hash. Sesión no se borra ante errores de red (solo 401/403)."
+## test_plan:
+##   current_focus:
+##     - "Auth restaurada (JWT) + endpoints Google"
+##     - "MongoDB TLS condicional + CORS explícito"
+##     - "Cliente API apunta a Render en GitHub Pages"
+##     - "Google login + callback con HashRouter"
+##   stuck_tasks: []
+##   test_all: false
+##   test_priority: "high_first"
+## agent_communication:
+##   - agent: "main"
+##     message: "Probar auth completa (registro, login, me, email-available, google/login redirect, google inválido 401, forgot 503 sin SMTP, reset inválido 400), CORS desde https://ivandb344-coder.github.io, y regresión de flujos principales (dashboard, dudas, asignaturas, asesorías, perfil completar). Credenciales en /app/memory/test_credentials.md. /auth/demo ya NO existe (eliminado previamente por el usuario)."

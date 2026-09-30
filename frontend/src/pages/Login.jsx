@@ -1,42 +1,18 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, API } from "@/lib/api";
 import { PROGRAM_NAMES, SEMESTERS } from "@/lib/programs";
 import { formatApiError } from "@/lib/errors";
 
-// Redirección al flujo de inicio de sesión con Google en Render
+// Google (Emergent Auth) a través del backend: GET /api/auth/google/login?redirect=<URL actual>.
+// En GitHub Pages `API` es https://uao-conecta-404.onrender.com/api. Tras Google, el usuario
+// vuelve a `redirect` con #session_id=... y App.js lo canjea en POST /api/auth/google.
+// REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
 function startGoogleAuth() {
   const cleanPath = window.location.pathname.replace(/index\.html$/, "");
   const redirect = `${window.location.origin}${cleanPath}`;
-
-  // 1. Prioriza las variables de entorno de producción
-  let backendBaseUrl =
-    process.env.REACT_APP_BACKEND_URL ||
-    process.env.REACT_APP_API_URL ||
-    api.defaults?.baseURL ||
-    "https://uao-conecta-404.onrender.com";
-
-  // 2. Si la URL base es relativa (ej: "/api"), antepone el dominio de Render
-  if (!backendBaseUrl.startsWith("http")) {
-    const cleanRelative = backendBaseUrl.startsWith("/")
-      ? backendBaseUrl
-      : `/${backendBaseUrl}`;
-    backendBaseUrl = `https://uao-conecta-404.onrender.com${cleanRelative}`;
-  }
-
-  // 3. Limpia diagonales duplicadas al final
-  backendBaseUrl = backendBaseUrl.replace(/\/$/, "");
-
-  // 4. Determina la ruta correcta según si la URL base ya incluye "/api"
-  const endpoint = backendBaseUrl.endsWith("/api")
-    ? "/auth/google/login"
-    : "/api/auth/google/login";
-
-  // Redirige directamente al servidor backend en Render
-  window.location.href = `${backendBaseUrl}${endpoint}?redirect=${encodeURIComponent(
-    redirect
-  )}`;
+  window.location.href = `${API}/auth/google/login?redirect=${encodeURIComponent(redirect)}`;
 }
 
 export default function Login({

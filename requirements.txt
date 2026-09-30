@@ -1,9 +1,2 @@
-fastapi>=0.100.0
-uvicorn>=0.22.0
-motor>=3.2.0
-httpx>=0.24.0
-aiosmtplib>=2.0.0
-passlib[bcrypt]>=1.7.4
-pydantic[email]>=2.0
-httpx
-bcrypt==4.0.1
+# Render / despliegues desde la raíz del repositorio: usa las mismas dependencias del backend.
+-r backend/requirements.txt

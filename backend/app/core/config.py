@@ -1,34 +1,22 @@
 import os
-from pathlib import Path
-import certifi
-from dotenv import load_dotenv
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
+
 from passlib.context import CryptContext
 
-# Apunta directamente a la carpeta backend donde está guardado el .env
-BACKEND_DIR = Path(__file__).resolve().parents[2]
-ENV_FILE = BACKEND_DIR / ".env"
+# La conexión a MongoDB (y la carga de backend/.env) vive en app/database.py.
+# Se reexporta aquí para mantener compatibilidad con `from app.core.config import db`.
+from app.database import client, db, file_bucket  # noqa: F401
 
-if ENV_FILE.exists():
-    load_dotenv(dotenv_path=ENV_FILE)
-else:
-    load_dotenv()
-
-# Lee la URL de MongoDB desde las variables cargadas
-mongo_url = os.getenv("MONGODB_URL") or os.getenv("MONGO_URL") or "mongodb://localhost:27017"
-db_name = os.getenv("DB_NAME", "uao_conecta")
-
-# Conexión a MongoDB usando certifi
-client = AsyncIOMotorClient(mongo_url, tlsCAFile=certifi.where())
-db = client[db_name]
-
-file_bucket = AsyncIOMotorGridFSBucket(db, bucket_name="uao_files")
 pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SECRET = os.environ.get("JWT_SECRET", "uao-conecta-development-secret")
 
-# Limpieza estricta de CORS_ORIGINS
-raw_origins = os.environ.get("CORS_ORIGINS", "*")
-CORS_ORIGINS = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
+# URL pública del frontend (GitHub Pages). Se usa en enlaces de correo y como destino por defecto de OAuth.
+FRONTEND_URL = (os.environ.get("FRONTEND_URL") or "https://ivandb344-coder.github.io/UAO_CONECTA_404").strip().rstrip("/")
+
+# CORS: orígenes explícitos requeridos + los definidos en CORS_ORIGINS (separados por coma).
+# Un origen es esquema + dominio (sin ruta): GitHub Pages envía "https://ivandb344-coder.github.io".
+DEFAULT_CORS_ORIGINS = ["https://ivandb344-coder.github.io", "http://localhost:3000"]
+_extra_origins = [o.strip().rstrip("/") for o in os.environ.get("CORS_ORIGINS", "").split(",")]
+CORS_ORIGINS = list(dict.fromkeys(DEFAULT_CORS_ORIGINS + [o for o in _extra_origins if o and o != "*"]))
 
 PROGRAMS = [
     {"group": "Computación y Contenidos Digitales", "name": "Ingeniería Informática"},

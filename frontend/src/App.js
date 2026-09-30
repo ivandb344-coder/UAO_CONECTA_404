@@ -55,31 +55,40 @@ const GOOGLE_ERROR_MESSAGE =
 
 /* ============================================================
    FUNCIÓN AUXILIAR DE PARSEO DE PARÁMETROS OAUTH / GOOGLE
+   Emergent Auth vuelve a `<redirect>#session_id=...`. Con HashRouter ese
+   fragmento se interpreta como la RUTA "/session_id=...", no como location.hash,
+   por eso se revisan pathname, search y hash de useLocation() (reactivos) y
+   también window.location.search.
    ============================================================ */
 
-function getOAuthParams(hash) {
-  const searchParams = new URLSearchParams(window.location.search);
+function findUrlParam(sources, name) {
+  const re = new RegExp(`(?:^|[#/?&])${name}=([^&#/?]*)`);
+  for (const source of sources) {
+    const match = (source || "").match(re);
+    if (match && match[1]) {
+      try {
+        return decodeURIComponent(match[1]);
+      } catch {
+        return match[1];
+      }
+    }
+  }
+  return null;
+}
 
-  const hashQuery = (hash || "").includes("?")
-    ? (hash || "").split("?")[1]
-    : (hash || "").replace(/^#\/?/, "");
-  const hashParams = new URLSearchParams(hashQuery);
+function getOAuthParams(location) {
+  const sources = [
+    window.location.search,
+    location?.search,
+    location?.hash,
+    location?.pathname,
+  ];
 
-  // Buscar session_id o token/code en la URL
-  const sessionId =
-    searchParams.get("session_id") ||
-    hashParams.get("session_id") ||
-    searchParams.get("code") ||
-    hashParams.get("code");
-
-  const oauthError =
-    searchParams.get("error") || hashParams.get("error");
-
-  const oauthErrorDescription =
-    searchParams.get("error_description") ||
-    hashParams.get("error_description");
-
-  return { sessionId, oauthError, oauthErrorDescription };
+  return {
+    sessionId: findUrlParam(sources, "session_id"),
+    oauthError: findUrlParam(sources, "error"),
+    oauthErrorDescription: findUrlParam(sources, "error_description"),
+  };
 }
 
 /* ============================================================
@@ -129,61 +138,43 @@ function AuthenticatedShell({ user, setUser, onLogout }) {
    CALLBACK DE GOOGLE
    ============================================================ */
 
-function GoogleCallback({ hash, onLogin, onError, onNotice }) {
+function GoogleCallback({ onLogin, onError, onNotice }) {
   const nav = useNavigate();
+  const location = useLocation();
   const processed = useRef(false);
 
   useEffect(() => {
     if (processed.current) return;
     processed.current = true;
 
-    const { sessionId, oauthError, oauthErrorDescription } = getOAuthParams(hash);
-
-    console.log("🔍 GoogleCallback iniciado. Parámetros detectados:", {
-      sessionId,
-      oauthError,
-      oauthErrorDescription,
-      fullSearch: window.location.search,
-      fullHash: window.location.hash,
-    });
+    const { sessionId, oauthError, oauthErrorDescription } = getOAuthParams(location);
 
     if (!sessionId) {
-      console.warn("⚠️ No se encontró session_id ni code en la URL.");
       if (
         oauthError === "access_denied" ||
         oauthError === "cancelled" ||
         oauthError === "canceled"
       ) {
         onNotice(GOOGLE_CANCEL_MESSAGE);
-      } else if (oauthError || oauthErrorDescription) {
-        onError(
-          decodeURIComponent(
-            oauthErrorDescription || oauthError || GOOGLE_ERROR_MESSAGE
-          )
-        );
       } else {
-        onError(GOOGLE_ERROR_MESSAGE);
+        onError(oauthErrorDescription || oauthError || GOOGLE_ERROR_MESSAGE);
       }
       nav("/", { replace: true });
       return;
     }
 
-    // Limpiar el session_id de la barra de direcciones sin recargar la página
+    // Limpia ?session_id=... de la barra de direcciones (el fragmento se reemplaza al navegar)
     if (window.location.search) {
-      const cleanUrl =
-        window.location.origin +
-        window.location.pathname +
-        window.location.hash;
-      window.history.replaceState({}, document.title, cleanUrl);
+      window.history.replaceState(
+        {},
+        document.title,
+        window.location.origin + window.location.pathname + window.location.hash
+      );
     }
-
-    console.log("🚀 Enviando session_id al backend mediante POST /auth/google...");
 
     api
       .post("/auth/google", { session_id: sessionId })
       .then((r) => {
-        console.log("✅ Respuesta del backend al autenticar con Google:", r.data);
-
         if (!r?.data?.token || !r?.data?.user) {
           throw new Error("Respuesta de autenticación incompleta del servidor.");
         }
@@ -191,35 +182,29 @@ function GoogleCallback({ hash, onLogin, onError, onNotice }) {
         localStorage.setItem("uao_token", r.data.token);
         onLogin(r.data.user);
 
-        if (r.data.user.profile_completed) {
-          nav("/inicio", { replace: true });
-        } else {
-          nav("/perfil/completar", { replace: true });
-        }
+        nav(r.data.user.profile_completed ? "/inicio" : "/perfil/completar", {
+          replace: true,
+        });
       })
       .catch((x) => {
-        console.error("❌ Error en la llamada API POST /auth/google:", x);
         const status = x.response?.status;
         const detail = x.response?.data?.detail;
 
         let message = GOOGLE_ERROR_MESSAGE;
-
-        if (typeof detail === "string" && detail.trim()) {
-          message = detail;
-        } else if (x.message) {
-          message = `Error de conexión: ${x.message}`;
-        }
-
         if (status === 401) {
-          message = "La autenticación con Google no fue autorizada. Inténtalo nuevamente.";
-        } else if (status === 404) {
-          message = "El servicio de autenticación con Google no existe en el backend (404).";
+          message = "La autenticación con Google no fue autorizada o expiró. Inténtalo nuevamente.";
+        } else if (typeof detail === "string" && detail.trim()) {
+          message = detail;
+        } else if (!x.response) {
+          message = "No pudimos conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.";
         }
 
         onError(message);
         nav("/", { replace: true });
       });
-  }, [hash, nav, onError, onLogin, onNotice]);
+    // Solo debe ejecutarse una vez al volver de Google
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <main className="auth-callback">
@@ -262,7 +247,7 @@ function AppInner() {
   const [authError, setAuthError] = useState("");
   const [authNotice, setAuthNotice] = useState("");
 
-  const { sessionId, oauthError } = getOAuthParams(location.hash);
+  const { sessionId, oauthError } = getOAuthParams(location);
 
   const returningFromGoogle = Boolean(sessionId) || Boolean(oauthError);
 
@@ -270,11 +255,15 @@ function AppInner() {
      RESTAURAR SESIÓN
      ========================================================== */
 
+  const sessionChecked = useRef(false);
+
   useEffect(() => {
     if (returningFromGoogle) {
       setReady(true);
       return;
     }
+    if (sessionChecked.current) return;
+    sessionChecked.current = true;
 
     const token = localStorage.getItem("uao_token");
 
@@ -284,9 +273,14 @@ function AppInner() {
         .then((r) => {
           setUser(r.data);
         })
-        .catch(() => {
-          localStorage.removeItem("uao_token");
-          clearProtectedFileCache();
+        .catch((x) => {
+          const status = x.response?.status;
+          if (status === 401 || status === 403) {
+            localStorage.removeItem("uao_token");
+            clearProtectedFileCache();
+          } else {
+            setAuthError("No pudimos conectar con el servidor. Recarga la página en unos segundos.");
+          }
           setUser(null);
         })
         .finally(() => {
@@ -334,13 +328,13 @@ function AppInner() {
   }, [nav]);
 
   const onLogin = (u) => {
+    sessionChecked.current = true;
     setAuthError("");
     setAuthNotice("");
     setUser(u);
   };
 
   const onGoogleError = (message) => {
-    console.warn("⚠️ Error devuelto por Google/Backend asignado:", message);
     setAuthError(message);
     setAuthNotice("");
   };
@@ -364,7 +358,6 @@ function AppInner() {
         <NotificationsProvider enabled={false}>
           <ChatUnreadProvider enabled={false}>
             <GoogleCallback
-              hash={location.hash}
               onLogin={onLogin}
               onError={onGoogleError}
               onNotice={onGoogleNotice}
