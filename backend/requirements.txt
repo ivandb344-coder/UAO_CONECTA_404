@@ -24,3 +24,4 @@ itsdangerous
 #emergentintegrations==0.2.1
 itsdangerous
 aiosmtplib
+httpx

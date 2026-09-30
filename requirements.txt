@@ -5,3 +5,4 @@ httpx>=0.24.0
 aiosmtplib>=2.0.0
 passlib[bcrypt]>=1.7.4
 pydantic[email]>=2.0
+httpx
