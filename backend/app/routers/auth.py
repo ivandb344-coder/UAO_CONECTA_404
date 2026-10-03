@@ -32,9 +32,15 @@ from app.core.config import (
     EMAIL_TAKEN_MESSAGE,
     FRONTEND_URL,
     PROGRAM_NAMES,
-    ROLES,
     db,
     pwd,
+)
+from app.core.institution import (
+    INSTITUTIONAL_EMAIL_MESSAGE,
+    identity_check,
+    institutional_error,
+    is_professor,
+    role_for_email,
 )
 from app.core.security import current_user, token
 from app.models.schemas import GoogleAuth, Login, Register
@@ -231,9 +237,17 @@ async def email_available(email: str = ""):
     value = (email or "").strip().lower()
     if not value or "@" not in value:
         return {"available": False, "reason": "Escribe un correo electrónico válido."}
+    if not_institutional := institutional_error(value):
+        return {"available": False, "reason": not_institutional}
     if await db.users.find_one({"email": value}, {"_id": 0, "id": 1}):
         return {"available": False, "reason": EMAIL_TAKEN_MESSAGE}
-    return {"available": True}
+    return {"available": True, "role": role_for_email(value)}
+
+
+@router.get("/institutional-check")
+async def institutional_check(email: str = ""):
+    """Simula la verificación de identidad contra los sistemas UAO (dominio + directorio docente)."""
+    return identity_check(email)
 
 
 # ============================================================
@@ -246,6 +260,8 @@ async def register(data: Register):
     name = (data.name or "").strip()
     username = (data.username or "").strip().lower()
     email = data.email.strip().lower()
+    role = role_for_email(email)
+    semester = data.semester if role == "student" else None
 
     if len(name) < 2:
         errors["name"] = "Escribe tu nombre completo."
@@ -253,19 +269,19 @@ async def register(data: Register):
         errors["username"] = "El nombre de usuario debe tener al menos 3 caracteres."
     elif await db.users.find_one({"username": username}, {"_id": 0, "id": 1}):
         errors["username"] = "Este nombre de usuario ya está en uso."
-    if data.role not in ROLES:
-        errors["role"] = "Selecciona un rol: Estudiante, Monitor o Profesor."
+    if domain_error := institutional_error(email):
+        errors["email"] = domain_error
     if data.program not in PROGRAM_NAMES:
         errors["program"] = "Selecciona un programa académico válido."
-    if data.role == "student" and data.semester is None:
+    if role == "student" and semester is None:
         errors["semester"] = "El semestre es obligatorio para estudiantes."
-    if data.semester is not None and not 1 <= data.semester <= 12:
+    if semester is not None and not 1 <= semester <= 12:
         errors["semester"] = "Selecciona un semestre entre 1 y 12."
     password_error = _password_error(data.password, MIN_PASSWORD_LENGTH)
     if password_error:
         errors["password"] = password_error
 
-    if await db.users.find_one({"email": email}, {"_id": 0, "id": 1}):
+    if "email" not in errors and await db.users.find_one({"email": email}, {"_id": 0, "id": 1}):
         raise HTTPException(status_code=409, detail=EMAIL_TAKEN_MESSAGE)
     if errors:
         raise HTTPException(status_code=422, detail={"fields": errors})
@@ -277,9 +293,9 @@ async def register(data: Register):
         "username": username,
         "email": email,
         "password": hash_password(data.password),
-        "role": data.role,
+        "role": role,
         "program": data.program,
-        "semester": data.semester,
+        "semester": semester,
         "bio": "Perfil académico en construcción.",
         "phone": "",
         "contact_info": "",
@@ -308,6 +324,8 @@ async def register(data: Register):
 @router.post("/login")
 async def login(data: Login):
     email = data.email.strip().lower()
+    if domain_error := institutional_error(email):
+        raise HTTPException(status_code=403, detail=domain_error)
     user = await db.users.find_one({"email": email})
 
     if not user or not verify_password(data.password, user.get("password")):
@@ -319,9 +337,13 @@ async def login(data: Login):
         raise HTTPException(status_code=401, detail="Correo o contraseña incorrectos.")
 
     user = await _ensure_user_id(user)
-    user["last_login"] = _now().isoformat()
-    await db.users.update_one({"id": user["id"]}, {"$set": {"last_login": user["last_login"]}})
-    return _session_payload(user)
+    update = {"last_login": _now().isoformat()}
+    # "Arrastre" desde el directorio docente: un correo de la lista blanca siempre es docente.
+    if is_professor(email) and user.get("role") != "professor":
+        update["role"] = "professor"
+        update["semester"] = None
+    await db.users.update_one({"id": user["id"]}, {"$set": update})
+    return _session_payload({**user, **update})
 
 
 @router.get("/me")
@@ -375,6 +397,8 @@ async def google_auth(data: GoogleAuth):
     email = (profile.get("email") or "").strip().lower()
     if not email:
         raise HTTPException(status_code=400, detail="Google no devolvió un correo electrónico válido.")
+    if domain_error := institutional_error(email):
+        raise HTTPException(status_code=403, detail=f"{domain_error} Inicia sesión con tu cuenta Google institucional.")
 
     now = _now().isoformat()
     user = await db.users.find_one({"email": email})
@@ -386,7 +410,7 @@ async def google_auth(data: GoogleAuth):
             "username": "",
             "email": email,
             "password": hash_password(secrets.token_urlsafe(32)),
-            "role": "",
+            "role": role_for_email(email),
             "program": "",
             "semester": None,
             "bio": "",
@@ -415,6 +439,11 @@ async def google_auth(data: GoogleAuth):
             update["picture"] = profile["picture"]
         if not user.get("name") and profile.get("name"):
             update["name"] = profile["name"]
+        if is_professor(email) and user.get("role") != "professor":
+            update["role"] = "professor"
+            update["semester"] = None
+        elif not user.get("role"):
+            update["role"] = role_for_email(email)
         update["profile_completed"] = _profile_completed({**user, **update})
         await db.users.update_one({"id": user["id"]}, {"$set": update})
         user = {**user, **update}

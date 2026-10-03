@@ -4,7 +4,7 @@
 .file-name { max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .preview-modal { max-width:min(960px, 94vw); padding:28px 30px 24px; }
 .preview-title { font-size:20px !important; word-break:break-word; margin-bottom:14px; padding-right:30px; }
-.preview-stage { background:#0f172a; border:1px solid var(--line); min-height:240px; max-height:70vh; display:grid; place-items:center; overflow:auto; }
+.preview-stage { background:#1E293B; border:1px solid var(--line); min-height:240px; max-height:70vh; display:grid; place-items:center; overflow:auto; }
 .preview-stage .loading { color:#a6b3c4; }
 .preview-stage .error { margin:20px; }
 .preview-media { max-width:100%; max-height:70vh; display:block; object-fit:contain; }
@@ -17,16 +17,16 @@
 /* ===== Bandeja de revisión docente ===== */
 .review-list { display:grid; gap:12px; }
 .review-card { background:#fff; border:1px solid var(--line); padding:22px 24px; transition:border-color .2s, transform .2s; }
-.review-card:hover { border-color:#9ad7cf; }
+.review-card:hover { border-color:#E3B3B4; }
 .review-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
 .review-head h3 { font-size:18px; margin:8px 0 6px; }
 .review-head .status { display:inline-block; }
-.review-grade { font:700 22px Outfit, sans-serif; color: var(--teal); background:#e8f7f4; padding:6px 12px; border-radius:3px; flex:none; }
+.review-grade { font:700 22px 'DM Sans', sans-serif; color: var(--primary); background:#FBECEC; padding:6px 12px; border-radius:3px; flex:none; }
 .review-text { font-size:12px; line-height:1.7; color:#1e293b; background:#f5f7fa; padding:12px 14px; margin-top:14px; white-space:pre-wrap; }
-.review-link { display:inline-flex; align-items:center; gap:6px; font-size:11px; color: var(--teal); margin-top:10px; word-break:break-all; }
+.review-link { display:inline-flex; align-items:center; gap:6px; font-size:11px; color: var(--primary); margin-top:10px; word-break:break-all; }
 .review-foot { display:flex; gap:10px; margin-top:14px; padding-top:14px; border-top:1px dashed var(--line); }
 .review-foot .ghost.small { display:inline-flex; align-items:center; gap:6px; }
-.review-form { margin-top:14px; background:#f8fafc; border:1px solid #a7ded7; padding:18px; }
+.review-form { margin-top:14px; background:#f8fafc; border:1px solid #E3B3B4; padding:18px; }
 .review-form .task-fields { margin-top:0; }
 .submission-attached { margin-top:12px; }
 .review-shortcut { display:inline-flex; align-items:center; gap:6px; margin-top:12px; }

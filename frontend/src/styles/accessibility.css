@@ -1,7 +1,7 @@
 /* ===== Accesibilidad: preferencias por usuario aplicadas en <html> ===== */
 
 /* Foco visible siempre para navegación con teclado (WCAG 2.4.7) */
-:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .a11y-focus :focus-visible { outline: 4px solid #f59e0b; outline-offset: 3px; box-shadow: 0 0 0 6px rgba(245,158,11,.25); }
 
 /* Enlace para saltar al contenido */
@@ -15,19 +15,19 @@ html[data-text-size="xlarge"] body { zoom: 1.25; }
 
 /* Alto contraste: colores sólidos, bordes fuertes, sin grises suaves */
 .a11y-high-contrast {
-  --ink:#000; --muted:#1f2937; --line:#000; --paper:#fff; --teal:#005f56; --blue:#0033cc; --red:#b00020;
+  --ink:#000; --muted:#1f2937; --line:#000; --paper:#fff; --primary:#8A1428; --blue:#0033cc; --red:#b00020;
 }
 .a11y-high-contrast body { background:#fff; color:#000; }
 .a11y-high-contrast aside, .a11y-high-contrast header, .a11y-high-contrast .bottom-nav { background:#fff; border-color:#000; }
 .a11y-high-contrast .primary { background:#000; color:#fff; border:2px solid #000; }
-.a11y-high-contrast .primary:hover { background:#005f56; }
+.a11y-high-contrast .primary:hover { background:#8A1428; }
 .a11y-high-contrast .ghost, .a11y-high-contrast .filter, .a11y-high-contrast .tab, .a11y-high-contrast .icon-mini { border:2px solid #000; color:#000; }
 .a11y-high-contrast nav button, .a11y-high-contrast .sidebar-bottom button { color:#000; }
 .a11y-high-contrast nav button.active, .a11y-high-contrast nav button:hover { background:#000; color:#fff; }
 .a11y-high-contrast .eyebrow, .a11y-high-contrast .lede, .a11y-high-contrast small, .a11y-high-contrast .muted, .a11y-high-contrast .meta-line { color:#1f2937; }
 .a11y-high-contrast .status, .a11y-high-contrast .task-status, .a11y-high-contrast .pill { border:2px solid #000; color:#000; background:#fff; }
 .a11y-high-contrast .error { background:#fff; color:#b00020; border:2px solid #b00020; font-weight:600; }
-.a11y-high-contrast .success, .a11y-high-contrast .feedback { background:#fff; color:#005f56; border:2px solid #005f56; }
+.a11y-high-contrast .success, .a11y-high-contrast .feedback { background:#fff; color:#8A1428; border:2px solid #8A1428; }
 .a11y-high-contrast input, .a11y-high-contrast select, .a11y-high-contrast textarea { border:2px solid #000 !important; color:#000; background:#fff; }
 .a11y-high-contrast .subject-card { background:#000 !important; color:#fff; border:2px solid #fff; }
 .a11y-high-contrast .stat, .a11y-high-contrast .question, .a11y-high-contrast .task-card, .a11y-high-contrast .review-card, .a11y-high-contrast .resource-item, .a11y-high-contrast .advisory, .a11y-high-contrast .answer-card, .a11y-high-contrast .chat-box, .a11y-high-contrast .modal, .a11y-high-contrast .composer { border:2px solid #000; }
@@ -74,13 +74,13 @@ html[data-text-size="xlarge"] body { zoom: 1.25; }
 .seg button[aria-pressed="true"] { background: var(--ink); color:#fff; }
 .switch-btn { position:relative; width:56px; height:30px; border-radius:999px; background:#cbd5e1; border:1px solid var(--line); transition: background .2s; }
 .switch-btn::after { content:""; position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%; background:#fff; transition: transform .2s; box-shadow:0 1px 2px rgba(0,0,0,.25); }
-.switch-btn[aria-checked="true"] { background: var(--teal); }
+.switch-btn[aria-checked="true"] { background: var(--primary); }
 .switch-btn[aria-checked="true"]::after { transform: translateX(26px); }
 .switch-label { font-size:11px; font-weight:600; min-width:64px; color: var(--muted); }
-.switch-btn[aria-checked="true"] + .switch-label { color: var(--teal); }
+.switch-btn[aria-checked="true"] + .switch-label { color: var(--primary); }
 .a11y-high-contrast .switch-btn { background:#fff; border:2px solid #000; }
 .a11y-high-contrast .switch-btn::after { background:#000; }
-.a11y-high-contrast .switch-btn[aria-checked="true"] { background:#005f56; }
+.a11y-high-contrast .switch-btn[aria-checked="true"] { background:#8A1428; }
 .a11y-high-contrast .switch-btn[aria-checked="true"]::after { background:#fff; }
 .pref-status { font-size:11px; color: var(--muted); margin-top:10px; min-height:16px; }
 .settings-summary { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }

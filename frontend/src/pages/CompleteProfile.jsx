@@ -3,12 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { api } from "@/lib/api";
 import { SEMESTERS } from "@/lib/programs";
-
-const ROLE_OPTIONS = [
-  { value: "student", label: "Estudiante" },
-  { value: "monitor", label: "Monitor" },
-  { value: "professor", label: "Profesor" },
-];
+import BrandLogo from "@/components/BrandLogo";
+import RoleBadge from "@/components/hub/RoleBadge";
 
 function fieldError(errors, key) {
   return errors[key] ? <span className="field-error" data-testid={`err-${key}`}>{errors[key]}</span> : null;
@@ -17,10 +13,11 @@ function fieldError(errors, key) {
 export default function CompleteProfile({ user, onDone }) {
   const nav = useNavigate();
   const [programs, setPrograms] = useState([]);
+  // El rol lo asigna el backend al verificar el correo (directorio docente / Banner); aquí es de solo lectura.
+  const role = user.role || "student";
   const [form, setForm] = useState({
     name: user.name || "",
     username: user.username || "",
-    role: user.role || "",
     program: user.program || "",
     semester: user.semester || "",
   });
@@ -38,7 +35,7 @@ export default function CompleteProfile({ user, onDone }) {
     return map;
   }, [programs]);
 
-  const needsSemester = form.role === "student";
+  const needsSemester = role === "student";
 
   const set = (k, v) => {
     setForm((f) => ({ ...f, [k]: v }));
@@ -55,7 +52,6 @@ export default function CompleteProfile({ user, onDone }) {
     if (!form.name.trim()) next.name = "El nombre visible no puede quedar vacío.";
     if (!form.username.trim()) next.username = "El nombre de usuario es obligatorio.";
     else if (form.username.trim().length < 3) next.username = "El nombre de usuario debe tener al menos 3 caracteres.";
-    if (!form.role) next.role = "Selecciona un rol: Estudiante, Monitor o Profesor.";
     if (!form.program) next.program = "Selecciona tu programa académico.";
     if (needsSemester && !form.semester) next.semester = "Selecciona tu semestre.";
     return next;
@@ -83,7 +79,7 @@ export default function CompleteProfile({ user, onDone }) {
     }
     setBusy(true);
     try {
-      const payload = { ...form, username: form.username.trim().toLowerCase() };
+      const payload = { ...form, role, username: form.username.trim().toLowerCase() };
       if (payload.semester) payload.semester = parseInt(payload.semester, 10);
       else delete payload.semester;
       const r = await api.patch("/profile/me", payload);
@@ -103,16 +99,20 @@ export default function CompleteProfile({ user, onDone }) {
   return (
     <main className="complete-profile-shell">
       <form className="complete-profile-card" onSubmit={submit} data-testid="complete-profile-form">
-        <div className="brand-mark">
-          UAO <span>Conecta</span>
-        </div>
+        <BrandLogo size="sm" testId="complete-profile-logo" />
         <p className="eyebrow"><Sparkles size={12} /> ÚLTIMO PASO</p>
         <h1>Completa tu perfil</h1>
         <p className="muted">
-          Precargamos algunos datos desde tu cuenta de Google. Confirma el resto para llegar a tu Inicio.
+          Verificamos tu correo contra los sistemas UAO y precargamos tus datos. Confirma el resto para llegar a tu Inicio.
         </p>
 
         {remoteMsg && <div className="error" data-testid="complete-profile-error">{remoteMsg}</div>}
+
+        <div className="field" data-testid="cp-role-readonly">
+          <span>Rol asignado por la institución</span>
+          <RoleBadge user={{ ...user, role }} viewRole={role} testId="cp-role-badge" />
+          <em className="hint">El rol docente se reconoce desde el directorio de la Facultad de Ingeniería; no puede cambiarse manualmente.</em>
+        </div>
 
         <label className="field">
           <span>Nombre visible</span>
@@ -142,24 +142,6 @@ export default function CompleteProfile({ user, onDone }) {
             className={errors.username ? "invalid" : ""}
           />
           {fieldError(errors, "username")}
-        </label>
-
-        <label className="field">
-          <span>Rol</span>
-          <div className="role-row" data-testid="cp-roles">
-            {ROLE_OPTIONS.map((r) => (
-              <button
-                type="button"
-                key={r.value}
-                onClick={() => set("role", r.value)}
-                className={`role-chip ${form.role === r.value ? "active" : ""} ${errors.role ? "invalid" : ""}`}
-                data-testid={`cp-role-${r.value}`}
-              >
-                {r.label}
-              </button>
-            ))}
-          </div>
-          {fieldError(errors, "role")}
         </label>
 
         <label className="field">

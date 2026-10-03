@@ -18,6 +18,7 @@ from app.routers import (
     chat,
     dashboard,
     files,
+    integrations,
     notifications,
     profile,
     questions,
@@ -63,7 +64,7 @@ async def health():
     return {"status": "ok" if database_ok else "degraded", "database": database_ok, "tls": USE_TLS}
 
 
-for module in (auth, dashboard, subjects, profile, questions, advisories, chat, files, ai, notifications):
+for module in (auth, dashboard, subjects, profile, questions, advisories, chat, files, ai, notifications, integrations):
     api.include_router(module.router)
 
 app.include_router(api)

@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import uuid
 
 from app.core.config import db, PROGRAM_NAMES, ROLES, LINK_PLATFORMS, A11Y_TEXT_SIZES, DEFAULT_ACCESSIBILITY
+from app.core.institution import is_professor
 from app.core.security import current_user
 from app.core.storage import put_object
 from app.models.schemas import ProfilePatch, LinkCreate, LinkPatch, AccessibilityPrefs
@@ -41,6 +42,11 @@ async def update_profile(data: ProfilePatch, user=Depends(current_user)):
     if "role" in payload:
         if payload["role"] not in ROLES:
             errors["role"] = "Selecciona un rol: Estudiante, Monitor o Profesor."
+        elif is_professor(user.get("email")):
+            payload["role"] = "professor"
+        elif payload["role"] == "professor":
+            # El rol docente solo se asigna desde el directorio institucional (lista blanca).
+            payload["role"] = "student"
     if "program" in payload:
         if payload["program"] not in PROGRAM_NAMES:
             errors["program"] = "Selecciona tu programa académico."

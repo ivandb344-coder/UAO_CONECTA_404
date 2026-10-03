@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 import uuid, logging
-from app.core.config import db, pwd, DEMO_SUBJECTS
+from app.core.config import db, pwd, DEMO_SUBJECTS, DEFAULT_ACCESSIBILITY
 
 OWNER_FIELDS = {
     "subjects": ["owner_id"], "tasks": ["author_id"], "submissions": ["student_id"], "questions": ["author_id"],
@@ -49,6 +49,25 @@ async def migrate_legacy_users():
         logging.warning("Usuarios heredados migrados a id UUID: %s", migrated)
 
 
+async def seed_hub_accounts():
+    """Cuentas demo del Hub: una docente de la lista blanca y un estudiante institucional."""
+    now = datetime.now(timezone.utc).isoformat()
+    base = {"bio": "", "phone": "", "contact_info": "", "academic_info": "", "picture": None, "rating": 0, "rating_count": 0,
+            "links": [], "profile_completed": True, "preferences": {"accessibility": dict(DEFAULT_ACCESSIBILITY)},
+            "auth_provider": "password", "created_at": now, "last_login": now}
+    accounts = [
+        {"id": "demo-professor-castillo", "name": "Paola Andrea Castillo", "username": "pacastillo", "email": "pacastillo@uao.edu.co",
+         "role": "professor", "program": "Ingeniería Informática", "semester": None, "bio": "Docente de Interacción Humano-Computador · Facultad de Ingeniería."},
+        {"id": "demo-student-hub", "name": "Daniel Rodríguez", "username": "daniel.r", "email": "estudiante.demo@uao.edu.co",
+         "role": "student", "program": "Ingeniería Informática", "semester": 3, "bio": "Estudiante de tercer semestre. Busco grupo para el proyecto integrador."},
+    ]
+    for account in accounts:
+        if await db.users.find_one({"email": account["email"]}, {"_id": 0, "id": 1}):
+            continue
+        await db.users.insert_one({**base, **account, "password": pwd.hash("UAOdemo2026!")})
+        logging.info("Cuenta demo del Hub creada: %s", account["email"])
+
+
 async def seed():
     try:
         await _seed()
@@ -95,6 +114,7 @@ async def _seed():
     if not demo_advisor:
         demo_advisor = {"id": "demo-monitor", "name": "Laura Gómez", "username": "laura.g", "email": "monitor@uao.edu.co", "password": pwd.hash("UAOdemo2026!"), "role": "monitor", "program": "Ingeniería Informática", "semester": None, "bio": "Monitora de Cálculo y Programación.", "rating": 4.9, "rating_count": 32}
         await db.users.insert_one(demo_advisor)
+    await seed_hub_accounts()
     if await db.advisories.count_documents({}) == 0:
         await db.advisories.insert_many([
             {"id": "adv-1", "advisor": demo_advisor["name"], "advisor_id": demo_advisor["id"], "role": "Monitor", "subject": "Cálculo I", "topic": "Derivadas", "date": "Martes", "time": "3:00 p. m. – 3:30 p. m.", "mode": "Virtual", "slots": 4, "place": "", "link": "https://meet.google.com/uao-calculo", "active": True, "created_at": datetime.now(timezone.utc).isoformat()},

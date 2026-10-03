@@ -30,10 +30,12 @@ import Notifications from "@/pages/Notifications";
 import SearchResults from "@/pages/SearchResults";
 import Reviews from "@/pages/Reviews";
 import Settings from "@/pages/Settings";
+import EvidenciasDCU from "@/pages/EvidenciasDCU";
 
 import { ChatUnreadProvider } from "@/lib/chatUnread";
 import { NotificationsProvider } from "@/lib/notifications";
 import { AccessibilityProvider } from "@/lib/accessibility";
+import { ViewModeProvider, useViewMode } from "@/lib/viewMode";
 
 import { clearProtectedFileCache } from "@/services/fileService";
 
@@ -43,6 +45,7 @@ import "@/styles/features.css";
 import "@/styles/profile.css";
 import "@/styles/review.css";
 import "@/styles/accessibility.css";
+import "@/styles/hub.css";
 
 const LOGOUT_MESSAGE =
   "Sesión cerrada correctamente. Muchas gracias, esperamos verte pronto.";
@@ -96,6 +99,7 @@ function getOAuthParams(location) {
    ============================================================ */
 
 function AuthenticatedShell({ user, setUser, onLogout }) {
+  const { viewRole } = useViewMode();
   const onUpdate = (u) => {
     setUser((prev) => ({
       ...prev,
@@ -116,6 +120,7 @@ function AuthenticatedShell({ user, setUser, onLogout }) {
         <Route path="/chat" element={<Chat user={user} />} />
         <Route path="/chat/:room" element={<Chat user={user} />} />
         <Route path="/asistente-ia" element={<AI />} />
+        <Route path="/evidencias-dcu" element={<EvidenciasDCU user={user} />} />
         <Route path="/perfil" element={<Profile me={user} />} />
         <Route
           path="/perfil/editar"
@@ -124,7 +129,7 @@ function AuthenticatedShell({ user, setUser, onLogout }) {
         <Route path="/perfil/:uid" element={<Profile me={user} />} />
         <Route path="/notificaciones" element={<Notifications />} />
         <Route path="/buscar" element={<SearchResults />} />
-        {user.role !== "student" && (
+        {viewRole !== "student" && (
           <Route path="/revisiones" element={<Reviews />} />
         )}
         <Route path="/configuracion" element={<Settings user={user} />} />
@@ -427,7 +432,9 @@ function AppInner() {
     <AccessibilityProvider user={user}>
       <NotificationsProvider enabled={!!user}>
         <ChatUnreadProvider enabled={!!user}>
-          <AuthenticatedShell user={user} setUser={setUser} onLogout={logout} />
+          <ViewModeProvider user={user}>
+            <AuthenticatedShell user={user} setUser={setUser} onLogout={logout} />
+          </ViewModeProvider>
         </ChatUnreadProvider>
       </NotificationsProvider>
     </AccessibilityProvider>
