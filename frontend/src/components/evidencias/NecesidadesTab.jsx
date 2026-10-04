@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { ExternalLink } from "lucide-react";
 import { NEEDS } from "@/lib/evidencias";
+import ZoomableImage from "@/components/evidencias/ZoomableImage";
 
 export default function NecesidadesTab() {
   const nav = useNavigate();
@@ -31,7 +32,12 @@ export default function NecesidadesTab() {
                 </td>
                 <td>
                   <figure className="ev-thumb">
-                    <img src={n.img} alt={`Captura: ${n.label}`} loading="lazy" />
+                    <ZoomableImage
+                      src={n.img}
+                      alt={`Captura: ${n.label}`}
+                      caption={n.label}
+                      buttonTestId={`ev-need-zoom-${n.id}`}
+                    />
                     <figcaption>
                       {n.label}
                       {n.route && <button className="link" onClick={() => nav(n.route)} data-testid={`ev-need-open-${n.id}`}>Ver <ExternalLink size={11} aria-hidden="true" /></button>}

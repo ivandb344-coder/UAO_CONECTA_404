@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { KeyRound, RefreshCw, AlertTriangle } from "lucide-react";
 import { api } from "@/lib/api";
 import IntegrationCard from "@/components/hub/IntegrationCard";
+import EcosystemLayer from "@/components/hub/EcosystemLayer";
 
 const Skeleton = () => (
   <div className="integration-grid" data-testid="integration-loading" aria-busy="true">
@@ -31,6 +32,7 @@ export default function IntegrationLayer({ user }) {
   useEffect(() => { load(); }, [load]);
 
   return (
+    <>
     <section className="integration-layer" aria-labelledby="integration-title" data-testid="integration-layer">
       <div className="section-title">
         <div>
@@ -59,5 +61,7 @@ export default function IntegrationLayer({ user }) {
         </p>
       )}
     </section>
+    {!loading && data?.ecosystem?.length > 0 && <EcosystemLayer ecosystem={data.ecosystem} />}
+    </>
   );
 }

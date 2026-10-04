@@ -1,17 +1,45 @@
-import { useState } from "react";
-import { Bot, Send } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Bot, Send, MessageSquarePlus } from "lucide-react";
 import { API } from "@/lib/api";
 
+const STORAGE_KEY = "uao_chat_history";
+const WELCOME = {
+  from: "ai",
+  text: "Hola, soy el asistente de UAO Conecta. ¿Qué necesitas encontrar hoy?",
+};
+
+function loadHistory() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return [WELCOME];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length ? parsed : [WELCOME];
+  } catch {
+    return [WELCOME];
+  }
+}
+
 export default function AI() {
-  const [messages, setMessages] = useState([
-    {
-      from: "ai",
-      text: "Hola, soy el asistente de UAO Conecta. ¿Qué necesitas encontrar hoy?",
-    },
-  ]);
+  const [messages, setMessages] = useState(loadHistory);
 
   const [value, setValue] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Persiste la conversación durante la sesión del navegador.
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    } catch {
+      /* almacenamiento no disponible: la conversación sigue en memoria */
+    }
+  }, [messages]);
+
+  const resetChat = () => {
+    if (loading) return;
+    sessionStorage.removeItem(STORAGE_KEY);
+    setMessages([WELCOME]);
+    setValue("");
+  };
 
   const ask = async (e) => {
     e.preventDefault();
@@ -132,6 +160,20 @@ export default function AI() {
         className="ai-chat"
         data-testid="ai-chat"
       >
+        <div className="ai-chat-bar">
+          <span className="ai-chat-bar-title">
+            <Bot size={14} aria-hidden="true" /> Conversación
+          </span>
+          <button
+            type="button"
+            className="ai-reset"
+            onClick={resetChat}
+            disabled={loading}
+            data-testid="ai-new-conversation"
+          >
+            <MessageSquarePlus size={15} aria-hidden="true" /> Nueva conversación
+          </button>
+        </div>
         <div className="ai-messages">
           {messages.map((m, i) => (
             <div

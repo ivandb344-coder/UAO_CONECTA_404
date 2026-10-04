@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import ZoomableImage from "@/components/evidencias/ZoomableImage";
 
 /* Carrusel del flujo principal (teclado ← → , puntos y botones con affordance). */
 export default function FlowCarousel({ slides }) {
@@ -25,7 +26,13 @@ export default function FlowCarousel({ slides }) {
       <div className="flow-stage">
         <button className="flow-arrow" onClick={() => go(-1)} aria-label="Anterior" data-testid="flow-prev"><ChevronLeft size={20} /></button>
         <div className="flow-frame">
-          <img src={slide.img} alt={`${slide.title}: ${slide.caption}`} data-testid={`flow-image-${slide.id}`} loading="lazy" />
+          <ZoomableImage
+            src={slide.img}
+            alt={`${slide.title}: ${slide.caption}`}
+            caption={slide.title}
+            imgTestId={`flow-image-${slide.id}`}
+            buttonTestId={`flow-zoom-${slide.id}`}
+          />
         </div>
         <button className="flow-arrow" onClick={() => go(1)} aria-label="Siguiente" data-testid="flow-next"><ChevronRight size={20} /></button>
       </div>

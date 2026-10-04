@@ -329,3 +329,89 @@ aside .brand { padding: 0 6px; }
   .ev-statement h2 { font-size: 22px; }
   .ev-flow-map { padding: 14px; }
 }
+
+/* ===== Imagen ampliable (Lightbox) ===== */
+.zoomable { position: relative; display: block; width: 100%; padding: 0; border: 0; background: transparent; cursor: zoom-in; border-radius: var(--radius-sm); overflow: hidden; }
+.zoomable img { transition: transform .3s ease; }
+.zoomable:hover img, .zoomable:focus-visible img { transform: scale(1.04); }
+.flow-frame .zoomable { width: 100%; height: 100%; }
+.zoom-hint { position: absolute; inset: auto 0 0 0; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 8px; font-size: 11px; font-weight: 600; color: #fff; background: linear-gradient(to top, rgba(30, 41, 59, .88), rgba(30, 41, 59, 0)); opacity: 0; transform: translateY(8px); transition: opacity .2s ease, transform .2s ease; pointer-events: none; }
+.zoomable:hover .zoom-hint, .zoomable:focus-visible .zoom-hint { opacity: 1; transform: none; }
+
+.lightbox-backdrop { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; background: rgba(15, 23, 42, .78); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); animation: fadeIn .18s ease; }
+.lightbox-figure { margin: 0; max-width: min(1100px, 94vw); display: flex; flex-direction: column; gap: 12px; }
+.lightbox-figure img { max-width: 100%; max-height: 82vh; object-fit: contain; border-radius: var(--radius); box-shadow: 0 30px 80px -30px rgba(0, 0, 0, .85); background: #fff; }
+.lightbox-figure figcaption { text-align: center; color: #fff; font-size: 13px; font-weight: 600; }
+.lightbox-close { position: fixed; top: 18px; right: 18px; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .14); color: #fff; border: 1px solid rgba(255, 255, 255, .35); transition: background-color .2s, border-color .2s; }
+.lightbox-close:hover { background: var(--primary); border-color: var(--primary); }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ===== Modal recuperar contraseña + vista previa de correo ===== */
+.fp-backdrop { background: rgba(15, 23, 42, .5); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+.fp-modal { max-width: 460px; }
+.fp-icon { width: 44px; height: 44px; border-radius: var(--radius); background: var(--primary-soft); color: var(--primary); display: grid; place-items: center; margin-bottom: 14px; }
+.fp-modal h2 { font-size: 24px; color: var(--navy); }
+.fp-modal .muted { font-size: 12px; color: var(--muted); line-height: 1.6; margin: 8px 0 18px; }
+.fp-modal label { font-size: 11px; font-weight: 600; color: var(--navy); display: block; }
+.fp-modal input { width: 100%; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px; margin-top: 8px; font-size: 13px; }
+.fp-modal input[aria-invalid="true"] { border-color: var(--primary); background: #fff6f6; }
+.fp-modal .field-error { display: block; color: var(--primary-dark); font-size: 11px; font-weight: 600; margin-top: 8px; }
+.fp-modal .primary.wide { margin-top: 16px; }
+.fp-modal .primary:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; transform: none; }
+.fp-modal .auth-links { margin-top: 14px; display: flex; justify-content: center; }
+.fp-modal .link { color: var(--primary); font-weight: 600; font-size: 12px; display: inline-flex; align-items: center; gap: 5px; background: none; border: 0; }
+.fp-success { display: flex; align-items: center; gap: 8px; color: var(--ok); background: var(--ok-soft); padding: 12px 14px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; margin-bottom: 16px; }
+.email-preview { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.email-head { background: var(--primary); color: #fff; padding: 16px 18px; }
+.email-brand { font-size: 18px; font-weight: 700; letter-spacing: -.5px; }
+.email-brand span { font-weight: 400; opacity: .85; }
+.email-head p { font-size: 11px; opacity: .92; margin-top: 2px; }
+.email-body { padding: 18px; }
+.email-meta { margin: 0 0 14px; display: grid; gap: 8px; }
+.email-meta > div { display: flex; gap: 10px; font-size: 12px; }
+.email-meta dt { color: var(--muted); min-width: 52px; }
+.email-meta dd { margin: 0; color: var(--navy); font-weight: 600; word-break: break-all; }
+.email-text { font-size: 12px; color: var(--navy); line-height: 1.6; }
+.email-token { margin: 14px 0; padding: 12px 14px; border: 1px dashed var(--primary-line); border-radius: var(--radius-sm); background: var(--primary-soft); display: grid; gap: 4px; }
+.email-token small { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+.email-token code { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: var(--primary-dark); letter-spacing: .5px; }
+.email-expire { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); margin-top: 4px; }
+.email-foot { font-size: 11px; color: var(--muted); line-height: 1.5; margin-top: 12px; }
+.fp-sent .primary.wide { margin-top: 18px; }
+
+/* ===== Ecosistema de herramientas ===== */
+.ecosystem-layer { margin-bottom: 38px; }
+.ecosystem-layer .section-title h3 { font-size: 20px; letter-spacing: -.3px; }
+.ecosystem-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.eco-card { position: relative; background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--sys, var(--primary)); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; animation: rise .5s ease both; transition: transform .2s, box-shadow .2s; }
+.eco-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.eco-cat { align-self: flex-start; font-size: 10px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--muted); background: var(--paper); border: 1px solid var(--line); padding: 4px 9px; border-radius: 999px; }
+.eco-head { display: flex; gap: 12px; align-items: flex-start; }
+.eco-mark { width: 40px; height: 40px; flex: none; border-radius: 10px; display: grid; place-items: center; color: #fff; background: var(--sys, var(--navy)); }
+.eco-head b { display: block; font-size: 14px; color: var(--navy); }
+.eco-head small { display: block; font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
+.eco-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; padding-top: 4px; }
+.eco-status { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 600; }
+.eco-status.on { color: var(--ok); }
+.eco-status.on i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
+.eco-status.off { color: var(--muted); }
+.eco-status.off i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); box-shadow: 0 0 0 3px var(--navy-soft); }
+.eco-cta { display: inline-flex; align-items: center; gap: 6px; padding: 9px 13px; border-radius: var(--radius-sm); background: var(--navy); color: #fff; font-size: 11px; font-weight: 600; text-decoration: none; border: 0; cursor: pointer; transition: background-color .2s, transform .15s; }
+.eco-cta:hover { background: var(--primary); transform: translateY(-1px); }
+.eco-cta.connect { background: var(--primary); }
+.eco-cta.connect:hover { background: var(--primary-dark); }
+
+/* ===== Barra del chat IA (nueva conversación) ===== */
+.ai-chat-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--paper); }
+.ai-chat-bar-title { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--navy); }
+.ai-reset { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: var(--primary); background: #fff; border: 1px solid var(--primary-line); border-radius: var(--radius-sm); padding: 7px 11px; cursor: pointer; transition: background-color .2s, color .2s; }
+.ai-reset:hover { background: var(--primary-soft); }
+.ai-reset:disabled { opacity: .5; cursor: not-allowed; }
+
+@media (max-width: 640px) {
+  .ecosystem-grid { grid-template-columns: 1fr; }
+  .lightbox-close { top: 10px; right: 10px; }
+  .lightbox-backdrop { padding: 14px; }
+  .eco-foot { flex-wrap: wrap; }
+}
+

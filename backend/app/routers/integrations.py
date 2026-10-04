@@ -20,6 +20,44 @@ SYSTEMS = {
     "banner": {"name": "Banner", "description": "Registro académico, matrícula y promedio", "url": "https://banner.uao.edu.co", "color": "#1E293B"},
 }
 
+# Ecosistema de herramientas complementarias, agrupadas por categoría (MOCK).
+# status: "synced" (Sincronizado · Abrir) | "available" (Disponible · Conectar)
+ECOSYSTEM = [
+    {
+        "key": "gmail",
+        "name": "Gmail / Google Workspace",
+        "short": "GW",
+        "category": "comunicacion",
+        "category_label": "Comunicación oficial",
+        "description": "Correo institucional @uao.edu.co y tutorías por Google Meet.",
+        "status": "synced",
+        "color": "#EA4335",
+        "cta": {"label": "Abrir", "action": "open", "url": "https://mail.google.com/a/uao.edu.co"},
+    },
+    {
+        "key": "piazza",
+        "name": "Piazza",
+        "short": "PZ",
+        "category": "foros",
+        "category_label": "Foros académicos",
+        "description": "Resolución de dudas, foros Q&A y colaboración con docentes.",
+        "status": "available",
+        "color": "#1E73BE",
+        "cta": {"label": "Conectar", "action": "connect", "url": "https://piazza.com"},
+    },
+    {
+        "key": "whatsapp",
+        "name": "WhatsApp UAO",
+        "short": "WA",
+        "category": "soporte",
+        "category_label": "Soporte & contacto directo",
+        "description": "Atención inmediata, canal de avisos y grupos de estudio.",
+        "status": "synced",
+        "color": "#25D366",
+        "cta": {"label": "Abrir", "action": "open", "url": "https://wa.me/573000000000"},
+    },
+]
+
 
 def _synced_at() -> str:
     return datetime.now(timezone.utc).astimezone(BOGOTA).isoformat()
@@ -94,6 +132,7 @@ async def integrations_summary(user=Depends(current_user)):
         "hub": "Hub de Integración Estudiantil UAO",
         "sso": {"provider": "Cuenta institucional UAO", "email": user.get("email"), "status": "active"},
         "systems": [_build(key, user) for key in ("moodle", "teams", "banner")],
+        "ecosystem": ECOSYSTEM,
     }
 
 

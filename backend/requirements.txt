@@ -21,7 +21,7 @@ jq>=1.6.0
 typer>=0.9.0
 openai>=1.0.0
 itsdangerous
-#emergentintegrations==0.2.1
+emergentintegrations>=0.2.2
 aiosmtplib
 httpx
 certifi>=2024.2.2

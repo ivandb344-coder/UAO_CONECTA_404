@@ -401,3 +401,98 @@
 ##     message: "✅ CIERRE BACKEND VERIFICADO (8/8 checks PASS). Backend arranca con 0 errores (fix backend/.env MONGO_URL). Health ok (database:true). Login docente pacastillo@uao.edu.co → role=professor; estudiante.demo@uao.edu.co → role=student. institutional-check: docente/estudiante correctos y filtro de dominio (gmail → institutional:false). integrations/summary devuelve moodle/teams/banner con contenido específico por rol. Suite pytest legacy: 36 PASS / 45 FAIL por tests desactualizados (/auth/demo eliminado y API antigua) — NO relacionados con el fix. JWT secret ampliado a 42 bytes → advertencia InsecureKeyLength eliminada."
 ##   - agent: "main"
 ##     message: "Build de producción del frontend OK: craco build compiló con 0 errores (solo warnings ESLint exhaustive-deps benignos), 'The build folder is ready to be deployed', main.js ~141 kB gzip. Backend arranca con 0 errores y 0 warnings tras ampliar JWT_SECRET. Guion de sustentación entregado en docs/07_guion_sustentacion.md. Proyecto listo para sustentación."
+##
+##====================================================================================================
+## ITERACIÓN: 5 features nuevas (Lightbox, reset modal, IA key+mock, chat persistente, ecosistema) — 2026-10-04
+##====================================================================================================
+## user_problem_statement: "Implementar 5 tareas: 1) Lightbox en Evidencias DCU, 2) flujo de reset de contraseña en modal con vista previa de correo, 3) EMERGENT_LLM_KEY + fallback Mock AI, 4) persistencia del chat IA en sessionStorage + nueva conversación, 5) tarjetas Gmail/Piazza/WhatsApp por categoría en la capa de integración."
+## backend:
+##   - task: "Asistente IA: EMERGENT_LLM_KEY (emergentintegrations) + fallback Mock AI"
+##     implemented: true
+##     working: true
+##     file: "backend/app/routers/ai.py, backend/.env, backend/requirements.txt"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: false
+##     status_history:
+##       - working: true
+##         agent: "main"
+##         comment: "Reescrito /api/ai: usa emergentintegrations LlmChat (openai gpt-5.4) con EMERGENT_LLM_KEY (lee EMERGENT_LLM_KEY u OPENAI_API_KEY). Ante CUALQUIER fallo o falta de clave cae a _mock_answer (respuestas académicas UAO por palabras clave: asesorías, horarios, notas, matrícula, moodle, teams, dudas, acceso, saludo). SIEMPRE responde 200 PlainTextResponse; solo 400 si el mensaje está vacío. Verificado manualmente: responde con LLM real (la key funciona) y el mock cubre el fallback."
+##       - working: true
+##         agent: "testing"
+##         comment: "✅ VERIFICADO: POST /api/ai funciona perfectamente. Probados 6 mensajes distintos ('¿Dónde encuentro asesorías de Cálculo?', '¿Cuál es mi horario?', '¿cómo veo mis notas?', 'hola', '¿Qué es UAO Conecta?', 'ayuda con matrícula') → todos 200 OK con texto no vacío (228-509 chars), Content-Type: text/plain; charset=utf-8 ✓. LLM real (EMERGENT_LLM_KEY) respondiendo correctamente con respuestas coherentes en español ✓. Mensaje vacío → 400 con detalle 'Escribe un mensaje para el asistente.' ✓. Sin Authorization → 401 (no autenticado) ✓. NUNCA devolvió 500 (robustez del fallback verificada) ✓. Fallback Mock AI implementado correctamente en código (captura Exception y llama _mock_answer) aunque no fue necesario activarlo en las pruebas porque el LLM real funciona ✓."
+##   - task: "Capa de integración: ecosistema Gmail/Piazza/WhatsApp por categoría"
+##     implemented: true
+##     working: true
+##     file: "backend/app/routers/integrations.py"
+##     stuck_count: 0
+##     priority: "medium"
+##     needs_retesting: false
+##     status_history:
+##       - working: true
+##         agent: "main"
+##         comment: "GET /api/integrations/summary ahora incluye 'ecosystem' con 3 herramientas: gmail (Comunicación oficial, synced), piazza (Foros académicos, available), whatsapp (Soporte & contacto directo, synced). Cada una con key, name, category, category_label, description, status, color y cta{label,action,url}. 'systems' (moodle/teams/banner) intacto."
+##       - working: true
+##         agent: "testing"
+##         comment: "✅ VERIFICADO: GET /api/integrations/summary funciona perfectamente para ambos roles (estudiante y profesor). 'systems' contiene exactamente ['moodle', 'teams', 'banner'] ✓. 'ecosystem' contiene exactamente 3 items ['gmail', 'piazza', 'whatsapp'] ✓. Cada item del ecosystem tiene todos los campos requeridos (key, category_label, status, description, cta) ✓. category_label verificados: gmail='Comunicación oficial', piazza='Foros académicos', whatsapp='Soporte & contacto directo' ✓. Cada cta tiene label, action, url correctos ✓. Status: gmail=synced, piazza=available, whatsapp=synced ✓. Funciona igual para estudiante y profesor ✓."
+## frontend:
+##   - task: "Lightbox (ampliar imagen) en Evidencias DCU"
+##     implemented: true
+##     working: true
+##     file: "frontend/src/components/evidencias/Lightbox.jsx, ZoomableImage.jsx, NecesidadesTab.jsx, FlowCarousel.jsx"
+##     stuck_count: 0
+##     priority: "medium"
+##     needs_retesting: false
+##     status_history:
+##       - working: true
+##         agent: "main"
+##         comment: "Clic en cualquier captura abre Lightbox a pantalla completa (fondo oscuro translúcido + backdrop-blur), botón X, clic fuera y Esc para cerrar, hint 'Clic para ampliar' al hover. El enlace 'Ver' de la tabla se conserva y sigue navegando sin abrir el modal. Verificado con Playwright (t1_* todos PASS)."
+##   - task: "Reset de contraseña en modal con vista previa de correo"
+##     implemented: true
+##     working: true
+##     file: "frontend/src/components/auth/ForgotPasswordModal.jsx, frontend/src/pages/Login.jsx"
+##     stuck_count: 0
+##     priority: "medium"
+##     needs_retesting: false
+##     status_history:
+##       - working: true
+##         agent: "main"
+##         comment: "'¿Olvidaste tu contraseña?' abre modal con validación en tiempo real @uao.edu.co (error rojo + submit deshabilitado). 'Enviar enlace' muestra vista previa del correo (encabezado UAO #A81B1E, destinatario, asunto, token UAO-2026-RESTORE-SECURE, expiración 15 min) y botón volver. Ruta /recuperar-contrasena intacta. Verificado con Playwright (t2_* PASS)."
+##   - task: "Persistencia del chat IA (sessionStorage) + nueva conversación"
+##     implemented: true
+##     working: true
+##     file: "frontend/src/pages/AI.jsx"
+##     stuck_count: 0
+##     priority: "medium"
+##     needs_retesting: false
+##     status_history:
+##       - working: true
+##         agent: "main"
+##         comment: "El chat guarda/lee messages en sessionStorage['uao_chat_history']; al navegar fuera y volver se restaura. Botón 'Nueva conversación' limpia el historial. Verificado con Playwright (t4_* PASS)."
+##   - task: "Tarjetas de ecosistema (Gmail/Piazza/WhatsApp) en el dashboard"
+##     implemented: true
+##     working: true
+##     file: "frontend/src/components/hub/EcosystemLayer.jsx, IntegrationLayer.jsx"
+##     stuck_count: 0
+##     priority: "medium"
+##     needs_retesting: false
+##     status_history:
+##       - working: true
+##         agent: "main"
+##         comment: "Sección 'Ecosistema de herramientas' bajo la capa de integración con 3 tarjetas por categoría (ícono, etiqueta, descripción, estado Sincronizado/Disponible, botón Abrir↗/Conectar). 'Conectar' alterna a 'Sincronizado'. Responsive 360px sin overflow. Verificado con Playwright (t5_* PASS)."
+## metadata:
+##   created_by: "main_agent"
+##   version: "1.0"
+##   test_sequence: 10
+##   run_ui: false
+## test_plan:
+##   current_focus: []
+##   stuck_tasks: []
+##   test_all: false
+##   test_priority: "high_first"
+## agent_communication:
+##   - agent: "main"
+##     message: "Probar SOLO backend: 1) POST /api/ai con token válido devuelve 200 texto no vacío para distintos mensajes (asesorías, horarios, notas, saludo) — debe responder SIEMPRE, nunca 500. 2) POST /api/ai con mensaje vacío → 400. 3) POST /api/ai sin token → 401/403. 4) GET /api/integrations/summary incluye 'ecosystem' con gmail/piazza/whatsapp y sus category_label; 'systems' (moodle/teams/banner) sigue intacto por rol. Credenciales en /app/memory/test_credentials.md (estudiante.demo@uao.edu.co / UAOdemo2026!). NO probar frontend aún."
+##   - agent: "testing"
+##     message: "✅ BACKEND TESTING COMPLETADO - ITERACIÓN 9. Todos los tests pasaron (3/3 PASS). 1) POST /api/ai: 6 mensajes distintos → todos 200 OK con texto no vacío (228-509 chars), Content-Type correcto, LLM real respondiendo en español, mensaje vacío → 400 con detalle correcto, sin auth → 401, NUNCA devolvió 500 (robustez verificada). 2) GET /api/integrations/summary (estudiante): 'systems' con moodle/teams/banner ✓, 'ecosystem' con 3 items (gmail/piazza/whatsapp) ✓, todos los campos requeridos presentes ✓, category_label correctos ✓. 3) GET /api/integrations/summary (profesor): misma estructura y campos correctos ✓. Backend 100% funcional para las 2 features nuevas. NO se probó frontend (según instrucciones)."
+

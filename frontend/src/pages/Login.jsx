@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { api, API } from "@/lib/api";
 import { formatApiError } from "@/lib/errors";
@@ -8,6 +7,7 @@ import AuthVisual from "@/components/auth/AuthVisual";
 import RegisterFields from "@/components/auth/RegisterFields";
 import InstitutionalBadge, { useInstitutionalCheck } from "@/components/auth/InstitutionalBadge";
 import SyncOverlay, { SYNC_DURATION } from "@/components/auth/SyncOverlay";
+import ForgotPasswordModal from "@/components/auth/ForgotPasswordModal";
 
 // Google (Emergent Auth) a través del backend: GET /api/auth/google/login?redirect=<URL actual>.
 // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
@@ -27,6 +27,7 @@ export default function Login({ onLogin, initialError = "", initialNotice = "" }
   const [notice, setNotice] = useState(initialNotice);
   const [busy, setBusy] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
   const { identity, check } = useInstitutionalCheck(form.email);
 
   const isProfessor = identity.status === "ok" && identity.role === "professor";
@@ -135,9 +136,9 @@ export default function Login({ onLogin, initialError = "", initialNotice = "" }
           </button>
 
           <div className="auth-links">
-            <Link to="/recuperar-contrasena" className="link" data-testid="forgot-password-button" onClick={(e) => busy && e.preventDefault()}>
+            <button type="button" className="link" data-testid="forgot-password-button" onClick={() => !busy && setForgotOpen(true)} disabled={busy}>
               ¿Olvidaste tu contraseña?
-            </Link>
+            </button>
             <button type="button" className="link" data-testid="toggle-auth-mode" onClick={switchMode} disabled={busy}>
               {mode === "register" ? "Ya tengo cuenta" : "Crear una cuenta"}
             </button>
@@ -146,6 +147,7 @@ export default function Login({ onLogin, initialError = "", initialNotice = "" }
         </form>
       </div>
       <SyncOverlay active={syncing} name={form.name.split(" ")[0]} />
+      <ForgotPasswordModal open={forgotOpen} onClose={() => setForgotOpen(false)} />
     </main>
   );
 }

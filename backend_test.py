@@ -1,364 +1,310 @@
-#!/usr/bin/env python3
 """
-Batería rápida de regresión para UAO Conecta 404 (Hub de Integración Estudiantil)
-Verifica el fix de arranque del backend y funcionalidad core.
-
-Base URL: http://localhost:8001/api
-Credenciales: /app/memory/test_credentials.md
+Backend Testing Suite - Iteración 9: 5 features nuevas
+Prueba SOLO los cambios de backend recién implementados:
+1. POST /api/ai con EMERGENT_LLM_KEY + fallback Mock AI (NUNCA 500)
+2. GET /api/integrations/summary con ecosystem (gmail/piazza/whatsapp)
 """
 import requests
-import sys
+import json
 
-BASE_URL = "http://localhost:8001/api"
+BASE_URL = "http://localhost:8001"
+API_BASE = f"{BASE_URL}/api"
+
+# Credenciales de test_credentials.md
+STUDENT_EMAIL = "estudiante.demo@uao.edu.co"
+PROFESSOR_EMAIL = "pacastillo@uao.edu.co"
 PASSWORD = "UAOdemo2026!"
 
-# Colores para output
-GREEN = "\033[92m"
-RED = "\033[91m"
-YELLOW = "\033[93m"
-RESET = "\033[0m"
+class Colors:
+    GREEN = '\033[92m'
+    RED = '\033[91m'
+    YELLOW = '\033[93m'
+    BLUE = '\033[94m'
+    RESET = '\033[0m'
 
 def log_pass(msg):
-    print(f"{GREEN}✓ PASS{RESET}: {msg}")
+    print(f"{Colors.GREEN}✓ PASS{Colors.RESET}: {msg}")
 
 def log_fail(msg):
-    print(f"{RED}✗ FAIL{RESET}: {msg}")
+    print(f"{Colors.RED}✗ FAIL{Colors.RESET}: {msg}")
 
 def log_info(msg):
-    print(f"{YELLOW}ℹ INFO{RESET}: {msg}")
+    print(f"{Colors.BLUE}ℹ INFO{Colors.RESET}: {msg}")
 
-class TestResults:
-    def __init__(self):
-        self.passed = 0
-        self.failed = 0
-        self.failures = []
-    
-    def add_pass(self, msg):
-        self.passed += 1
-        log_pass(msg)
-    
-    def add_fail(self, msg):
-        self.failed += 1
-        self.failures.append(msg)
-        log_fail(msg)
-    
-    def summary(self):
-        total = self.passed + self.failed
-        print(f"\n{'='*70}")
-        print(f"RESUMEN: {self.passed}/{total} pruebas pasaron")
-        if self.failures:
-            print(f"\nFALLOS ({len(self.failures)}):")
-            for i, failure in enumerate(self.failures, 1):
-                print(f"  {i}. {failure}")
-        print(f"{'='*70}\n")
-        return self.failed == 0
+def log_section(msg):
+    print(f"\n{Colors.YELLOW}{'='*80}{Colors.RESET}")
+    print(f"{Colors.YELLOW}{msg}{Colors.RESET}")
+    print(f"{Colors.YELLOW}{'='*80}{Colors.RESET}\n")
 
-results = TestResults()
-
-def test_health():
-    """1. GET /api/health → 200 con {"status":"ok","database":true}"""
-    log_info("Test 1: GET /api/health")
-    try:
-        resp = requests.get(f"{BASE_URL}/health", timeout=10)
-        if resp.status_code != 200:
-            results.add_fail(f"Health endpoint retornó {resp.status_code}, esperado 200")
-            return
-        
-        data = resp.json()
-        if data.get("status") != "ok":
-            results.add_fail(f"Health status es '{data.get('status')}', esperado 'ok'")
-            return
-        
-        if data.get("database") is not True:
-            results.add_fail(f"Health database es {data.get('database')}, esperado true")
-            return
-        
-        results.add_pass("Health endpoint OK: status=ok, database=true")
-    except Exception as e:
-        results.add_fail(f"Health endpoint error: {e}")
-
-def test_login_professor():
-    """2. POST /api/auth/login con pacastillo@uao.edu.co → 200, role="professor", name="Paola Andrea Castillo"""
-    log_info("Test 2: POST /api/auth/login (docente)")
-    try:
-        resp = requests.post(
-            f"{BASE_URL}/auth/login",
-            json={"email": "pacastillo@uao.edu.co", "password": PASSWORD},
-            timeout=10
-        )
-        if resp.status_code != 200:
-            results.add_fail(f"Login docente retornó {resp.status_code}, esperado 200. Response: {resp.text}")
-            return None
-        
-        data = resp.json()
+def login(email, password):
+    """Login y retorna token Bearer"""
+    response = requests.post(
+        f"{API_BASE}/auth/login",
+        json={"email": email, "password": password}
+    )
+    if response.status_code == 200:
+        data = response.json()
         token = data.get("token")
         user = data.get("user", {})
-        
-        if not token:
-            results.add_fail("Login docente no retornó token")
-            return None
-        
-        if user.get("role") != "professor":
-            results.add_fail(f"Login docente role es '{user.get('role')}', esperado 'professor'")
-            return None
-        
-        if user.get("name") != "Paola Andrea Castillo":
-            results.add_fail(f"Login docente name es '{user.get('name')}', esperado 'Paola Andrea Castillo'")
-            return None
-        
-        results.add_pass(f"Login docente OK: role=professor, name={user.get('name')}")
+        log_pass(f"Login exitoso: {email} (role={user.get('role')})")
         return token
-    except Exception as e:
-        results.add_fail(f"Login docente error: {e}")
+    else:
+        log_fail(f"Login falló: {response.status_code} - {response.text}")
         return None
 
-def test_login_student():
-    """3. POST /api/auth/login con estudiante.demo@uao.edu.co → 200, role="student"""
-    log_info("Test 3: POST /api/auth/login (estudiante)")
-    try:
-        resp = requests.post(
-            f"{BASE_URL}/auth/login",
-            json={"email": "estudiante.demo@uao.edu.co", "password": PASSWORD},
-            timeout=10
-        )
-        if resp.status_code != 200:
-            results.add_fail(f"Login estudiante retornó {resp.status_code}, esperado 200. Response: {resp.text}")
-            return None
-        
-        data = resp.json()
-        token = data.get("token")
-        user = data.get("user", {})
-        
-        if not token:
-            results.add_fail("Login estudiante no retornó token")
-            return None
-        
-        if user.get("role") != "student":
-            results.add_fail(f"Login estudiante role es '{user.get('role')}', esperado 'student'")
-            return None
-        
-        results.add_pass(f"Login estudiante OK: role=student, name={user.get('name')}")
-        return token
-    except Exception as e:
-        results.add_fail(f"Login estudiante error: {e}")
-        return None
-
-def test_institutional_check_professor():
-    """4. GET /api/auth/institutional-check?email=pacastillo@uao.edu.co → institutional:true, role:"professor"""
-    log_info("Test 4: GET /api/auth/institutional-check (docente)")
-    try:
-        resp = requests.get(
-            f"{BASE_URL}/auth/institutional-check",
-            params={"email": "pacastillo@uao.edu.co"},
-            timeout=10
-        )
-        if resp.status_code != 200:
-            results.add_fail(f"Institutional check docente retornó {resp.status_code}, esperado 200")
-            return
-        
-        data = resp.json()
-        if data.get("institutional") is not True:
-            results.add_fail(f"Institutional check docente institutional={data.get('institutional')}, esperado true")
-            return
-        
-        if data.get("role") != "professor":
-            results.add_fail(f"Institutional check docente role='{data.get('role')}', esperado 'professor'")
-            return
-        
-        verified_by = data.get("verified_by", "")
-        if "directorio" not in verified_by.lower() and "docente" not in verified_by.lower():
-            results.add_fail(f"Institutional check docente verified_by no menciona directorio docente: '{verified_by}'")
-            return
-        
-        results.add_pass(f"Institutional check docente OK: institutional=true, role=professor, verified_by menciona directorio")
-    except Exception as e:
-        results.add_fail(f"Institutional check docente error: {e}")
-
-def test_institutional_check_student():
-    """5. GET /api/auth/institutional-check?email=estudiante.demo@uao.edu.co → role:"student"""
-    log_info("Test 5: GET /api/auth/institutional-check (estudiante)")
-    try:
-        resp = requests.get(
-            f"{BASE_URL}/auth/institutional-check",
-            params={"email": "estudiante.demo@uao.edu.co"},
-            timeout=10
-        )
-        if resp.status_code != 200:
-            results.add_fail(f"Institutional check estudiante retornó {resp.status_code}, esperado 200")
-            return
-        
-        data = resp.json()
-        if data.get("institutional") is not True:
-            results.add_fail(f"Institutional check estudiante institutional={data.get('institutional')}, esperado true")
-            return
-        
-        if data.get("role") != "student":
-            results.add_fail(f"Institutional check estudiante role='{data.get('role')}', esperado 'student'")
-            return
-        
-        results.add_pass(f"Institutional check estudiante OK: institutional=true, role=student")
-    except Exception as e:
-        results.add_fail(f"Institutional check estudiante error: {e}")
-
-def test_institutional_check_external():
-    """6. GET /api/auth/institutional-check?email=x@gmail.com → institutional:false (filtro de dominio)"""
-    log_info("Test 6: GET /api/auth/institutional-check (correo externo)")
-    try:
-        resp = requests.get(
-            f"{BASE_URL}/auth/institutional-check",
-            params={"email": "x@gmail.com"},
-            timeout=10
-        )
-        if resp.status_code != 200:
-            results.add_fail(f"Institutional check externo retornó {resp.status_code}, esperado 200")
-            return
-        
-        data = resp.json()
-        if data.get("institutional") is not False:
-            results.add_fail(f"Institutional check externo institutional={data.get('institutional')}, esperado false")
-            return
-        
-        results.add_pass(f"Institutional check externo OK: institutional=false (filtro de dominio)")
-    except Exception as e:
-        results.add_fail(f"Institutional check externo error: {e}")
-
-def test_integrations_summary_professor(token):
-    """7a. GET /api/integrations/summary con Bearer token docente → 200, mock:true, systems contiene moodle/teams/banner, contenido docente"""
-    log_info("Test 7a: GET /api/integrations/summary (docente)")
-    if not token:
-        results.add_fail("Integrations summary docente: no hay token disponible")
-        return
+def test_ai_endpoint(token):
+    """
+    Prueba POST /api/ai:
+    - Con varios mensajes distintos → 200 con texto no vacío
+    - Con mensaje vacío → 400
+    - Sin Authorization → 401/403
+    - NUNCA debe devolver 500 (robustez del fallback)
+    """
+    log_section("TEST 1: POST /api/ai - Asistente IA con fallback Mock AI")
     
-    try:
-        resp = requests.get(
-            f"{BASE_URL}/integrations/summary",
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=10
-        )
-        if resp.status_code != 200:
-            results.add_fail(f"Integrations summary docente retornó {resp.status_code}, esperado 200. Response: {resp.text}")
-            return
-        
-        data = resp.json()
-        if data.get("mock") is not True:
-            results.add_fail(f"Integrations summary docente mock={data.get('mock')}, esperado true")
-            return
-        
-        systems = data.get("systems", [])
-        system_keys = [s.get("key") for s in systems]
-        
-        if "moodle" not in system_keys:
-            results.add_fail("Integrations summary docente: falta sistema 'moodle'")
-            return
-        if "teams" not in system_keys:
-            results.add_fail("Integrations summary docente: falta sistema 'teams'")
-            return
-        if "banner" not in system_keys:
-            results.add_fail("Integrations summary docente: falta sistema 'banner'")
-            return
-        
-        # Verificar contenido específico de docente
-        moodle = next((s for s in systems if s.get("key") == "moodle"), {})
-        moodle_items = moodle.get("items", [])
-        moodle_labels = [item.get("label", "").lower() for item in moodle_items]
-        
-        has_entregas = any("entreg" in label and "calificar" in label for label in moodle_labels)
-        if not has_entregas:
-            results.add_fail("Integrations summary docente: Moodle no contiene 'Entregas por calificar'")
-            return
-        
-        banner = next((s for s in systems if s.get("key") == "banner"), {})
-        banner_items = banner.get("items", [])
-        banner_labels = [item.get("label", "").lower() for item in banner_items]
-        
-        has_cursos = any("curso" in label and "asignado" in label for label in banner_labels)
-        if not has_cursos:
-            results.add_fail("Integrations summary docente: Banner no contiene 'Cursos asignados'")
-            return
-        
-        results.add_pass("Integrations summary docente OK: mock=true, systems=[moodle,teams,banner], contenido docente verificado")
-    except Exception as e:
-        results.add_fail(f"Integrations summary docente error: {e}")
-
-def test_integrations_summary_student(token):
-    """7b. GET /api/integrations/summary con Bearer token estudiante → 200, mock:true, systems contiene moodle/teams/banner, contenido estudiante"""
-    log_info("Test 7b: GET /api/integrations/summary (estudiante)")
-    if not token:
-        results.add_fail("Integrations summary estudiante: no hay token disponible")
-        return
+    headers = {"Authorization": f"Bearer {token}"}
     
-    try:
-        resp = requests.get(
-            f"{BASE_URL}/integrations/summary",
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=10
+    # Mensajes de prueba (variados para cubrir diferentes keywords del mock)
+    test_messages = [
+        "¿Dónde encuentro asesorías de Cálculo?",
+        "¿Cuál es mi horario?",
+        "¿cómo veo mis notas?",
+        "hola",
+        "¿Qué es UAO Conecta?",
+        "ayuda con matrícula",
+    ]
+    
+    all_passed = True
+    
+    for i, message in enumerate(test_messages, 1):
+        log_info(f"Mensaje {i}: '{message}'")
+        response = requests.post(
+            f"{API_BASE}/ai",
+            headers=headers,
+            json={"message": message}
         )
-        if resp.status_code != 200:
-            results.add_fail(f"Integrations summary estudiante retornó {resp.status_code}, esperado 200. Response: {resp.text}")
-            return
         
-        data = resp.json()
-        if data.get("mock") is not True:
-            results.add_fail(f"Integrations summary estudiante mock={data.get('mock')}, esperado true")
-            return
+        if response.status_code == 200:
+            content = response.text
+            content_type = response.headers.get("Content-Type", "")
+            
+            if content and len(content.strip()) > 0:
+                log_pass(f"  → 200 OK, texto no vacío ({len(content)} chars), Content-Type: {content_type}")
+                log_info(f"  → Respuesta: {content[:100]}...")
+            else:
+                log_fail(f"  → 200 pero respuesta vacía")
+                all_passed = False
+        elif response.status_code == 500:
+            log_fail(f"  → CRÍTICO: 500 Internal Server Error (debe usar fallback Mock AI)")
+            log_fail(f"  → Response: {response.text}")
+            all_passed = False
+        else:
+            log_fail(f"  → {response.status_code}: {response.text}")
+            all_passed = False
+    
+    # Test: mensaje vacío → 400
+    log_info("Test: mensaje vacío")
+    response = requests.post(
+        f"{API_BASE}/ai",
+        headers=headers,
+        json={"message": ""}
+    )
+    if response.status_code == 400:
+        detail = response.json().get("detail", "")
+        if "mensaje" in detail.lower():
+            log_pass(f"  → 400 con detalle correcto: '{detail}'")
+        else:
+            log_fail(f"  → 400 pero detalle inesperado: '{detail}'")
+            all_passed = False
+    else:
+        log_fail(f"  → Esperaba 400, obtuvo {response.status_code}")
+        all_passed = False
+    
+    # Test: sin Authorization → 401/403
+    log_info("Test: sin Authorization")
+    response = requests.post(
+        f"{API_BASE}/ai",
+        json={"message": "test"}
+    )
+    if response.status_code in [401, 403]:
+        log_pass(f"  → {response.status_code} (no autenticado)")
+    else:
+        log_fail(f"  → Esperaba 401/403, obtuvo {response.status_code}")
+        all_passed = False
+    
+    return all_passed
+
+def test_integrations_summary(token, role_name):
+    """
+    Prueba GET /api/integrations/summary:
+    - Debe incluir "ecosystem" con exactamente 3 items (gmail, piazza, whatsapp)
+    - Cada item debe tener: key, category_label, status, description, cta
+    - Debe incluir "systems" con moodle, teams, banner
+    """
+    log_section(f"TEST 2: GET /api/integrations/summary ({role_name})")
+    
+    headers = {"Authorization": f"Bearer {token}"}
+    response = requests.get(f"{API_BASE}/integrations/summary", headers=headers)
+    
+    if response.status_code != 200:
+        log_fail(f"Status code: {response.status_code}")
+        return False
+    
+    data = response.json()
+    all_passed = True
+    
+    # Verificar "systems"
+    systems = data.get("systems", [])
+    system_keys = [s.get("key") for s in systems]
+    
+    log_info(f"Systems encontrados: {system_keys}")
+    
+    expected_systems = ["moodle", "teams", "banner"]
+    if set(system_keys) == set(expected_systems):
+        log_pass(f"  → 'systems' contiene {expected_systems}")
+    else:
+        log_fail(f"  → 'systems' esperaba {expected_systems}, obtuvo {system_keys}")
+        all_passed = False
+    
+    # Verificar "ecosystem"
+    ecosystem = data.get("ecosystem", [])
+    
+    if not ecosystem:
+        log_fail("  → 'ecosystem' no existe o está vacío")
+        return False
+    
+    log_info(f"Ecosystem encontrado con {len(ecosystem)} items")
+    
+    if len(ecosystem) != 3:
+        log_fail(f"  → 'ecosystem' debe tener exactamente 3 items, tiene {len(ecosystem)}")
+        all_passed = False
+    
+    ecosystem_keys = [e.get("key") for e in ecosystem]
+    expected_keys = ["gmail", "piazza", "whatsapp"]
+    
+    if set(ecosystem_keys) == set(expected_keys):
+        log_pass(f"  → 'ecosystem' contiene {expected_keys}")
+    else:
+        log_fail(f"  → 'ecosystem' esperaba {expected_keys}, obtuvo {ecosystem_keys}")
+        all_passed = False
+    
+    # Verificar estructura de cada item del ecosystem
+    required_fields = ["key", "category_label", "status", "description", "cta"]
+    
+    for item in ecosystem:
+        key = item.get("key")
+        log_info(f"Verificando item '{key}'")
         
-        systems = data.get("systems", [])
-        system_keys = [s.get("key") for s in systems]
-        
-        if "moodle" not in system_keys:
-            results.add_fail("Integrations summary estudiante: falta sistema 'moodle'")
-            return
-        if "teams" not in system_keys:
-            results.add_fail("Integrations summary estudiante: falta sistema 'teams'")
-            return
-        if "banner" not in system_keys:
-            results.add_fail("Integrations summary estudiante: falta sistema 'banner'")
-            return
-        
-        # Verificar contenido específico de estudiante
-        banner = next((s for s in systems if s.get("key") == "banner"), {})
-        banner_items = banner.get("items", [])
-        banner_labels = [item.get("label", "").lower() for item in banner_items]
-        
-        has_promedio = any("promedio" in label and "acumulado" in label for label in banner_labels)
-        if not has_promedio:
-            results.add_fail("Integrations summary estudiante: Banner no contiene 'Promedio acumulado'")
-            return
-        
-        has_matricula = any("estado" in label and "matr" in label for label in banner_labels)
-        if not has_matricula:
-            results.add_fail("Integrations summary estudiante: Banner no contiene 'Estado de matrícula'")
-            return
-        
-        results.add_pass("Integrations summary estudiante OK: mock=true, systems=[moodle,teams,banner], contenido estudiante verificado")
-    except Exception as e:
-        results.add_fail(f"Integrations summary estudiante error: {e}")
+        missing_fields = [f for f in required_fields if f not in item]
+        if missing_fields:
+            log_fail(f"  → '{key}' falta campos: {missing_fields}")
+            all_passed = False
+        else:
+            log_pass(f"  → '{key}' tiene todos los campos requeridos")
+            
+            # Verificar valores específicos
+            category_label = item.get("category_label", "")
+            status = item.get("status", "")
+            cta = item.get("cta", {})
+            
+            log_info(f"    - category_label: '{category_label}'")
+            log_info(f"    - status: '{status}'")
+            log_info(f"    - cta: {cta}")
+            
+            # Verificar que cta tenga label, action, url
+            if not all(k in cta for k in ["label", "action", "url"]):
+                log_fail(f"  → '{key}' cta incompleto: {cta}")
+                all_passed = False
+    
+    # Verificar category_label específicos
+    expected_categories = {
+        "gmail": "Comunicación oficial",
+        "piazza": "Foros académicos",
+        "whatsapp": "Soporte & contacto directo"
+    }
+    
+    for item in ecosystem:
+        key = item.get("key")
+        if key in expected_categories:
+            expected = expected_categories[key]
+            actual = item.get("category_label", "")
+            if actual == expected:
+                log_pass(f"  → '{key}' category_label correcto: '{actual}'")
+            else:
+                log_fail(f"  → '{key}' category_label esperaba '{expected}', obtuvo '{actual}'")
+                all_passed = False
+    
+    return all_passed
 
 def main():
-    print("\n" + "="*70)
-    print("BATERÍA DE REGRESIÓN: UAO Conecta 404 - Fix de arranque backend")
-    print("="*70 + "\n")
+    print(f"\n{Colors.BLUE}{'='*80}{Colors.RESET}")
+    print(f"{Colors.BLUE}Backend Testing Suite - Iteración 9: 5 features nuevas{Colors.RESET}")
+    print(f"{Colors.BLUE}Base URL: {BASE_URL}{Colors.RESET}")
+    print(f"{Colors.BLUE}{'='*80}{Colors.RESET}\n")
     
-    # Test 1: Health
-    test_health()
+    results = {
+        "total": 0,
+        "passed": 0,
+        "failed": 0
+    }
     
-    # Test 2-3: Login
-    professor_token = test_login_professor()
-    student_token = test_login_student()
+    # Login como estudiante
+    log_section("SETUP: Login como estudiante")
+    student_token = login(STUDENT_EMAIL, PASSWORD)
     
-    # Test 4-6: Institutional check
-    test_institutional_check_professor()
-    test_institutional_check_student()
-    test_institutional_check_external()
+    if not student_token:
+        log_fail("No se pudo obtener token de estudiante, abortando tests")
+        return
     
-    # Test 7: Integrations summary
-    test_integrations_summary_professor(professor_token)
-    test_integrations_summary_student(student_token)
+    # Login como profesor
+    log_section("SETUP: Login como profesor")
+    professor_token = login(PROFESSOR_EMAIL, PASSWORD)
     
-    # Summary
-    success = results.summary()
+    if not professor_token:
+        log_fail("No se pudo obtener token de profesor, abortando tests")
+        return
     
-    return 0 if success else 1
+    # Test 1: POST /api/ai (con token de estudiante)
+    results["total"] += 1
+    if test_ai_endpoint(student_token):
+        results["passed"] += 1
+        log_pass("TEST 1 COMPLETADO: POST /api/ai funciona correctamente")
+    else:
+        results["failed"] += 1
+        log_fail("TEST 1 FALLÓ: POST /api/ai tiene problemas")
+    
+    # Test 2: GET /api/integrations/summary (estudiante)
+    results["total"] += 1
+    if test_integrations_summary(student_token, "estudiante"):
+        results["passed"] += 1
+        log_pass("TEST 2 COMPLETADO: GET /api/integrations/summary (estudiante) funciona")
+    else:
+        results["failed"] += 1
+        log_fail("TEST 2 FALLÓ: GET /api/integrations/summary (estudiante) tiene problemas")
+    
+    # Test 3: GET /api/integrations/summary (profesor)
+    results["total"] += 1
+    if test_integrations_summary(professor_token, "profesor"):
+        results["passed"] += 1
+        log_pass("TEST 3 COMPLETADO: GET /api/integrations/summary (profesor) funciona")
+    else:
+        results["failed"] += 1
+        log_fail("TEST 3 FALLÓ: GET /api/integrations/summary (profesor) tiene problemas")
+    
+    # Resumen final
+    log_section("RESUMEN FINAL")
+    print(f"Total tests: {results['total']}")
+    print(f"{Colors.GREEN}Passed: {results['passed']}{Colors.RESET}")
+    print(f"{Colors.RED}Failed: {results['failed']}{Colors.RESET}")
+    
+    if results["failed"] == 0:
+        print(f"\n{Colors.GREEN}{'='*80}{Colors.RESET}")
+        print(f"{Colors.GREEN}✓ TODOS LOS TESTS PASARON{Colors.RESET}")
+        print(f"{Colors.GREEN}{'='*80}{Colors.RESET}\n")
+    else:
+        print(f"\n{Colors.RED}{'='*80}{Colors.RESET}")
+        print(f"{Colors.RED}✗ ALGUNOS TESTS FALLARON{Colors.RESET}")
+        print(f"{Colors.RED}{'='*80}{Colors.RESET}\n")
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
