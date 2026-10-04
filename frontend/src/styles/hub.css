@@ -415,3 +415,66 @@ aside .brand { padding: 0 6px; }
   .eco-foot { flex-wrap: wrap; }
 }
 
+
+/* ===== Ecosistema por categorías + editar enlaces ===== */
+.eco-category { margin-bottom: 18px; }
+.eco-cat-head { font-size: 12px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--navy); margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+.eco-cat-head::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--primary); }
+.edit-links-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--primary); background: #fff; border: 1px solid var(--primary-line); border-radius: var(--radius-sm); padding: 8px 12px; cursor: pointer; transition: background-color .2s; }
+.edit-links-btn:hover { background: var(--primary-soft); }
+
+/* Modal editar enlaces */
+.edit-links { max-width: 560px; }
+.edit-links h2 { font-size: 22px; color: var(--navy); }
+.edit-links .muted { font-size: 12px; color: var(--muted); line-height: 1.6; margin: 8px 0 4px; }
+.edit-links-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+.edit-link-field { display: block; min-width: 0; }
+.ell-name { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--navy); }
+.ell-name i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.edit-link-field input { width: 100%; margin-top: 6px; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 12px; font-family: 'JetBrains Mono', monospace; }
+.edit-link-field input[aria-invalid="true"] { border-color: var(--primary); background: #fff6f6; }
+.edit-link-field .field-error { display: block; color: var(--primary-dark); font-size: 11px; font-weight: 600; font-style: normal; margin-top: 5px; }
+.edit-links-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.edit-links-actions .ela-right { display: flex; gap: 10px; }
+
+/* ===== Botón lanzar presentación (header) ===== */
+.tour-launch { display: inline-flex; align-items: center; gap: 7px; flex: none; font-size: 13px; font-weight: 600; color: #fff; background: var(--primary); border: 0; border-radius: var(--radius-sm); padding: 9px 14px; cursor: pointer; transition: background-color .2s, transform .15s; box-shadow: 0 6px 16px -8px rgba(168, 27, 30, .6); }
+.tour-launch:hover { background: var(--primary-dark); transform: translateY(-1px); }
+
+/* ===== Banner Modo Presentación ===== */
+.tour-banner { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(960px, calc(100% - 32px)); z-index: 80; display: flex; align-items: center; gap: 16px; padding: 15px 18px; background: var(--navy); color: #fff; border-radius: 16px; box-shadow: 0 24px 60px -20px rgba(0, 0, 0, .6); overflow: hidden; animation: tourRise .35s ease; }
+@keyframes tourRise { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.tour-progress { position: absolute; top: 0; left: 0; height: 4px; background: var(--primary); transition: width .4s ease; }
+.tour-step-badge { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; flex: none; padding-right: 16px; border-right: 1px solid rgba(255, 255, 255, .18); }
+.tour-step-badge span { font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.tour-step-badge span svg { color: #FF9E8C; }
+.tour-step-badge em { font-size: 11px; color: rgba(255, 255, 255, .7); font-style: normal; }
+.tour-copy { flex: 1; min-width: 0; }
+.tour-copy b { font-size: 14px; display: block; }
+.tour-copy p { font-size: 12px; color: rgba(255, 255, 255, .78); margin-top: 2px; line-height: 1.45; }
+.tour-controls { display: flex; align-items: center; gap: 8px; flex: none; }
+.tour-controls .ghost { background: rgba(255, 255, 255, .1); color: #fff; border: 1px solid rgba(255, 255, 255, .22); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; transition: background-color .2s; }
+.tour-controls .ghost:disabled { opacity: .4; cursor: not-allowed; }
+.tour-controls .ghost:hover:not(:disabled) { background: rgba(255, 255, 255, .18); }
+.tour-controls .primary { background: var(--primary); color: #fff; border: 0; border-radius: var(--radius-sm); padding: 9px 14px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; transition: background-color .2s, color .2s; }
+.tour-controls .primary:hover { background: #fff; color: var(--primary); }
+.tour-exit { background: none; border: 0; color: rgba(255, 255, 255, .72); font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; padding: 8px; }
+.tour-exit:hover { color: #fff; }
+
+/* Resaltado del tour */
+.tour-highlight { outline: 3px solid var(--primary); outline-offset: 5px; border-radius: var(--radius); box-shadow: 0 0 0 6px var(--primary-soft); scroll-margin-top: 90px; animation: tourPulse 1.5s ease-in-out infinite; }
+@keyframes tourPulse { 0%, 100% { box-shadow: 0 0 0 6px var(--primary-soft); } 50% { box-shadow: 0 0 0 11px rgba(168, 27, 30, .16); } }
+
+@media (max-width: 860px) {
+  .tour-launch span { display: none; }
+  .tour-launch { padding: 9px 11px; }
+}
+@media (max-width: 680px) {
+  .edit-links-grid { grid-template-columns: 1fr; }
+  .edit-links-actions { flex-direction: column-reverse; align-items: stretch; }
+  .edit-links-actions .ela-right { justify-content: space-between; }
+  .tour-banner { flex-direction: column; align-items: stretch; gap: 10px; bottom: 76px; padding: 14px; }
+  .tour-step-badge { flex-direction: row; align-items: center; gap: 10px; border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, .18); padding: 0 0 9px; justify-content: space-between; }
+  .tour-controls { justify-content: space-between; }
+}
+

@@ -515,3 +515,58 @@
 ##     message: "✅ BACKEND VERIFICADO: POST /api/ai responde 200 con texto no vacío para 6 mensajes distintos (LLM real con EMERGENT_LLM_KEY funciona), mensaje vacío → 400, sin auth → 401, NUNCA 500 (fallback Mock AI robusto). GET /api/integrations/summary incluye ecosystem (gmail/piazza/whatsapp con category_label/status/cta correctos) y systems (moodle/teams/banner) intacto por rol."
 ##   - agent: "testing"
 ##     message: "✅ FRONTEND VERIFICADO (5/5 features PASS): Lightbox abre/cierra (X, backdrop, Esc) y 'Ver' navega sin abrir modal. Modal reset con validación @uao.edu.co, vista previa de correo con token UAO-2026-RESTORE-SECURE y 15 min. Chat IA persiste en sessionStorage y 'Nueva conversación' limpia. Ecosistema Gmail/Piazza/WhatsApp con categorías y 'Conectar'→'Sincronizado'. Regresión 8/8 rutas OK, móvil 360px sin scroll horizontal, 0 errores/0 warnings de consola. Sistema 100% funcional."
+##
+##====================================================================================================
+## ITERACIÓN: 3 features UI (ecosistema 6+URLs, editar enlaces localStorage, Modo Presentación) — 2026-10-04
+##====================================================================================================
+## user_problem_statement: "1) Ecosistema con 6 tarjetas en 3 categorías + URLs oficiales por defecto que abren en pestaña nueva (target=_blank, rel=noopener noreferrer). 2) Botón 'Editar enlaces' para docentes/monitores: modal para editar las 6 URLs con persistencia en localStorage (uao_integration_links) + Guardar/Cancelar/Restablecer. 3) 'Modo Presentación' en el header: tour guiado de 5 pasos (3:30) con banner inferior, Anterior/Siguiente, indicador de paso y Salir."
+## frontend:
+##   - task: "Ecosistema 6 tarjetas en 3 categorías + URLs por defecto (target _blank)"
+##     implemented: true
+##     working: true
+##     file: "frontend/src/components/hub/EcosystemLayer.jsx, frontend/src/lib/integrationLinks.js, frontend/src/components/hub/IntegrationLayer.jsx"
+##     stuck_count: 0
+##     priority: "medium"
+##     needs_retesting: false
+##     status_history:
+##       - working: true
+##         agent: "main"
+##         comment: "EcosystemLayer reescrito (ya no depende del backend). 6 tarjetas en 3 grupos: Comunicación oficial (Gmail https://mail.google.com, Teams https://teams.microsoft.com), Foros académicos (Piazza https://piazza.com, Moodle https://moodle.uao.edu.co), Soporte & contacto (WhatsApp https://web.whatsapp.com, Banner/SINU https://sinu.uao.edu.co). Cada 'Abrir ↗' es <a target=_blank rel=noopener noreferrer>. Verificado con Playwright (t1_* PASS: 3 grupos, 6 tarjetas, URLs/target/rel correctos)."
+##   - task: "Editar enlaces (docente/monitor) + persistencia localStorage"
+##     implemented: true
+##     working: true
+##     file: "frontend/src/components/hub/EditLinksModal.jsx, frontend/src/components/hub/EcosystemLayer.jsx, frontend/src/lib/integrationLinks.js"
+##     stuck_count: 0
+##     priority: "medium"
+##     needs_retesting: false
+##     status_history:
+##       - working: true
+##         agent: "main"
+##         comment: "Botón 'Editar enlaces' visible solo para viewRole != student (docente/monitor/Modo Monitor). Modal con 6 inputs (validación http(s), Guardar deshabilitado si inválido), botones Guardar/Cancelar/Restablecer URLs por defecto. Guarda en localStorage['uao_integration_links']; las tarjetas reflejan el cambio y persiste tras recargar. Verificado con Playwright (t2_* PASS, oculto para estudiante)."
+##   - task: "Modo Presentación: tour guiado de 5 pasos (3:30)"
+##     implemented: true
+##     working: true
+##     file: "frontend/src/components/PresentationMode.jsx, frontend/src/components/Layout.jsx"
+##     stuck_count: 0
+##     priority: "medium"
+##     needs_retesting: false
+##     status_history:
+##       - working: true
+##         agent: "main"
+##         comment: "Botón 'Iniciar Demo 3:30' (PlayCircle) en el header. Banner inferior fijo con progreso, 'Paso X de 5', tiempo sugerido, Anterior/Siguiente/Salir. Navega y resalta (.tour-highlight) en cada paso: 1) /inicio .stats, 2) /asistente-ia chat, 3) /evidencias-dcu carrusel, 4) /inicio ecosistema, 5) abre el modal de recuperación de contraseña. React Router intacto, responsive 360px sin overflow. Verificado con Playwright (t3_* PASS)."
+## metadata:
+##   created_by: "main_agent"
+##   version: "1.0"
+##   test_sequence: 10
+##   run_ui: false
+## test_plan:
+##   current_focus:
+##     - "Ecosistema 6 tarjetas en 3 categorías + URLs por defecto (target _blank)"
+##     - "Editar enlaces (docente/monitor) + persistencia localStorage"
+##     - "Modo Presentación: tour guiado de 5 pasos (3:30)"
+##   stuck_tasks: []
+##   test_all: false
+##   test_priority: "high_first"
+## agent_communication:
+##   - agent: "main"
+##     message: "3 features SOLO frontend (sin cambios de backend). Verificadas por scripts propios Playwright (todas PASS) + capturas desktop/móvil 360px. Pendiente: permiso del usuario para correr el agente de pruebas de frontend. Credenciales: pacastillo@uao.edu.co (docente, ve 'Editar enlaces') y estudiante.demo@uao.edu.co (no ve editar) / UAOdemo2026!."

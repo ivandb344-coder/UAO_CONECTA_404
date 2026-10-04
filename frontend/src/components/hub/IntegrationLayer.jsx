@@ -61,7 +61,7 @@ export default function IntegrationLayer({ user }) {
         </p>
       )}
     </section>
-    {!loading && data?.ecosystem?.length > 0 && <EcosystemLayer ecosystem={data.ecosystem} />}
+    {!loading && <EcosystemLayer />}
     </>
   );
 }

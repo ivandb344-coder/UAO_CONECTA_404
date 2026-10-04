@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Settings2, Search, Bell, LogOut, CheckCheck } from "lucide-react";
+import { Settings2, Search, Bell, LogOut, CheckCheck, PlayCircle } from "lucide-react";
 import { navForRole } from "@/lib/nav";
 import { useChatUnread } from "@/lib/chatUnread";
 import { useNotifications } from "@/lib/notifications";
@@ -10,6 +10,7 @@ import BrandLogo from "@/components/BrandLogo";
 import LogoutDialog from "@/components/LogoutDialog";
 import RoleBadge from "@/components/hub/RoleBadge";
 import MonitorToggle from "@/components/hub/MonitorToggle";
+import PresentationMode from "@/components/PresentationMode";
 
 export default function Layout({ user, onLogout, children }) {
   const loc = useLocation();
@@ -22,6 +23,7 @@ export default function Layout({ user, onLogout, children }) {
   const totalUnread = unread.total || 0;
   const [notifOpen, setNotifOpen] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -87,6 +89,9 @@ export default function Layout({ user, onLogout, children }) {
             <Search size={18} aria-hidden="true" />
             <input data-testid="global-search-input" aria-label="Buscar en UAO Conecta" placeholder="Buscar asignatura, duda, persona o recurso…" value={search} onChange={(e) => setSearch(e.target.value)} />
           </form>
+          <button className="tour-launch" data-testid="presentation-mode-button" onClick={() => setTourOpen(true)} aria-label="Iniciar modo presentación, demostración de 3:30 minutos">
+            <PlayCircle size={17} aria-hidden="true" /> <span>Iniciar Demo 3:30</span>
+          </button>
           <button className="icon-btn mobile-only" aria-label="Configuración" onClick={() => navg("/configuracion")} data-testid="header-settings-button">
             <Settings2 size={19} aria-hidden="true" />
           </button>
@@ -119,6 +124,7 @@ export default function Layout({ user, onLogout, children }) {
         {children}
       </main>
       <LogoutDialog open={confirmLogout} onCancel={() => setConfirmLogout(false)} onConfirm={() => { setConfirmLogout(false); onLogout(); }} />
+      <PresentationMode open={tourOpen} onClose={() => setTourOpen(false)} />
       <nav className="bottom-nav" aria-label="Navegación móvil">
         {mobileNav.map((n) => {
           const active = loc.pathname.startsWith(n.path);
