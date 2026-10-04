@@ -4,6 +4,7 @@ import os
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
 from dotenv import load_dotenv
+from openai import AsyncOpenAI
 
 from app.core.security import current_user
 from app.models.schemas import AIQuestion
@@ -13,9 +14,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Modelo por defecto del playbook de integración (universal key).
-MODEL_PROVIDER = "openai"
-MODEL_NAME = "gpt-5.4"
+# Modelo por defecto utilizando cliente estándar de OpenAI
+MODEL_NAME = os.getenv("LLM_MODEL", "gpt-4o-mini")
 
 SYSTEM_PROMPT = (
     "Eres el asistente de UAO Conecta, el Hub de Integración Estudiantil de la "
@@ -86,24 +86,27 @@ def _mock_answer(message: str) -> str:
 
 
 async def _llm_answer(message: str, session_id: str) -> str:
-    """Respuesta con el LLM (Emergent universal key). Lanza excepción si no es posible."""
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
-
+    """Respuesta con el LLM utilizando la librería estándar de OpenAI."""
     api_key = (os.getenv("EMERGENT_LLM_KEY") or os.getenv("OPENAI_API_KEY") or "").strip()
     if not api_key:
         raise RuntimeError("Sin EMERGENT_LLM_KEY/OPENAI_API_KEY configurada.")
 
-    chat = LlmChat(
-        api_key=api_key,
-        session_id=session_id,
-        system_message=SYSTEM_PROMPT,
-    ).with_model(MODEL_PROVIDER, MODEL_NAME)
+    client = AsyncOpenAI(api_key=api_key)
 
-    reply = await chat.send_message(UserMessage(text=message))
-    content = (reply or "").strip()
-    if not content:
+    response = await client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": message},
+        ],
+        max_tokens=300,
+        temperature=0.7,
+    )
+
+    content = response.choices[0].message.content if response.choices else None
+    if not content or not content.strip():
         raise RuntimeError("El modelo devolvió una respuesta vacía.")
-    return content
+    return content.strip()
 
 
 @router.post("/ai")
