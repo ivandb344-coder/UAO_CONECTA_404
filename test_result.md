@@ -447,6 +447,9 @@
 ##       - working: true
 ##         agent: "main"
 ##         comment: "Clic en cualquier captura abre Lightbox a pantalla completa (fondo oscuro translúcido + backdrop-blur), botón X, clic fuera y Esc para cerrar, hint 'Clic para ampliar' al hover. El enlace 'Ver' de la tabla se conserva y sigue navegando sin abrir el modal. Verificado con Playwright (t1_* todos PASS)."
+##       - working: true
+##         agent: "testing"
+##         comment: "✅ VERIFIED: Lightbox funciona perfectamente. En /#/evidencias-dcu pestaña 'Propuesta de valor': hint 'Clic para ampliar' visible al hover ✓. Click en imagen abre lightbox ([data-testid='lightbox']) a pantalla completa con fondo oscuro translúcido ✓. Imagen carga correctamente (naturalWidth: 3200px) ✓. Cierra con botón X ([data-testid='lightbox-close']) ✓. Cierra haciendo clic en backdrop ✓. Cierra con tecla Escape ✓. En pestaña 'Satisfacción de necesidades': botón 'Ver' ([data-testid='ev-need-open-N1']) navega a /#/asignaturas SIN abrir lightbox ✓. Mobile 360px: sin scroll horizontal ✓."
 ##   - task: "Reset de contraseña en modal con vista previa de correo"
 ##     implemented: true
 ##     working: true
@@ -458,6 +461,9 @@
 ##       - working: true
 ##         agent: "main"
 ##         comment: "'¿Olvidaste tu contraseña?' abre modal con validación en tiempo real @uao.edu.co (error rojo + submit deshabilitado). 'Enviar enlace' muestra vista previa del correo (encabezado UAO #A81B1E, destinatario, asunto, token UAO-2026-RESTORE-SECURE, expiración 15 min) y botón volver. Ruta /recuperar-contrasena intacta. Verificado con Playwright (t2_* PASS)."
+##       - working: true
+##         agent: "testing"
+##         comment: "✅ VERIFIED: Modal de reset funciona perfectamente. Click en '¿Olvidaste tu contraseña?' ([data-testid='forgot-password-button']) abre modal ([data-testid='forgot-modal']) ✓. Email inválido 'test@gmail.com': error visible ([data-testid='forgot-email-error']) 'El correo debe terminar en @uao.edu.co.' ✓, botón submit deshabilitado ✓. Email válido 'daniel@uao.edu.co': botón submit habilitado ✓. Click 'Enviar enlace' ([data-testid='forgot-submit']) muestra vista previa ([data-testid='forgot-email-preview']) ✓. Token correcto 'UAO-2026-RESTORE-SECURE' ([data-testid='forgot-preview-token']) ✓. Destinatario correcto 'daniel@uao.edu.co' ([data-testid='forgot-preview-recipient']) ✓. Aviso expiración '15 minutos' presente ✓. Click 'Volver a iniciar sesión' ([data-testid='forgot-done']) cierra modal ✓. Mobile 360px: sin scroll horizontal ✓."
 ##   - task: "Persistencia del chat IA (sessionStorage) + nueva conversación"
 ##     implemented: true
 ##     working: true
@@ -469,6 +475,9 @@
 ##       - working: true
 ##         agent: "main"
 ##         comment: "El chat guarda/lee messages en sessionStorage['uao_chat_history']; al navegar fuera y volver se restaura. Botón 'Nueva conversación' limpia el historial. Verificado con Playwright (t4_* PASS)."
+##       - working: true
+##         agent: "testing"
+##         comment: "✅ VERIFIED: Persistencia del chat funciona perfectamente. En /#/asistente-ia: mensaje 'Hola, prueba de persistencia' enviado ([data-testid='ai-message-input'], [data-testid='send-ai-message']) ✓. Respuesta del asistente recibida (3 mensajes totales: bienvenida + usuario + IA) ✓. Navegación a /#/configuracion y regreso a /#/asistente-ia: conversación persiste (3 mensajes presentes) ✓. Mensaje de prueba 'prueba de persistencia' encontrado en conversación restaurada ✓. Click 'Nueva conversación' ([data-testid='ai-new-conversation']): historial limpiado correctamente (solo 1 mensaje de bienvenida) ✓. sessionStorage['uao_chat_history'] funcionando correctamente ✓."
 ##   - task: "Tarjetas de ecosistema (Gmail/Piazza/WhatsApp) en el dashboard"
 ##     implemented: true
 ##     working: true
@@ -480,6 +489,9 @@
 ##       - working: true
 ##         agent: "main"
 ##         comment: "Sección 'Ecosistema de herramientas' bajo la capa de integración con 3 tarjetas por categoría (ícono, etiqueta, descripción, estado Sincronizado/Disponible, botón Abrir↗/Conectar). 'Conectar' alterna a 'Sincronizado'. Responsive 360px sin overflow. Verificado con Playwright (t5_* PASS)."
+##       - working: true
+##         agent: "testing"
+##         comment: "✅ VERIFIED: Tarjetas de ecosistema funcionan perfectamente. En /#/inicio sección 'Ecosistema de herramientas' ([data-testid='ecosystem-layer']) visible ✓. 3 tarjetas presentes: Gmail ([data-testid='eco-card-gmail']), Piazza ([data-testid='eco-card-piazza']), WhatsApp ([data-testid='eco-card-whatsapp']) ✓. Category labels correctos: Gmail='Comunicación oficial' ([data-testid='eco-category-gmail']), Piazza='Foros académicos' ([data-testid='eco-category-piazza']), WhatsApp='Soporte & contacto directo' ([data-testid='eco-category-whatsapp']) ✓. Piazza status inicial: 'Disponible' ([data-testid='eco-status-piazza']) ✓. Click 'Conectar' ([data-testid='eco-connect-piazza']): status cambia a 'Sincronizado' ✓, botón cambia a 'Abrir' ([data-testid='eco-open-piazza']) ✓. Mobile 360px: sin scroll horizontal ✓."
 ## metadata:
 ##   created_by: "main_agent"
 ##   version: "1.0"
@@ -496,3 +508,10 @@
 ##   - agent: "testing"
 ##     message: "✅ BACKEND TESTING COMPLETADO - ITERACIÓN 9. Todos los tests pasaron (3/3 PASS). 1) POST /api/ai: 6 mensajes distintos → todos 200 OK con texto no vacío (228-509 chars), Content-Type correcto, LLM real respondiendo en español, mensaje vacío → 400 con detalle correcto, sin auth → 401, NUNCA devolvió 500 (robustez verificada). 2) GET /api/integrations/summary (estudiante): 'systems' con moodle/teams/banner ✓, 'ecosystem' con 3 items (gmail/piazza/whatsapp) ✓, todos los campos requeridos presentes ✓, category_label correctos ✓. 3) GET /api/integrations/summary (profesor): misma estructura y campos correctos ✓. Backend 100% funcional para las 2 features nuevas. NO se probó frontend (según instrucciones)."
 
+##   - agent: "testing"
+##     message: "✅ FRONTEND TESTING COMPLETADO - ITERACIÓN 10 (5 FEATURES NUEVAS). Todas las features pasaron exitosamente (5/5 PASS). FEATURE 1 - Lightbox: hint visible al hover ✓, abre modal pantalla completa ✓, imagen carga (naturalWidth:3200) ✓, cierra con X/backdrop/Escape ✓, botón 'Ver' navega sin abrir lightbox ✓. FEATURE 2 - Reset modal: validación email inválido con error y botón deshabilitado ✓, email válido habilita submit ✓, vista previa con token UAO-2026-RESTORE-SECURE ✓, destinatario correcto ✓, aviso 15 minutos ✓, cierra correctamente ✓. FEATURE 4 - Chat persistencia: mensajes persisten tras navegación (3 mensajes antes/después) ✓, mensaje de prueba encontrado ✓, 'Nueva conversación' limpia historial (1 mensaje bienvenida) ✓. FEATURE 5 - Ecosystem: 3 tarjetas visibles (Gmail/Piazza/WhatsApp) ✓, category_label correctos (Comunicación oficial/Foros académicos/Soporte & contacto directo) ✓, Piazza status inicial 'Disponible' ✓, tras 'Conectar' cambia a 'Sincronizado' y botón a 'Abrir' ✓. REGRESIÓN: 8/8 rutas navegables sin errores React Router ✓. MOBILE 360px: sin scroll horizontal en Inicio/modal/lightbox (scrollWidth=clientWidth=360) ✓. CONSOLA: 0 errores, 0 warnings ✓. Backend testing previo (iteración 9): POST /api/ai funciona con LLM real ✓, GET /api/integrations/summary incluye ecosystem con 3 items ✓. Sistema 100% funcional para las 5 features nuevas."
+
+##   - agent: "testing"
+##     message: "✅ BACKEND VERIFICADO: POST /api/ai responde 200 con texto no vacío para 6 mensajes distintos (LLM real con EMERGENT_LLM_KEY funciona), mensaje vacío → 400, sin auth → 401, NUNCA 500 (fallback Mock AI robusto). GET /api/integrations/summary incluye ecosystem (gmail/piazza/whatsapp con category_label/status/cta correctos) y systems (moodle/teams/banner) intacto por rol."
+##   - agent: "testing"
+##     message: "✅ FRONTEND VERIFICADO (5/5 features PASS): Lightbox abre/cierra (X, backdrop, Esc) y 'Ver' navega sin abrir modal. Modal reset con validación @uao.edu.co, vista previa de correo con token UAO-2026-RESTORE-SECURE y 15 min. Chat IA persiste en sessionStorage y 'Nueva conversación' limpia. Ecosistema Gmail/Piazza/WhatsApp con categorías y 'Conectar'→'Sincronizado'. Regresión 8/8 rutas OK, móvil 360px sin scroll horizontal, 0 errores/0 warnings de consola. Sistema 100% funcional."
