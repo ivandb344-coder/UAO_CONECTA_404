@@ -329,3 +329,41 @@
 ##     message: "Iteración 8: backend 32/32 (backend/tests/test_iteration8_auth.py). Frontend OK; único hallazgo: doble confirmación en logout (window.confirm + LogoutDialog)."
 ##   - agent: "main"
 ##     message: "Eliminado window.confirm de App.js logout; verificado con Playwright: una sola confirmación, token eliminado, aviso de despedida."
+##
+##====================================================================================================
+## ITERACIÓN: Evidencias DCU — capturas reales, dualidad de roles y verificación final — 2026-10-04
+##====================================================================================================
+## user_problem_statement: "Generar evidencias reales en /public/assets/evidencias para /evidencias-dcu (ambas cuentas: docente y estudiante + Modo Monitor), dejar seed/credenciales funcionales y certificar responsive 360px + contraste WCAG AA."
+## backend:
+##   - task: "Arranque backend: backend/.env ausente (MONGO_URL)"
+##     implemented: true
+##     working: true
+##     file: "backend/.env, backend/app/database.py"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: false
+##     status_history:
+##       - working: true
+##         agent: "main"
+##         comment: "El backend crasheaba al importar (RuntimeError: no MONGO_URL) porque backend/.env no existía. Se creó backend/.env con MONGO_URL=mongodb://localhost:27017, DB_NAME=uao_conecta, JWT_SECRET. Tras reinicio: /api/health ok (database:true), seed creó pacastillo@uao.edu.co (professor) y estudiante.demo@uao.edu.co (student), login 200 ambos, /api/auth/institutional-check verifica docente/estudiante."
+## frontend:
+##   - task: "Imágenes reales de Evidencias DCU (cero enlaces rotos)"
+##     implemented: true
+##     working: true
+##     file: "frontend/public/assets/evidencias/*.png, frontend/src/lib/evidencias.js, frontend/.env, scripts/capture_evidencias.py"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: false
+##     status_history:
+##       - working: true
+##         agent: "main"
+##         comment: "La carpeta public/assets/evidencias NO existía (imágenes rotas). Se creó frontend/.env (REACT_APP_BACKEND_URL=http://localhost:8001). Script Playwright capturó 8 PNG reales: 01-login, 02-verificacion (badge 'Docente verificado'), 03-inicio (estudiante), 03-inicio-docente (dualidad: entregas por calificar/cursos), 04-asesorias, 05-dudas, 06-movil (360px), 07-monitor (Modo Monitor). Se añadieron 2 diapositivas (inicio-docente, monitor) al carrusel FLOW. Verificación: 8/8 HTTP 200, 8/8 diapositivas cargan, pestaña Necesidades OK, 360px sin overflow, contraste blanco/#A81B1E=7.39 AAA, blanco/#1E293B=14.63 AAA, coral/#1E293B=6.07 AA, texto/fondo=13.98 AAA. Credenciales en /app/memory/test_credentials.md."
+## test_plan:
+##   current_focus:
+##     - "Evidencias DCU completas - FINALIZADO"
+##   stuck_tasks: []
+##   test_all: false
+##   test_priority: "high_first"
+## agent_communication:
+##   - agent: "main"
+##     message: "Cierre de Evidencias DCU completado y verificado con scripts propios (scripts/capture_evidencias.py, scripts/verify_evidencias.py). Cuentas demo: pacastillo@uao.edu.co (docente) y estudiante.demo@uao.edu.co (estudiante), password UAOdemo2026!. Pendiente a decisión del usuario: corrida completa con testing agents."
