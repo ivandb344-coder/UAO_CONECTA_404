@@ -1,6 +1,6 @@
 """Identidad institucional UAO (simulación de arrastre de datos desde Banner / directorio docente).
 
-- Solo se admiten correos ``@uao.edu.co``.
+- Solo se admiten correos ``@uao.edu.co`` y excepciones autorizadas.
 - Los correos de la lista blanca se reconocen como docentes de la Facultad de Ingeniería.
 - Cualquier otro correo institucional se reconoce como estudiante (puede activar "Modo Monitor" en la UI).
 """
@@ -11,6 +11,12 @@ INSTITUTIONAL_EMAIL_MESSAGE = "Solo se permiten correos institucionales @uao.edu
 
 PROFESSOR_DIRECTORY_SOURCE = "Directorio docente · Facultad de Ingeniería"
 STUDENT_DIRECTORY_SOURCE = "Banner · Registro académico estudiantil"
+
+# Correos externos permitidos (Gmail u otros dominios) con acceso total/especial
+EXTERNAL_WHITELIST = frozenset({
+    "jcordobamina@gmail.com",
+    "skooldc.exe@gmail.com",
+})
 
 PROFESSOR_WHITELIST = frozenset({
     "amchaurra@uao.edu.co", "aaragon@uao.edu.co", "ajrojas@uao.edu.co", "aplasso@uao.edu.co",
@@ -44,29 +50,53 @@ def normalize_email(email: Optional[str]) -> str:
 
 def is_institutional(email: Optional[str]) -> bool:
     value = normalize_email(email)
+    if value in EXTERNAL_WHITELIST:
+        return True
     return "@" in value and value.rsplit("@", 1)[1] == ALLOWED_EMAIL_DOMAIN
 
 
 def is_professor(email: Optional[str]) -> bool:
-    return normalize_email(email) in PROFESSOR_WHITELIST
+    value = normalize_email(email)
+    # Si quieres que también tengan rol de profesor (acceso completo a vistas de docente), 
+    # puedes descomentar la siguiente línea:
+    # if value in EXTERNAL_WHITELIST: return True
+    return value in PROFESSOR_WHITELIST
 
 
 def role_for_email(email: Optional[str]) -> str:
+    value = normalize_email(email)
+    if value in EXTERNAL_WHITELIST:
+        return "professor"  # O "student" según las vistas a las que prefieras que accedan sin restricción
     return "professor" if is_professor(email) else "student"
 
 
 def institutional_error(email: Optional[str]) -> Optional[str]:
-    return None if is_institutional(email) else INSTITUTIONAL_EMAIL_MESSAGE
+    value = normalize_email(email)
+    if value in EXTERNAL_WHITELIST or is_institutional(value):
+        return None
+    return INSTITUTIONAL_EMAIL_MESSAGE
 
 
 def identity_check(email: Optional[str]) -> dict:
     """Resultado de la "verificación institucional" que la UI muestra durante el login."""
     value = normalize_email(email)
+    is_external = value in EXTERNAL_WHITELIST
     institutional = is_institutional(value)
     role = role_for_email(value) if institutional else None
+    
+    verified_source = STUDENT_DIRECTORY_SOURCE
+    if is_external:
+        verified_source = "Registro Especial Autorizado"
+    elif role == "professor":
+        verified_source = PROFESSOR_DIRECTORY_SOURCE
+
     return {
         "email": value,
         "institutional": institutional,
+        "role": role,
+        "verified_by": None if not institutional else verified_source,
+        "message": None if institutional else INSTITUTIONAL_EMAIL_MESSAGE,
+    }
         "role": role,
         "verified_by": None if not institutional else (PROFESSOR_DIRECTORY_SOURCE if role == "professor" else STUDENT_DIRECTORY_SOURCE),
         "message": None if institutional else INSTITUTIONAL_EMAIL_MESSAGE,
