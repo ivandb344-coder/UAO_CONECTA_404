@@ -47,13 +47,13 @@ export default function EcosystemLayer() {
         return (
           <div className="eco-category" key={cat.id} data-testid={`eco-group-${cat.id}`}>
             <h4 className="eco-cat-head">{cat.label}</h4>
-            <div className="ecosystem-grid">
+            <div className={`ecosystem-grid ${cat.id === "comunicacion" ? "ecosystem-grid-featured" : ""}`}>
               {tools.map((tool) => {
                 const Icon = ICONS[tool.key] || ExternalLink;
                 const url = links[tool.key];
                 return (
                   <HoverDisclosureCard
-                    className="eco-card"
+                    className={`eco-card ${cat.id === "comunicacion" ? "eco-card-featured" : ""}`}
                     key={tool.key}
                     style={{ "--sys": tool.color }}
                     data-testid={`eco-card-${tool.key}`}
@@ -66,10 +66,12 @@ export default function EcosystemLayer() {
                   >
                     <header className="eco-head">
                       <span className="eco-mark" aria-hidden="true"><Icon size={18} /></span>
-                      <div>
+                      <div className="eco-copy">
                         <b>{tool.name}</b>
                         <small data-testid={`eco-category-${tool.key}`}>{tool.category_label}</small>
                       </div>
+                    </header>
+                    <div className="eco-card-actions">
                       <span className="eco-status on" data-testid={`eco-status-${tool.key}`}>
                         <i aria-hidden="true" /> Disponible
                       </span>
@@ -82,7 +84,7 @@ export default function EcosystemLayer() {
                       >
                         Abrir <ExternalLink size={13} aria-hidden="true" />
                       </a>
-                    </header>
+                    </div>
                   </HoverDisclosureCard>
                 );
               })}

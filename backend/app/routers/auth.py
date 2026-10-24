@@ -201,17 +201,26 @@ async def _send_reset_email(to_email: str, reset_url: str, user_name: str, minut
         f"El enlace es válido durante {minutes} minutos y solo puede usarse una vez.\n"
         "Si no solicitaste este cambio, ignora este correo.\n\nUAO Conecta"
     )
-    html = f"""<!DOCTYPE html><html lang="es"><body style="margin:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:#1f2937">
-<table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px"><tr><td align="center">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#fff;border-radius:18px;border:1px solid #e5e7eb;overflow:hidden">
-<tr><td style="background:#111827;padding:28px;text-align:center;color:#fff;font-size:26px;font-weight:700">UAO <span style="color:#d1d5db;font-weight:500">Conecta</span></td></tr>
+    html = f"""<!doctype html><html lang="es"><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f7f3ee;font-family:Arial,Helvetica,sans-serif;color:#1e293b">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">Crea una nueva contraseña para tu cuenta de UAO Conecta.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:36px 16px;background:#f7f3ee"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">
+<tr><td style="padding:26px 32px;background:#1e293b;border-bottom:4px solid #ac0b32">
+<div style="color:#ffffff;font-size:24px;font-weight:700;letter-spacing:-.4px">UAO <span style="font-weight:400;color:#f7c9d4">Conecta</span></div>
+<div style="margin-top:8px;color:#c7d0dc;font-size:12px;letter-spacing:.8px">RECUPERACIÓN DE ACCESO</div>
+</td></tr>
 <tr><td style="padding:32px">
-<p style="font-size:16px">Hola, <strong>{safe_name}</strong>.</p>
-<p style="font-size:15px;line-height:1.6">Recibimos una solicitud para restablecer la contraseña de tu cuenta.</p>
-<p style="text-align:center;margin:28px 0"><a href="{safe_url}" style="background:#0f766e;color:#fff;padding:13px 24px;border-radius:10px;text-decoration:none;font-weight:700">Restablecer mi contraseña</a></p>
-<p style="font-size:13px;color:#6b7280;line-height:1.6">El enlace es válido durante {minutes} minutos y solo puede usarse una vez. Si no solicitaste este cambio, ignora este correo.</p>
-<p style="font-size:12px;color:#9ca3af;word-break:break-all">{safe_url}</p>
-</td></tr></table></td></tr></table></body></html>"""
+<h1 style="margin:0;color:#1e293b;font-size:26px;line-height:1.2;letter-spacing:-.4px">Restablece tu contraseña</h1>
+<p style="margin:18px 0 0;font-size:15px;line-height:1.65">Hola, <strong>{safe_name}</strong>.</p>
+<p style="margin:10px 0 0;font-size:15px;line-height:1.65;color:#475569">Recibimos una solicitud para crear una nueva contraseña para tu cuenta de UAO Conecta.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;background:#fbf5ec;border-left:4px solid #ac0b32"><tr><td style="padding:14px 16px;color:#334155;font-size:13px;line-height:1.55">Por seguridad, este enlace vence en <strong>{minutes} minutos</strong> y solo puede usarse una vez.</td></tr></table>
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:28px 0"><tr><td style="border-radius:6px;background:#ac0b32"><a href="{safe_url}" style="display:inline-block;padding:14px 22px;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none">Crear nueva contraseña</a></td></tr></table>
+<p style="margin:0;font-size:12px;line-height:1.6;color:#64748b">Si no solicitaste este cambio, puedes ignorar este mensaje. Tu contraseña actual seguirá siendo válida.</p>
+<p style="margin:20px 0 0;font-size:11px;line-height:1.55;color:#94a3b8;word-break:break-word">Si el botón no abre, copia este enlace en tu navegador:<br><a href="{safe_url}" style="color:#ac0b32">{safe_url}</a></p>
+</td></tr>
+<tr><td style="padding:18px 32px;background:#f8fafc;border-top:1px solid #e5e7eb;color:#64748b;font-size:11px;line-height:1.5">Este correo fue enviado por UAO Conecta. No respondas a este mensaje.</td></tr>
+</table></td></tr></table></body></html>"""
 
     msg.attach(MIMEText(text, "plain", "utf-8"))
     msg.attach(MIMEText(html, "html", "utf-8"))
