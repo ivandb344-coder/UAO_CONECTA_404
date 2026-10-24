@@ -121,7 +121,20 @@ async def _ensure_user_id(user: dict) -> dict:
 
 
 def _session_payload(user: dict, auth_method: str = "password") -> dict:
-    return {"token": token(user, auth_method=auth_method), "user": public_user(user)}
+    result = public_user(user)
+    # Indica a la interfaz que el usuario puede establecer una clave sin conocer
+    # la contraseña manual anterior tras autenticarse recientemente con Google.
+    result["can_set_password_without_current"] = auth_method == "google"
+    return {"token": token(user, auth_method=auth_method), "user": result}
+
+
+def _google_recently_authenticated(user: dict) -> bool:
+    auth_time = user.get("_auth_iat")
+    return (
+        user.get("_auth_method") == "google"
+        and isinstance(auth_time, (int, float))
+        and 0 <= datetime.now(timezone.utc).timestamp() - auth_time <= 600
+    )
 
 
 def _allowed_redirect_origins() -> set:
@@ -375,18 +388,13 @@ async def set_password(data: SetPasswordRequest, user=Depends(current_user)):
     if password_error:
         raise HTTPException(status_code=400, detail=password_error)
 
-    if user.get("auth_provider") == "google":
-        auth_time = user.get("_auth_iat")
-        recently_authenticated_with_google = (
-            user.get("_auth_method") == "google"
-            and isinstance(auth_time, (int, float))
-            and 0 <= datetime.now(timezone.utc).timestamp() - auth_time <= 600
+    if _google_recently_authenticated(user):
+        pass
+    elif user.get("auth_provider") == "google":
+        raise HTTPException(
+            status_code=401,
+            detail="Para crear o cambiar esta contraseña, vuelve a iniciar sesión con Google y luego inténtalo de nuevo.",
         )
-        if not recently_authenticated_with_google:
-            raise HTTPException(
-                status_code=401,
-                detail="Para crear o cambiar esta contraseña, vuelve a iniciar sesión con Google y luego inténtalo de nuevo.",
-            )
     elif not verify_password(data.current_password or "", user.get("password")):
         raise HTTPException(status_code=401, detail="La contraseña actual no es correcta.")
 
@@ -400,7 +408,9 @@ async def set_password(data: SetPasswordRequest, user=Depends(current_user)):
 
 @router.get("/me")
 async def me(user=Depends(current_user)):
-    return public_user(user)
+    result = public_user(user)
+    result["can_set_password_without_current"] = _google_recently_authenticated(user)
+    return result
 
 
 @router.post("/logout")

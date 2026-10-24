@@ -19,7 +19,7 @@ export default function PasswordSettings({ user }) {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [reauthRequired, setReauthRequired] = useState(false);
-  const requiresGoogleVerification = user.auth_provider === "google";
+  const requiresGoogleVerification = user.auth_provider === "google" || user.can_set_password_without_current === true;
 
   const submit = async (event) => {
     event.preventDefault();
@@ -70,7 +70,9 @@ export default function PasswordSettings({ user }) {
       {requiresGoogleVerification && (
         <div className="password-help" role="note">
           <ShieldCheck size={16} aria-hidden="true" />
-          <span>Tu cuenta se creó con Google. Vuelve a verificar esa cuenta para crear o cambiar aquí una contraseña propia para el ingreso manual.</span>
+          <span>{user.can_set_password_without_current
+            ? "Tu sesión está verificada con Google. No necesitas conocer una contraseña actual de UAO Conecta para crear o cambiar tu clave manual."
+            : "Para crear o cambiar una contraseña propia de UAO Conecta, verifica tu cuenta con Google. No necesitas la contraseña de Gmail en este formulario."}</span>
         </div>
       )}
 
@@ -122,13 +124,13 @@ export default function PasswordSettings({ user }) {
           <button type="submit" className="primary" disabled={busy} data-testid="password-settings-submit">
             <KeyRound size={15} aria-hidden="true" /> {busy ? "Guardando…" : hasPassword ? "Cambiar contraseña" : "Crear contraseña"}
           </button>
-          {reauthRequired && (
+          {(reauthRequired || (user.auth_provider === "google" && !user.can_set_password_without_current)) && (
             <button type="button" className="ghost" onClick={startGoogleReauthentication} data-testid="password-settings-google-reauth">
               <RefreshCw size={15} aria-hidden="true" /> Verificar con Google
             </button>
           )}
         </div>
-        {requiresGoogleVerification && <p className="field-hint"><ArrowRight size={13} aria-hidden="true" /> Si la sesión de Google venció, vuelve a verificarte con Google y regresa aquí.</p>}
+        {requiresGoogleVerification && !user.can_set_password_without_current && <p className="field-hint"><ArrowRight size={13} aria-hidden="true" /> La verificación de Google es reciente durante 10 minutos. Si venció, pulsa “Verificar con Google”.</p>}
       </form>
     </section>
   );
