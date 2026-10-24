@@ -18,22 +18,30 @@ html[data-text-size="xlarge"] body { zoom: 1.25; }
   --ink:#000; --muted:#1f2937; --line:#000; --paper:#fff; --primary:#8A1428; --blue:#0033cc; --red:#b00020;
 }
 .a11y-high-contrast body { background:#fff; color:#000; }
+.a11y-high-contrast .page, .a11y-high-contrast .content, .a11y-high-contrast .hub-page { background:#fff; color:#000; }
 .a11y-high-contrast aside, .a11y-high-contrast header, .a11y-high-contrast .bottom-nav { background:#fff; border-color:#000; }
 .a11y-high-contrast .primary { background:#000; color:#fff; border:2px solid #000; }
 .a11y-high-contrast .primary:hover { background:#8A1428; }
 .a11y-high-contrast .ghost, .a11y-high-contrast .filter, .a11y-high-contrast .tab, .a11y-high-contrast .icon-mini { border:2px solid #000; color:#000; }
+.a11y-high-contrast .settings-section, .a11y-high-contrast .advisory-calendar, .a11y-high-contrast .eco-card, .a11y-high-contrast .integration-card, .a11y-high-contrast .calendar-day, .a11y-high-contrast .direct-contact-panel, .a11y-high-contrast .direct-contact { background:#fff; border-color:#000; }
+.a11y-high-contrast h1, .a11y-high-contrast h2, .a11y-high-contrast h3, .a11y-high-contrast h4, .a11y-high-contrast .section-title h3, .a11y-high-contrast .calendar-day-number, .a11y-high-contrast .eco-head b, .a11y-high-contrast .advisory-tab-title strong { color:#000; }
 .a11y-high-contrast nav button, .a11y-high-contrast .sidebar-bottom button { color:#000; }
 .a11y-high-contrast nav button.active, .a11y-high-contrast nav button:hover { background:#000; color:#fff; }
 .a11y-high-contrast .eyebrow, .a11y-high-contrast .lede, .a11y-high-contrast small, .a11y-high-contrast .muted, .a11y-high-contrast .meta-line { color:#1f2937; }
 .a11y-high-contrast .status, .a11y-high-contrast .task-status, .a11y-high-contrast .pill { border:2px solid #000; color:#000; background:#fff; }
+.a11y-high-contrast .availability, .a11y-high-contrast .live, .a11y-high-contrast .eco-status.on { color:#005a32; font-weight:700; }
+.a11y-high-contrast .availability i, .a11y-high-contrast .live i, .a11y-high-contrast .eco-status.on i { background:#005a32; box-shadow:none; }
 .a11y-high-contrast .error { background:#fff; color:#b00020; border:2px solid #b00020; font-weight:600; }
 .a11y-high-contrast .success, .a11y-high-contrast .feedback { background:#fff; color:#8A1428; border:2px solid #8A1428; }
 .a11y-high-contrast input, .a11y-high-contrast select, .a11y-high-contrast textarea { border:2px solid #000 !important; color:#000; background:#fff; }
+.a11y-high-contrast input::placeholder, .a11y-high-contrast textarea::placeholder { color:#374151; opacity:1; }
 .a11y-high-contrast .subject-card { background:#000 !important; color:#fff; border:2px solid #fff; }
 .a11y-high-contrast .stat, .a11y-high-contrast .question, .a11y-high-contrast .task-card, .a11y-high-contrast .review-card, .a11y-high-contrast .resource-item, .a11y-high-contrast .advisory, .a11y-high-contrast .answer-card, .a11y-high-contrast .chat-box, .a11y-high-contrast .modal, .a11y-high-contrast .composer { border:2px solid #000; }
 .a11y-high-contrast .ai-callout, .a11y-high-contrast .ai-hero, .a11y-high-contrast .auth-visual { background:#000; }
+.a11y-high-contrast .ai-callout h1, .a11y-high-contrast .ai-callout h2, .a11y-high-contrast .ai-callout h3, .a11y-high-contrast .ai-hero h1, .a11y-high-contrast .auth-visual h1, .a11y-high-contrast .ai-callout p, .a11y-high-contrast .ai-hero p, .a11y-high-contrast .auth-visual p { color:#fff; }
 .a11y-high-contrast .message p { background:#fff; border:1px solid #000; }
-.a11y-high-contrast a { text-decoration: underline; }
+.a11y-high-contrast a { color:#5b0a1f; font-weight:700; text-decoration:underline; text-decoration-thickness:2px; text-underline-offset:2px; }
+.a11y-high-contrast .primary, .a11y-high-contrast .primary *, .a11y-high-contrast .subject-card a, .a11y-high-contrast .subject-card a *, .a11y-high-contrast nav button.active, .a11y-high-contrast nav button.active * { color:#fff; }
 
 /* Animaciones desactivadas / movimiento reducido */
 .a11y-no-anim *, .a11y-no-anim *::before, .a11y-no-anim *::after,

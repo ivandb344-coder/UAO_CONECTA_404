@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Plus, Clock3, X, CheckCircle2, Edit3, Trash2, Power, MapPin, Video, CircleAlert, ChevronDown, ChevronUp, CalendarDays, List, Inbox, Search } from "lucide-react";
 import { api } from "@/lib/api";
 import { Empty } from "@/components/ui/states";
-import AdvisoryCalendar, { advisoryDateInput, advisoryDateLabel, advisoryHasPassed, advisoryTimeInput, advisoryTimeRange } from "@/components/AdvisoryCalendar";
+import AdvisoryCalendar, { advisoryDateInput, advisoryDateKey, advisoryDateLabel, advisoryHasPassed, advisoryTimeInput, advisoryTimeRange } from "@/components/AdvisoryCalendar";
 
 const STATUS_LABEL = {
   Pendiente: { cls: "open" },
@@ -398,7 +398,9 @@ function IncomingBookings({ items, onStatus }) {
 export default function Advisories({ user }) {
   const isAdvisor = user.role !== "student";
   const [tab, setTab] = useState(isAdvisor ? "agenda" : "browse");
-  const [scheduleView, setScheduleView] = useState("calendar");
+  // La lista es el punto de partida: conserva el contexto de asignatura, tema y cupos.
+  // El calendario queda como una segunda forma explícita de explorar por fecha.
+  const [scheduleView, setScheduleView] = useState("list");
   const [advisories, setAdvisories] = useState([]);
   const [myAgenda, setMyAgenda] = useState([]);
   const [bookings, setBookings] = useState([]);
@@ -517,6 +519,9 @@ export default function Advisories({ user }) {
   ];
   const browseAdvisories = advisories.filter((item) => item.advisor_id !== user.id && item.active !== false && !advisoryHasPassed(item));
   const calendarItems = tab === "browse" ? browseAdvisories : tab === "mine" ? bookings : tab === "agenda" ? agendaCalendarItems : incoming;
+  const legacyAgendaItems = isAdvisor && tab === "agenda"
+    ? myAgenda.filter((item) => !advisoryDateKey(item.date))
+    : [];
   const calendarDescription = tab === "browse"
     ? "Toca un espacio con cupos para ver la fecha, el horario y enviar tu solicitud. Usa Lista para comparar todos los detalles."
     : tab === "mine"
@@ -524,6 +529,9 @@ export default function Advisories({ user }) {
       : tab === "agenda"
         ? "Tu disponibilidad y las sesiones con estudiantes aparecen juntas; los colores indican si es un espacio o una cita."
         : "Las solicitudes se muestran en la fecha acordada. Cambia a Lista para aceptar, rechazar o actualizar su estado.";
+  const viewDescription = scheduleView === "list"
+    ? "Empieza aquí para revisar asignatura, tema, horario y cupos. Cambia a Calendario cuando quieras comparar los espacios por fecha."
+    : calendarDescription;
 
   return (
     <section className="page">
@@ -577,7 +585,7 @@ export default function Advisories({ user }) {
         <div className="advisory-view-copy">
           <p className="eyebrow">{scheduleView === "calendar" ? "VISTA DE CALENDARIO" : "VISTA DE LISTA"}</p>
           <h2>{scheduleView === "calendar" ? "Calendario de asesorías" : "Lista de asesorías"}</h2>
-          <p>{calendarDescription}</p>
+          <p>{viewDescription}</p>
         </div>
         <div className="advisory-view-toggle" role="group" aria-label="Elige cómo ver las asesorías">
           <button type="button" className={scheduleView === "calendar" ? "active" : ""} aria-pressed={scheduleView === "calendar"} onClick={() => setScheduleView("calendar")} data-testid="advisory-calendar-view">
@@ -588,6 +596,32 @@ export default function Advisories({ user }) {
           </button>
         </div>
       </div>
+
+      {legacyAgendaItems.length > 0 && (
+        <section className="legacy-date-action" aria-labelledby="legacy-date-title" data-testid="legacy-date-action">
+          <CircleAlert size={19} aria-hidden="true" />
+          <div className="legacy-date-copy">
+            <strong id="legacy-date-title">{legacyAgendaItems.length} {legacyAgendaItems.length === 1 ? "espacio necesita" : "espacios necesitan"} una fecha de calendario</strong>
+            <p>Estas asesorías conservan una fecha en texto. Elige la fecha exacta con el calendario del dispositivo para mostrarlas también en la vista de calendario.</p>
+          </div>
+          <div className="legacy-date-items">
+            {legacyAgendaItems.map((item) => (
+              <button
+                type="button"
+                className="ghost small"
+                key={item.id}
+                onClick={() => {
+                  setEditing(item);
+                  setFormOpen(true);
+                }}
+                data-testid={`choose-advisory-date-${item.id}`}
+              >
+                Elegir fecha · {item.subject}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {isAdvisor && formOpen && (
         <AdvisoryForm
