@@ -25,17 +25,19 @@ export default function Login({ onLogin, initialError = "", initialNotice = "" }
   const [notice, setNotice] = useState(initialNotice);
   const [busy, setBusy] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
+  const [suggestGoogle, setSuggestGoogle] = useState(false);
   const { identity, check } = useInstitutionalCheck(form.email);
 
   const isProfessor = identity.status === "ok" && identity.role === "professor";
   const clearError = (key) => {
     setFieldErrors((f) => ({ ...f, [key]: "" }));
     setError("");
+    if (key === "email" || key === "password") setSuggestGoogle(false);
   };
 
   const switchMode = () => {
     setMode(mode === "register" ? "login" : "register");
-    setError(""); setNotice(""); setFieldErrors({});
+    setError(""); setNotice(""); setFieldErrors({}); setSuggestGoogle(false);
   };
 
   const submit = async (e) => {
@@ -55,7 +57,7 @@ export default function Login({ onLogin, initialError = "", initialNotice = "" }
       setError("Revisa los campos marcados para continuar.");
       return;
     }
-    setBusy(true); setError(""); setNotice("");
+    setBusy(true); setError(""); setNotice(""); setSuggestGoogle(false);
     const payload = mode === "register"
       ? { ...form, email, semester: isProfessor ? null : Number(form.semester) }
       : { email, password: form.password };
@@ -75,6 +77,7 @@ export default function Login({ onLogin, initialError = "", initialNotice = "" }
             : "El correo o la contraseña no coinciden. Usa la contraseña que creaste para UAO Conecta; la de Google, CampusDigital o Moodle no se valida aquí. Si tu cuenta se creó con Google, entra con ese botón y crea una clave desde Configuración.")
           : formatApiError(detail, mode === "register" ? "No pudimos crear tu cuenta." : "No pudimos iniciar sesión. Verifica tu correo y contraseña.");
         setError(x.response ? message : "No pudimos conectar con el servidor. Si acaba de despertar, inténtalo de nuevo en unos segundos.");
+        setSuggestGoogle(mode === "login" && x.response?.status === 401);
         if ([403, 409].includes(x.response?.status)) setFieldErrors({ email: message });
       }
     } finally {
@@ -136,6 +139,18 @@ export default function Login({ onLogin, initialError = "", initialNotice = "" }
 
           {notice && <div className="auth-notice" role="status" data-testid="auth-notice"><CheckCircle2 size={15} aria-hidden="true" /> {notice}</div>}
           {error && <div className="error" role="alert" data-testid="auth-error">{error}</div>}
+          {suggestGoogle && (
+            <section className="auth-google-guidance" aria-labelledby="google-guidance-title" data-testid="auth-google-guidance">
+              <div>
+                <strong id="google-guidance-title">¿Usas tu cuenta institucional de Google?</strong>
+                <p>La contraseña de Gmail, CampusDigital o Moodle no se escribe aquí. Entra con Google institucional para continuar; después puedes crear una contraseña propia desde Configuración.</p>
+              </div>
+              <button type="button" className="google guidance" data-testid="google-login-guidance-button" onClick={startGoogleAuth} disabled={busy}>
+                <span className="g-icon" aria-hidden="true">G</span>
+                Continuar con Google institucional
+              </button>
+            </section>
+          )}
 
           <button type="submit" className="primary wide" data-testid="auth-submit-button" disabled={busy}>
             {busy ? "Verificando…" : mode === "register" ? "Crear mi acceso" : "Ingresar al Hub"}
