@@ -71,6 +71,7 @@ nav button.active, nav button:hover { background: var(--primary-soft); color: va
 .brand-plate .brand-caption b { color: var(--navy); }
 aside .brand { padding: 0 6px; }
 .header-brand { display: none; cursor: pointer; }
+.mobile-logout { display:none; }
 
 /* ---- Sidebar: rol y modo monitor ---- */
 .sidebar-user { margin: 30px 8px 18px; }
@@ -296,6 +297,8 @@ aside .brand { padding: 0 6px; }
 }
 @media (max-width: 850px) {
   .header-brand { display: flex; }
+  .mobile-logout { display:inline-flex; align-items:center; gap:5px; flex:none; min-height:36px; padding:7px 9px; border:1px solid var(--primary-line); border-radius:var(--radius-sm); color:var(--primary); background:#fff; font-size:11px; font-weight:700; }
+  .mobile-logout:hover { background:var(--primary-soft); }
   header { gap: 10px; justify-content: space-between; }
   header .search { flex: 1; min-width: 0; }
   .integration-grid, .ev-pillars, .ev-highlights, .ev-live, .ev-heuristics { grid-template-columns: 1fr; }
@@ -316,6 +319,8 @@ aside .brand { padding: 0 6px; }
   header { padding: 0 12px; height: 60px; }
   header .search { padding: 8px 10px; }
   header .search input { font-size: 12px; }
+  .mobile-logout { width:36px; justify-content:center; padding:7px; }
+  .mobile-logout span { display:none; }
   .hub-page .page h1, .page h1 { font-size: 30px; letter-spacing: -1px; }
   .integration-card { padding: 14px 14px 12px; }
   .integration-foot { flex-direction: column; align-items: stretch; }

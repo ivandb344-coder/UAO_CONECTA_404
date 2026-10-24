@@ -120,6 +120,17 @@ export default function Layout({ user, onLogout, children }) {
               </div>
             )}
           </div>
+          <button
+            className="mobile-logout"
+            type="button"
+            onClick={() => setConfirmLogout(true)}
+            aria-label="Cerrar sesión"
+            title="Cerrar sesión"
+            data-testid="mobile-logout-button"
+          >
+            <LogOut size={18} aria-hidden="true" />
+            <span>Salir</span>
+          </button>
         </header>
         {children}
       </main>
