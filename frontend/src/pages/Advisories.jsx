@@ -638,6 +638,8 @@ export default function Advisories({ user }) {
         <AdvisoryCalendar
           items={calendarItems}
           kind={tab}
+          showLegacyNote={!(isAdvisor && tab === "agenda")}
+          onViewList={() => setScheduleView("list")}
           onSelect={tab === "browse"
             ? (item) => {
                 if (!item.available) return;

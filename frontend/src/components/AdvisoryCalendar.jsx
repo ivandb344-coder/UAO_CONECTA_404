@@ -101,7 +101,7 @@ function eventDetail(item, kind) {
   return item.mode || "Asesoría";
 }
 
-export default function AdvisoryCalendar({ items = [], kind = "browse", onSelect }) {
+export default function AdvisoryCalendar({ items = [], kind = "browse", onSelect, onViewList, showLegacyNote = true }) {
   const [month, setMonth] = useState(() => initialMonth(items));
   const positioned = useRef(false);
   useEffect(() => {
@@ -136,6 +136,14 @@ export default function AdvisoryCalendar({ items = [], kind = "browse", onSelect
     return { date, key, inMonth: day >= 1 && day <= dayCount };
   });
   const unscheduled = items.filter((item) => !advisoryDateKey(item.date));
+  const legacyTitle = kind === "mine"
+    ? "Tus asesorías con fecha en texto"
+    : kind === "agenda"
+      ? "Espacios pendientes de ubicar"
+      : "Asesorías con fecha en texto";
+  const legacyDescription = kind === "mine"
+    ? "No se han perdido. Conservan su horario original y puedes ver todos los detalles en la Lista."
+    : "Conservan su información original. Selecciona una fecha real al editarlas para incluirlas en el calendario.";
   const legend = kind === "agenda"
     ? [
         { key: "agenda", label: "Disponibilidad publicada" },
@@ -231,11 +239,26 @@ export default function AdvisoryCalendar({ items = [], kind = "browse", onSelect
       </div>
 
       {!items.length && <p className="calendar-empty">No hay espacios para este calendario todavía. Cambia a “Lista” para revisar el detalle.</p>}
-      {!!unscheduled.length && (
-        <aside className="calendar-legacy-note" data-testid="calendar-legacy-dates">
-          <strong>{unscheduled.length} {unscheduled.length === 1 ? "espacio conserva" : "espacios conservan"} una fecha en texto</strong>
-          <span>Para ubicarlos en el calendario, edítalos y selecciona una fecha del calendario del dispositivo.</span>
-        </aside>
+      {!!unscheduled.length && showLegacyNote && (
+        <div className="calendar-legacy-note" role="note" data-testid="calendar-legacy-dates">
+          <div className="calendar-legacy-copy">
+            <strong>{unscheduled.length} {unscheduled.length === 1 ? "asesoría conserva" : "asesorías conservan"} una fecha en texto</strong>
+            <span>{legacyDescription}</span>
+          </div>
+          <ul className="calendar-legacy-list" aria-label={legacyTitle}>
+            {unscheduled.map((item) => (
+              <li key={item.calendarId || item.id}>
+                <b>{item.subject || item.topic || "Asesoría"}</b>
+                <span>{item.advisor || item.student || "Por confirmar"} · {item.date || "Fecha pendiente"} · {item.time || "Hora pendiente"}</span>
+              </li>
+            ))}
+          </ul>
+          {onViewList && (
+            <button type="button" className="ghost small calendar-legacy-action" onClick={onViewList}>
+              Ver {kind === "mine" ? "mis asesorías" : "la lista completa"}
+            </button>
+          )}
+        </div>
       )}
     </section>
   );
