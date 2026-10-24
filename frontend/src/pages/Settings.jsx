@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Edit3, ShieldCheck } from "lucide-react";
 import { roleLabel } from "@/lib/nav";
 import AccessibilityPanel from "@/components/settings/AccessibilityPanel";
+import PasswordSettings from "@/components/settings/PasswordSettings";
 
 export default function Settings({ user }) {
   const nav = useNavigate();
@@ -30,6 +31,7 @@ export default function Settings({ user }) {
         </button>
       </section>
 
+      <PasswordSettings user={user} />
       <AccessibilityPanel />
     </section>
   );

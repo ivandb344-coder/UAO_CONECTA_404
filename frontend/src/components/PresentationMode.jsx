@@ -34,7 +34,7 @@ const STEPS = [
   },
   {
     title: "Recuperación de contraseña",
-    desc: "Demostración del correo institucional de recuperación con token y expiración de 15 minutos.",
+    desc: "La solicitud de recuperación se envía al servicio real y confirma el resultado sin exponer tokens en pantalla.",
     time: "0:40",
     route: null,
     selector: null,
@@ -42,7 +42,7 @@ const STEPS = [
   },
 ];
 
-/* Modo Presentación: recorrido guiado de ~3:30 en 5 pasos, con resaltado y navegación. */
+/* Tutorial guiado de ~3:30 en 5 pasos, con resaltado y navegación. */
 export default function PresentationMode({ open, onClose }) {
   const nav = useNavigate();
   const [step, setStep] = useState(0);
@@ -104,7 +104,7 @@ export default function PresentationMode({ open, onClose }) {
 
   return (
     <>
-      <div className="tour-banner" role="region" aria-label="Modo presentación" data-testid="presentation-banner">
+      <div className="tour-banner" role="region" aria-label="Tutorial guiado" data-testid="presentation-banner">
         <div className="tour-progress" style={{ width: `${pct}%` }} aria-hidden="true" />
         <div className="tour-step-badge">
           <span><PlayCircle size={16} aria-hidden="true" /> Paso {step + 1} de {STEPS.length}</span>

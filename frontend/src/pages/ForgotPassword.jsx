@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { ExternalLink } from "lucide-react";
 import { api } from "@/lib/api";
+
+const UAO_PASSWORD_HELP_URL = "https://campus.uaovirtual.edu.co/login/forgot_password.php";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -39,12 +42,11 @@ export default function ForgotPassword() {
       setEmail("");
     } catch (err) {
       const detail = err.response?.data?.detail;
-
-      setError(
-        typeof detail === "string"
+      setError(err.response?.status === 503
+        ? "El servidor de UAO Conecta no tiene habilitado el envío de correo, así que no puede enviar este enlace. La página oficial de UAO Virtual de abajo solo restablece la contraseña institucional."
+        : typeof detail === "string"
           ? detail
-          : "No se pudo procesar la solicitud. Inténtalo nuevamente."
-      );
+          : "No se pudo procesar la solicitud. Inténtalo nuevamente.");
     } finally {
       setLoading(false);
     }
@@ -96,7 +98,7 @@ export default function ForgotPassword() {
           </h2>
 
           <p className="muted">
-            Escribe el correo electrónico asociado a tu cuenta y te enviaremos un enlace para crear una nueva contraseña.
+            Escribe el correo asociado a tu cuenta de UAO Conecta. El servidor debe tener habilitado el correo para enviarte un enlace.
           </p>
 
           <label>
@@ -150,6 +152,14 @@ export default function ForgotPassword() {
             >
               ← Volver a iniciar sesión
             </Link>
+          </div>
+
+          <div className="recovery-help" data-testid="campus-password-help">
+            <b>¿Olvidaste la clave de CampusDigital o UAO Virtual?</b>
+            <p>Recupérala en el sitio oficial. Esa clave institucional no cambia la contraseña propia de UAO Conecta.</p>
+            <a href={UAO_PASSWORD_HELP_URL} target="_blank" rel="noopener noreferrer">
+              Recuperar contraseña de UAO Virtual <ExternalLink size={13} aria-hidden="true" />
+            </a>
           </div>
         </form>
       </div>

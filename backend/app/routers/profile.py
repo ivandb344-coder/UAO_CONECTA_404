@@ -46,7 +46,7 @@ async def update_profile(data: ProfilePatch, user=Depends(current_user)):
             payload["role"] = "professor"
         elif payload["role"] == "professor":
             # El rol docente solo se asigna desde el directorio institucional (lista blanca).
-            payload["role"] = "student"
+            errors["role"] = "Una cuenta de estudiante no puede cambiarse a profesor. La institución asigna ese rol tras verificar el directorio docente."
     if "program" in payload:
         if payload["program"] not in PROGRAM_NAMES:
             errors["program"] = "Selecciona tu programa académico."

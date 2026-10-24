@@ -43,7 +43,7 @@ export default function Layout({ user, onLogout, children }) {
   };
 
   const bellCount = notif.unread || 0;
-  const mobileNav = NAV.filter((n) => ["/inicio", "/dudas", "/asignaturas", "/asesorias", "/chat"].includes(n.path));
+  const mobileNav = NAV.filter((n) => ["/inicio", "/dudas", "/asignaturas", "/asesorias", "/chat", "/evidencias-dcu"].includes(n.path));
 
   return (
     <div className="shell">
@@ -63,7 +63,7 @@ export default function Layout({ user, onLogout, children }) {
             const active = loc.pathname.startsWith(n.path);
             const chatDot = n.path === "/chat" && totalUnread > 0;
             return (
-              <button key={n.path} className={active ? "active" : ""} aria-current={active ? "page" : undefined} data-testid={`nav-${n.label.toLowerCase().replaceAll(" ", "-")}`} onClick={() => navg(n.path)}>
+              <button key={n.path} className={active ? "active" : ""} aria-current={active ? "page" : undefined} data-testid={n.testId || `nav-${n.label.toLowerCase().replaceAll(" ", "-")}`} onClick={() => navg(n.path)}>
                 <n.icon size={18} aria-hidden="true" />
                 {n.label}
                 {chatDot && <em className="nav-badge" data-testid="nav-chat-badge">{totalUnread}</em>}
@@ -89,8 +89,8 @@ export default function Layout({ user, onLogout, children }) {
             <Search size={18} aria-hidden="true" />
             <input data-testid="global-search-input" aria-label="Buscar en UAO Conecta" placeholder="Buscar asignatura, duda, persona o recurso…" value={search} onChange={(e) => setSearch(e.target.value)} />
           </form>
-          <button className="tour-launch" data-testid="presentation-mode-button" onClick={() => setTourOpen(true)} aria-label="Iniciar modo presentación, demostración de 3:30 minutos">
-            <PlayCircle size={17} aria-hidden="true" /> <span>Iniciar Demo 3:30</span>
+          <button className="tour-launch" data-testid="presentation-mode-button" onClick={() => setTourOpen(true)} aria-label="Abrir tutorial guiado, duración estimada de 3 minutos y 30 segundos">
+            <PlayCircle size={17} aria-hidden="true" /> <span>Tutorial guiado</span>
           </button>
           <button className="icon-btn mobile-only" aria-label="Configuración" onClick={() => navg("/configuracion")} data-testid="header-settings-button">
             <Settings2 size={19} aria-hidden="true" />
@@ -129,9 +129,9 @@ export default function Layout({ user, onLogout, children }) {
         {mobileNav.map((n) => {
           const active = loc.pathname.startsWith(n.path);
           return (
-            <button key={n.path} className={active ? "active" : ""} aria-current={active ? "page" : undefined} onClick={() => navg(n.path)} data-testid={`mobile-nav-${n.label}`}>
+            <button key={n.path} className={active ? "active" : ""} aria-label={n.label} aria-current={active ? "page" : undefined} onClick={() => navg(n.path)} data-testid={`mobile-nav-${n.mobileLabel || n.label}`}>
               <n.icon size={18} aria-hidden="true" />
-              <span>{n.label}</span>
+              <span>{n.mobileLabel || n.label}</span>
               {n.path === "/chat" && totalUnread > 0 && <em className="mobile-nav-dot" />}
             </button>
           );

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Paperclip, Send, Users, Wifi, WifiOff, FileText, X as XIcon } from "lucide-react";
+import { Paperclip, Send, Users, Wifi, WifiOff, FileText, X as XIcon, UserRoundPlus, Search, MessageCircle } from "lucide-react";
 import { api, API } from "@/lib/api";
 import { openProtectedFile } from "@/services/fileService";
 import { useProtectedFileUrl } from "@/hooks/useProtectedFile";
@@ -55,8 +55,15 @@ export default function Chat({ user }) {
   const [messages, setMessages] = useState([]);
   const [body, setBody] = useState("");
   const [connected, setConnected] = useState(false);
+  const [connectionState, setConnectionState] = useState("connecting");
   const [presence, setPresence] = useState([]);
   const [subjects, setSubjects] = useState([]);
+  const [directConversations, setDirectConversations] = useState([]);
+  const [professorContacts, setProfessorContacts] = useState([]);
+  const [directFeatureError, setDirectFeatureError] = useState("");
+  const [directOpen, setDirectOpen] = useState(false);
+  const [contactQuery, setContactQuery] = useState("");
+  const [directLoading, setDirectLoading] = useState(false);
   const [attachment, setAttachment] = useState(null); // {name, storage_path, content_type, size}
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -64,35 +71,87 @@ export default function Chat({ user }) {
   const messagesRef = useRef(null);
   const fileInputRef = useRef(null);
   const retryRef = useRef(0);
+  const retryTimerRef = useRef(null);
+  const pollTimerRef = useRef(null);
+
+  const directConversation = directConversations.find((item) => item.room === room);
+  const isDirectRoom = room.startsWith("dm-");
 
   const roomLabel = useMemo(() => {
     if (room === "general") return "Comunidad UAO";
+    const direct = directConversations.find((item) => item.room === room);
+    if (direct) return direct.other.name;
     const s = subjects.find((x) => x.id === room);
-    return s ? s.name : "Sala";
-  }, [room, subjects]);
+    return s ? s.name : isDirectRoom ? "Chat privado" : "Sala";
+  }, [room, subjects, directConversations, isDirectRoom]);
 
   useEffect(() => {
     api.get("/subjects").then((r) => setSubjects(r.data)).catch(() => {});
-  }, []);
+    api.get("/chat/direct").then((r) => setDirectConversations(r.data)).catch(() => {});
+    if (user.role === "student") {
+      api.get("/chat/contacts/professors").then((r) => {
+        setProfessorContacts(r.data);
+        setDirectFeatureError("");
+      }).catch((requestError) => {
+        if (requestError.response?.status === 404) setDirectFeatureError("El servidor todavía no tiene habilitados los mensajes privados. Debe actualizarse la API para usar esta función.");
+      });
+    }
+  }, [user.role]);
+
+  const startDirectConversation = async (professor) => {
+    setDirectLoading(true);
+    setError("");
+    try {
+      const response = await api.post(`/chat/direct/${encodeURIComponent(professor.id)}`);
+      const conversation = { room: response.data.room, other: response.data.other };
+      setDirectConversations((current) => [conversation, ...current.filter((item) => item.room !== conversation.room)]);
+      setDirectOpen(false);
+      setContactQuery("");
+      nav(`/chat/${encodeURIComponent(conversation.room)}`);
+    } catch (requestError) {
+      setError(requestError.response?.data?.detail || "No pudimos abrir el chat con ese docente.");
+    } finally {
+      setDirectLoading(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
     setMessages([]);
+    setPresence([]);
+    setConnected(false);
+    setConnectionState("connecting");
+    clearTimeout(retryTimerRef.current);
+    clearInterval(pollTimerRef.current);
     api
       .get(`/chat/${room}`)
       .then((r) => {
         if (!cancelled) setMessages(r.data);
       })
-      .catch(() => {});
+      .catch((requestError) => {
+        if (!cancelled) setError(requestError.response?.data?.detail || "No pudimos cargar los mensajes de esta sala.");
+      });
 
     const openSocket = () => {
       const token = localStorage.getItem("uao_token");
-      if (!token) return;
-      const ws = new WebSocket(`${WS_BASE}/ws/chat/${room}?token=${encodeURIComponent(token)}`);
+      if (!token) {
+        setConnectionState("unavailable");
+        return;
+      }
+      let ws;
+      try {
+        ws = new WebSocket(`${WS_BASE}/ws/chat/${encodeURIComponent(room)}?token=${encodeURIComponent(token)}`);
+      } catch {
+        setConnectionState("retrying");
+        return;
+      }
       wsRef.current = ws;
       ws.onopen = () => {
         setConnected(true);
+        setConnectionState("connected");
         retryRef.current = 0;
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
       };
       ws.onmessage = (evt) => {
         try {
@@ -108,17 +167,42 @@ export default function Chat({ user }) {
           /* ignore */
         }
       };
-      ws.onclose = () => {
+      ws.onclose = (event) => {
         setConnected(false);
-        if (!cancelled) {
-          retryRef.current += 1;
-          const wait = Math.min(1000 * retryRef.current, 6000);
-          setTimeout(() => {
-            if (!cancelled) openSocket();
-          }, wait);
+        if (cancelled) return;
+        if (event.code === 4401) {
+          setConnectionState("unauthorized");
+          window.dispatchEvent(new CustomEvent("uao:unauthorized"));
+          return;
         }
+        if (event.code === 4403) {
+          setConnectionState("forbidden");
+          return;
+        }
+        retryRef.current += 1;
+        if (retryRef.current >= 2) {
+          const pollMessages = () => api.get(`/chat/${encodeURIComponent(room)}`).then((response) => {
+            if (cancelled) return;
+            setMessages(response.data);
+            setConnectionState("polling");
+          }).catch(() => {
+            if (!cancelled) setConnectionState("retrying");
+          });
+          if (pollTimerRef.current === null) {
+            setConnectionState("polling");
+            pollMessages();
+            pollTimerRef.current = window.setInterval(pollMessages, 5000);
+          }
+        } else {
+          setConnectionState("retrying");
+        }
+        const wait = Math.min(1000 * (2 ** Math.min(retryRef.current - 1, 3)), 8000);
+        retryTimerRef.current = window.setTimeout(() => {
+          if (!cancelled) openSocket();
+        }, wait);
       };
       ws.onerror = () => {
+        setConnectionState("retrying");
         try {
           ws.close();
         } catch {
@@ -129,8 +213,11 @@ export default function Chat({ user }) {
     openSocket();
     return () => {
       cancelled = true;
+      clearTimeout(retryTimerRef.current);
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
       try {
-        wsRef.current?.close();
+        wsRef.current?.close(1000, "Cambio de sala");
       } catch {
         /* ignore */
       }
@@ -188,34 +275,73 @@ export default function Chat({ user }) {
     const payload = { body: text, file: attachment };
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(payload));
+      try {
+        ws.send(JSON.stringify(payload));
+        setBody("");
+        setAttachment(null);
+        return;
+      } catch {
+        setConnected(false);
+        setConnectionState("retrying");
+      }
+    }
+    api.post("/chat", { ...payload, room }).then((r) => {
+      setMessages((prev) => (prev.some((m) => m.id === r.data.id) ? prev : [...prev, r.data]));
+      setDirectConversations((current) => current.map((item) => item.room === room ? { ...item, last_message: r.data, updated_at: r.data.created_at } : item));
       setBody("");
       setAttachment(null);
-    } else {
-      // fallback HTTP (no file support on this path in v1)
-      api.post("/chat", { body: text, room }).then((r) => {
-        setMessages((prev) => (prev.some((m) => m.id === r.data.id) ? prev : [...prev, r.data]));
-        setBody("");
-      });
-    }
+    }).catch((requestError) => {
+      setError(requestError.response?.data?.detail || "No pudimos enviar el mensaje. Se conservará el texto para que puedas reintentar.");
+    });
   };
+
+  const filteredProfessors = professorContacts.filter((professor) =>
+    `${professor.name} ${professor.program || ""}`.toLocaleLowerCase("es-CO").includes(contactQuery.toLocaleLowerCase("es-CO"))
+  );
+
+  const connectionLabel = connected
+    ? "En línea"
+    : connectionState === "polling"
+      ? "Conectado · actualización cada 5 s"
+    : connectionState === "connecting"
+      ? "Conectando…"
+      : connectionState === "retrying"
+        ? "Sin conexión · reintentando"
+        : connectionState === "unauthorized"
+          ? "Sesión vencida"
+          : connectionState === "forbidden"
+            ? "Sin acceso a esta conversación"
+            : "Chat no disponible";
 
   return (
     <section className="page chat-page">
       <div className="page-head">
         <div>
           <p className="eyebrow">COORDINAR · EN COMUNIDAD</p>
-          <h1>Chat de {room === "general" ? "campus" : "asignatura"}</h1>
-          <p className="lede">Conversa con tu grupo y recibe respuestas en tiempo real.</p>
+          <h1>{isDirectRoom ? `Chat con ${directConversation?.other?.name || "docente"}` : `Chat de ${room === "general" ? "campus" : "asignatura"}`}</h1>
+          <p className="lede">{isDirectRoom ? "Conversación privada entre tú y el docente." : "Conversa con tu grupo y recibe respuestas en tiempo real."}</p>
         </div>
-        <span className={`live ${connected ? "on" : "off"}`} data-testid="chat-connection-state">
-          {connected ? <Wifi size={14} /> : <WifiOff size={14} />}
-          <i /> {connected ? "En línea" : "Reconectando…"}
+        <span className={`live ${connected || connectionState === "polling" ? "on" : "off"}`} data-testid="chat-connection-state" aria-live="polite">
+          {connected || connectionState === "polling" ? <Wifi size={14} /> : <WifiOff size={14} />}
+          <i /> {connectionLabel}
         </span>
       </div>
 
       <div className="room-tabs" data-testid="chat-room-tabs">
+        {user.role === "student" && (
+          <button
+            type="button"
+            className={`tab direct-new ${directOpen ? "active" : ""}`}
+            onClick={() => setDirectOpen((value) => !value)}
+            aria-expanded={directOpen}
+            aria-controls="professor-contact-panel"
+            data-testid="open-direct-message-panel"
+          >
+            <UserRoundPlus size={14} aria-hidden="true" /> Escribir a un profesor
+          </button>
+        )}
         <button
+          type="button"
           className={`tab ${room === "general" ? "active" : ""}`}
           onClick={() => nav("/chat/general")}
           data-testid="chat-room-general"
@@ -225,6 +351,7 @@ export default function Chat({ user }) {
         </button>
         {subjects.map((s) => (
           <button
+            type="button"
             key={s.id}
             className={`tab ${room === s.id ? "active" : ""}`}
             onClick={() => nav(`/chat/${s.id}`)}
@@ -234,7 +361,48 @@ export default function Chat({ user }) {
             {unread.rooms[s.id] ? <em className="room-badge">{unread.rooms[s.id]}</em> : null}
           </button>
         ))}
+        {directConversations.map((conversation) => (
+          <button
+            type="button"
+            key={conversation.room}
+            className={`tab direct-room ${room === conversation.room ? "active" : ""}`}
+            onClick={() => nav(`/chat/${encodeURIComponent(conversation.room)}`)}
+            data-testid={`chat-direct-room-${conversation.room}`}
+          >
+            <MessageCircle size={13} aria-hidden="true" /> {conversation.other.name}
+            {unread.rooms[conversation.room] ? <em className="room-badge">{unread.rooms[conversation.room]}</em> : null}
+          </button>
+        ))}
       </div>
+
+      {directOpen && user.role === "student" && (
+        <section className="direct-contact-panel" id="professor-contact-panel" aria-labelledby="direct-contact-heading" data-testid="professor-contact-panel">
+          <div className="direct-contact-heading">
+            <div><p className="eyebrow">MENSAJE PRIVADO</p><h2 id="direct-contact-heading">Elige un docente</h2></div>
+            <p>Solo tú y el docente podrán leer este chat.</p>
+          </div>
+          <label className="direct-contact-search">
+            <Search size={16} aria-hidden="true" />
+            <span className="sr-only">Buscar docente</span>
+            <input value={contactQuery} onChange={(event) => setContactQuery(event.target.value)} placeholder="Buscar por nombre o programa" data-testid="direct-contact-search" />
+          </label>
+          {directFeatureError ? (
+            <div className="error" role="alert" data-testid="direct-message-unavailable">{directFeatureError}</div>
+          ) : filteredProfessors.length ? (
+            <div className="direct-contact-list">
+              {filteredProfessors.map((professor) => (
+                <button type="button" key={professor.id} className="direct-contact" disabled={directLoading} onClick={() => startDirectConversation(professor)} data-testid={`direct-contact-${professor.id}`}>
+                  <span className="avatar">{professor.name?.[0] || "D"}</span>
+                  <span className="direct-contact-copy"><strong>{professor.name}</strong><small>{professor.program || "Docente UAO"}</small></span>
+                  <MessageCircle size={16} aria-hidden="true" />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <Empty text={professorContacts.length ? "No hay docentes con ese nombre." : "No hay docentes disponibles en el directorio."} />
+          )}
+        </section>
+      )}
 
       {error && (
         <div className="error" data-testid="chat-error" onClick={() => setError("")}>
@@ -248,7 +416,7 @@ export default function Chat({ user }) {
           <div className="chat-head-info">
             <strong>{roomLabel}</strong>
             <span>
-              <Users size={13} /> {presence.length || 1} {presence.length === 1 ? "conectado" : "conectados"} · realtime
+              {isDirectRoom ? <><MessageCircle size={13} /> Mensaje privado · {directConversation?.other?.role ? roleTag(directConversation.other.role) : "Docente"}</> : connectionState === "polling" ? <><Wifi size={13} /> Chat disponible · actualización cada 5 s</> : <><Users size={13} /> {presence.length} {presence.length === 1 ? "conectado" : "conectados"} · tiempo real</>}
             </span>
           </div>
           <div className="presence-list" data-testid="presence-list">
@@ -288,7 +456,7 @@ export default function Chat({ user }) {
               );
             })
           ) : (
-            <Empty text="Sé la primera persona en saludar" />
+            <Empty text={isDirectRoom ? "Envía el primer mensaje privado a este docente." : "Sé la primera persona en saludar"} />
           )}
         </div>
         <AttachmentPreview file={attachment} onClear={() => setAttachment(null)} />

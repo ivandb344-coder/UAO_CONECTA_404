@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, Send, CheckCircle2, Award } from "lucide-react";
+import { ArrowRight, Send, CheckCircle2, Award, ShieldCheck } from "lucide-react";
 import { api } from "@/lib/api";
 import { Loading } from "@/components/ui/states";
 import { StarsDisplay, StarsInput } from "@/components/ui/Stars";
@@ -156,6 +156,10 @@ export default function QuestionDetail() {
           onChange={(e) => setBody(e.target.value)}
           data-testid="answer-body-input"
         />
+        <div className="community-guidance" role="note" data-testid="answer-publishing-guidance">
+          <ShieldCheck size={18} aria-hidden="true" />
+          <p><strong>Antes de responder:</strong> no compartas datos personales y mantén un tono respetuoso; tu aporte ayuda a la comunidad.</p>
+        </div>
         <button className="primary" disabled={saving} data-testid="submit-answer-button">
           <Send size={15} /> {saving ? "Publicando…" : "Publicar respuesta"}
         </button>

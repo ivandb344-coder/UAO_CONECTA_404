@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, ArrowRight, Search } from "lucide-react";
+import { Plus, ArrowRight, Search, ShieldCheck, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { Empty } from "@/components/ui/states";
 
 export default function Questions() {
   const [items, setItems] = useState([]);
   const [open, setOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
@@ -31,13 +33,24 @@ export default function Questions() {
 
   const create = async (e) => {
     e.preventDefault();
+    setConfirmOpen(true);
+  };
+
+  const publish = async () => {
+    if (sending) return;
+    setSending(true);
+    setError("");
     try {
       const r = await api.post("/questions", form);
+      setConfirmOpen(false);
       setOpen(false);
       setForm({ ...form, title: "", description: "" });
       nav(`/dudas/${r.data.id}`);
     } catch {
       setError("No pudimos publicar la duda. Intenta de nuevo.");
+      setConfirmOpen(false);
+    } finally {
+      setSending(false);
     }
   };
 
@@ -86,6 +99,10 @@ export default function Questions() {
             value={form.subject}
             onChange={(e) => setForm({ ...form, subject: e.target.value })}
           />
+          <div className="community-guidance" role="note" data-testid="question-publishing-guidance">
+            <ShieldCheck size={18} aria-hidden="true" />
+            <p><strong>Antes de publicar:</strong> evita incluir datos personales tuyos o de otras personas y plantea tu duda con respeto.</p>
+          </div>
           <div className="form-actions">
             <label className="check">
               <input
@@ -96,10 +113,48 @@ export default function Questions() {
               Publicar anónimamente
             </label>
             <button className="primary" data-testid="submit-question-button">
-              Publicar duda <ArrowRight size={15} />
+              Enviar duda <ArrowRight size={15} />
             </button>
           </div>
         </form>
+      )}
+      {confirmOpen && (
+        <div className="modal-backdrop question-confirm-backdrop" onClick={() => !sending && setConfirmOpen(false)}>
+          <section
+            className="modal question-confirm-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="question-confirm-title"
+            data-testid="question-confirm-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="close"
+              aria-label="Volver a editar la duda"
+              onClick={() => !sending && setConfirmOpen(false)}
+              disabled={sending}
+            >
+              <X size={18} aria-hidden="true" />
+            </button>
+            <span className="question-confirm-icon" aria-hidden="true"><ShieldCheck size={21} /></span>
+            <p className="eyebrow">CONFIRMACIÓN FINAL</p>
+            <h2 id="question-confirm-title">¿Quieres enviar esta duda?</h2>
+            <p className="muted">Antes de publicarla, confirma que no incluya datos personales y que esté planteada con respeto.</p>
+            <div className="question-confirm-summary">
+              <strong>{form.title}</strong>
+              <span>{form.subject}{form.anonymous ? " · Publicación anónima" : ""}</span>
+            </div>
+            <div className="question-confirm-actions">
+              <button type="button" className="ghost" onClick={() => setConfirmOpen(false)} disabled={sending} data-testid="edit-question-button">
+                Volver a editar
+              </button>
+              <button type="button" className="primary" onClick={publish} disabled={sending} data-testid="confirm-publish-question-button">
+                {sending ? "Enviando…" : "Confirmar y publicar"} <ArrowRight size={15} aria-hidden="true" />
+              </button>
+            </div>
+          </section>
+        </div>
       )}
       <div className="filter-bar">
         <div className="search inline">
@@ -142,6 +197,14 @@ export default function Questions() {
               data-testid={`question-${q.id}`}
               onClick={() => nav(`/dudas/${q.id}`)}
               role="button"
+              tabIndex={0}
+              aria-label={`Abrir duda: ${q.title}`}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  nav(`/dudas/${q.id}`);
+                }
+              }}
             >
               <div className="question-main">
                 <div className="question-meta">

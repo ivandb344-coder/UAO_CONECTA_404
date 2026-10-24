@@ -16,17 +16,22 @@ export default function SearchResults() {
   const q = params.get("q") || "";
   const nav = useNavigate();
   const [state, setState] = useState({ people: [], subjects: [], questions: [], resources: [] });
+  const [searchMode, setSearchMode] = useState("exact");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!q.trim()) {
       setState({ people: [], subjects: [], questions: [], resources: [] });
+      setSearchMode("exact");
       return;
     }
     setLoading(true);
     api
       .get(`/search?q=${encodeURIComponent(q)}`)
-      .then((r) => setState(r.data))
+      .then((r) => {
+        setState(r.data);
+        setSearchMode(r.data.meta?.mode || "exact");
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [q]);
@@ -45,6 +50,11 @@ export default function SearchResults() {
         </div>
       </div>
       {loading && <p className="muted">Buscando…</p>}
+      {!loading && total > 0 && searchMode === "approximate" && (
+        <p className="search-assist" role="status" data-testid="approximate-search-notice">
+          Mostramos coincidencias aproximadas para “{q}”. Revisa la ortografía si quieres afinar los resultados.
+        </p>
+      )}
       {!loading &&
         Object.entries(sectionMeta).map(([key, meta]) => {
           const items = state[key] || [];

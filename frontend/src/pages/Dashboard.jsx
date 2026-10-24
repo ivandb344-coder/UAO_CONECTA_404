@@ -47,8 +47,8 @@ export default function Dashboard({ user }) {
               <Plus size={17} aria-hidden="true" /> Crear asignatura
             </button>
           )}
-          <button className="primary" onClick={() => nav("/dudas")} data-testid="ask-question-button">
-            <Plus size={17} aria-hidden="true" /> {viewRole === "student" ? "Hacer una pregunta" : "Ver dudas abiertas"}
+          <button className="primary doubts-cta" onClick={() => nav("/dudas")} data-testid="ask-question-button">
+            <CircleHelp size={17} aria-hidden="true" /> {viewRole === "student" ? "Ir a Dudas" : "Ver dudas abiertas"}
           </button>
         </div>
       </div>

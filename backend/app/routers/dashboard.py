@@ -1,8 +1,11 @@
+import re
+
 from fastapi import APIRouter, HTTPException, Depends
 
 from app.core.config import db, PROGRAMS
 from app.core.security import current_user
 from app.services.users import public_user
+from app.services.search_match import document_matches
 
 router = APIRouter()
 
@@ -51,7 +54,8 @@ async def search(q: str = "", user=Depends(current_user)):
     q = (q or "").strip()
     if not q:
         return {"people": [], "subjects": [], "questions": [], "resources": []}
-    rx = {"$regex": q, "$options": "i"}
+    # Treat the query as text so punctuation cannot change the regex pattern.
+    rx = {"$regex": re.escape(q), "$options": "i"}
     people = await db.users.find(
         {"$or": [{"name": rx}, {"username": rx}, {"program": rx}]},
         {"_id": 0, "password": 0},
@@ -68,9 +72,30 @@ async def search(q: str = "", user=Depends(current_user)):
         {"$or": [{"title": rx}, {"description": rx}]},
         {"_id": 0},
     ).limit(15).to_list(15)
+    result = {
+        "people": [public_user(p) for p in people],
+        "subjects": subjects,
+        "questions": questions,
+        "resources": resources,
+    }
+    if any(result.values()):
+        result["meta"] = {"mode": "exact"}
+        return result
+
+    # If an exact query finds nothing, make a bounded second pass that accepts
+    # small spelling mistakes without turning every query into a broad match.
+    people = [p for p in await db.users.find({}, {"_id": 0, "password": 0}).limit(150).to_list(150)
+              if document_matches(q, (p.get("name"), p.get("username"), p.get("program")))][:15]
+    subjects = [item for item in await db.subjects.find({}, {"_id": 0}).limit(150).to_list(150)
+                if document_matches(q, (item.get("name"), item.get("code"), item.get("professor"), item.get("program")))][:15]
+    questions = [item for item in await db.questions.find({}, {"_id": 0}).limit(150).to_list(150)
+                 if document_matches(q, (item.get("title"), item.get("description"), item.get("subject")))][:15]
+    resources = [item for item in await db.resources.find({}, {"_id": 0}).limit(150).to_list(150)
+                 if document_matches(q, (item.get("title"), item.get("description")))][:15]
     return {
         "people": [public_user(p) for p in people],
         "subjects": subjects,
         "questions": questions,
         "resources": resources,
+        "meta": {"mode": "approximate"},
     }

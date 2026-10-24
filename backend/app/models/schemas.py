@@ -56,6 +56,7 @@ class AdvisoryPatch(BaseModel):
 class ChatMessage(BaseModel):
     body: str
     room: str = "general"
+    file: Optional[dict] = None
 
 class AIQuestion(BaseModel):
     message: str

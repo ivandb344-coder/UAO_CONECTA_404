@@ -3,6 +3,7 @@ import { Mail, Video, MessagesSquare, BookOpen, MessageCircle, GraduationCap, Ex
 import { useViewMode } from "@/lib/viewMode";
 import { TOOLS, CATEGORIES, loadLinks, saveLinks } from "@/lib/integrationLinks";
 import EditLinksModal from "@/components/hub/EditLinksModal";
+import HoverDisclosureCard from "@/components/hub/HoverDisclosureCard";
 
 const ICONS = {
   gmail: Mail,
@@ -51,22 +52,24 @@ export default function EcosystemLayer() {
                 const Icon = ICONS[tool.key] || ExternalLink;
                 const url = links[tool.key];
                 return (
-                  <article
+                  <HoverDisclosureCard
                     className="eco-card"
                     key={tool.key}
                     style={{ "--sys": tool.color }}
                     data-testid={`eco-card-${tool.key}`}
                     aria-label={`${tool.name} · ${tool.category_label}`}
+                    detailsClassName="eco-more"
+                    panelClassName="eco-description-panel"
+                    panelId={`eco-description-${tool.key}`}
+                    label="Ver descripción"
+                    panel={<p>{tool.description}</p>}
                   >
-                    <span className="eco-cat" data-testid={`eco-category-${tool.key}`}>{tool.category_label}</span>
                     <header className="eco-head">
                       <span className="eco-mark" aria-hidden="true"><Icon size={18} /></span>
                       <div>
                         <b>{tool.name}</b>
-                        <small>{tool.description}</small>
+                        <small data-testid={`eco-category-${tool.key}`}>{tool.category_label}</small>
                       </div>
-                    </header>
-                    <footer className="eco-foot">
                       <span className="eco-status on" data-testid={`eco-status-${tool.key}`}>
                         <i aria-hidden="true" /> Disponible
                       </span>
@@ -79,8 +82,8 @@ export default function EcosystemLayer() {
                       >
                         Abrir <ExternalLink size={13} aria-hidden="true" />
                       </a>
-                    </footer>
-                  </article>
+                    </header>
+                  </HoverDisclosureCard>
                 );
               })}
             </div>

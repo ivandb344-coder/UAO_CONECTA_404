@@ -97,7 +97,3 @@ def identity_check(email: Optional[str]) -> dict:
         "verified_by": None if not institutional else verified_source,
         "message": None if institutional else INSTITUTIONAL_EMAIL_MESSAGE,
     }
-        "role": role,
-        "verified_by": None if not institutional else (PROFESSOR_DIRECTORY_SOURCE if role == "professor" else STUDENT_DIRECTORY_SOURCE),
-        "message": None if institutional else INSTITUTIONAL_EMAIL_MESSAGE,
-    }

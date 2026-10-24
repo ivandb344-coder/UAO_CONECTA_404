@@ -6,7 +6,7 @@ Stack: **React 19 (CRA + CRACO)** · **FastAPI** · **MongoDB (Motor + GridFS)**
 
 ## Funcionalidades
 
-- Autenticación por correo/contraseña y Google (Emergent Auth). Rol, programa y semestre quedan asociados a la cuenta y se conservan en cada inicio de sesión. Un correo = una cuenta (índice único + validación en frontend y backend).
+- Autenticación con Google (Emergent Auth) o con una contraseña propia de UAO Conecta. La contraseña de CampusDigital/UAO Virtual no se valida en este aplicativo. Rol, programa y semestre quedan asociados a la cuenta; un correo corresponde a una cuenta.
 - Perfil editable (foto privada, biografía, información académica, contacto, redes y plataformas).
 - Asignaturas (crear / unirse por código), tareas, entregas con archivos y bandeja de revisión docente con retroalimentación.
 - Recursos por asignatura con vista previa inline (imagen, PDF, video) y descarga autenticada.
@@ -15,6 +15,10 @@ Stack: **React 19 (CRA + CRACO)** · **FastAPI** · **MongoDB (Motor + GridFS)**
 - Asistente IA (GPT vía Emergent LLM key, solo para `/api/ai`).
 - **Configuración › Accesibilidad**: alto contraste, tamaño de texto, animaciones, movimiento reducido, foco resaltado y controles grandes, guardados por usuario.
 - Cierre de sesión con confirmación y mensaje de despedida.
+
+## Identidad visual
+
+La interfaz usa el logotipo UAO como imagen y sigue la paleta del [Manual de Identidad UAO](https://www.uao.edu.co/wp-content/uploads/2025/01/manual-identidad.pdf): rojo principal `#FF051E`, crema `#FBF5EC` y tonos secundarios oficiales. Para botones y texto pequeño se usa el rojo `#AC0B32`, que conserva el contraste AAA sobre blanco; el coral `#FF836C` se reserva para acentos sobre fondos oscuros. La tipografía DM Sans pertenece a la interfaz de UAO Conecta, no reemplaza la tipografía dibujada del logotipo.
 
 ## Estructura del repositorio
 
@@ -73,6 +77,8 @@ cp frontend/.env.example frontend/.env
 | backend/.env | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Correo de recuperación de contraseña (sin SMTP, `/forgot-password` responde 503) |
 | backend/.env | `OPENAI_API_KEY` | Asistente IA (`/api/ai`) |
 | frontend/.env | `REACT_APP_BACKEND_URL` | URL pública del backend (sin `/api`). En GitHub Pages, si falta o apunta a localhost, se usa `https://uao-conecta-404.onrender.com` |
+
+Para recuperar una contraseña propia de **UAO Conecta** por correo, configura `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` y `SMTP_PASSWORD` en el entorno del backend (en Render: **Environment**). Si usas Gmail, `SMTP_PASSWORD` debe ser una contraseña de aplicación de Google (requiere verificación en dos pasos); no uses ni publiques la contraseña normal de la cuenta. Los secretos del `.env` local no se copian al hacer `git push`. Sin SMTP el endpoint devuelve `503` y el formulario ofrece alternativas. La recuperación de CampusDigital/UAO Virtual usa su [página oficial](https://campus.uaovirtual.edu.co/login/forgot_password.php) y cambia la contraseña institucional, no la contraseña propia de UAO Conecta. Una persona que entra con Google también puede crear una contraseña exclusiva de UAO Conecta en **Configuración → Acceso manual**, después de revalidar su sesión de Google.
 
 Nunca subas `.env`, claves, contraseñas ni tokens al repositorio.
 

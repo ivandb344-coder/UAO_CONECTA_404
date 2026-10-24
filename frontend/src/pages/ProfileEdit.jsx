@@ -171,11 +171,6 @@ export default function ProfileEdit({ me, onUpdate }) {
           <h1>Editar perfil</h1>
           <p className="lede">Actualiza tu información académica, tus redes y cómo te ven los demás.</p>
         </div>
-        {saved && (
-          <span className="save-badge" data-testid="save-badge">
-            <Check size={13} /> Guardado
-          </span>
-        )}
       </div>
 
       {remoteMsg && <div className="error" data-testid="profile-edit-error">{remoteMsg}</div>}
@@ -225,13 +220,20 @@ export default function ProfileEdit({ me, onUpdate }) {
                 type="button"
                 key={r.value}
                 onClick={() => set("role", r.value)}
+                disabled={me.role === "student" && r.value === "professor"}
                 className={`role-chip ${form.role === r.value ? "active" : ""} ${errors.role ? "invalid" : ""}`}
                 data-testid={`pe-role-${r.value}`}
+                aria-describedby={me.role === "student" && r.value === "professor" ? "student-professor-role-note" : undefined}
               >
                 {r.label}
               </button>
             ))}
           </div>
+          {me.role === "student" && (
+            <p className="role-restriction" id="student-professor-role-note" data-testid="student-professor-role-note">
+              Tu cuenta está registrada como estudiante. El rol de profesor solo lo asigna la institución después de verificar el directorio docente.
+            </p>
+          )}
           {fieldError(errors, "role")}
         </label>
 
@@ -305,9 +307,16 @@ export default function ProfileEdit({ me, onUpdate }) {
           </label>
         </div>
 
-        <button className="primary wide" data-testid="pe-submit" disabled={busy}>
-          <Save size={15} /> {busy ? "Guardando…" : "Guardar cambios"}
-        </button>
+        <div className="profile-save-area">
+          {saved && (
+            <div className="profile-save-notice" role="status" aria-live="polite" data-testid="save-badge">
+              <Check size={15} aria-hidden="true" /> Cambios guardados. Tu perfil ya está actualizado.
+            </div>
+          )}
+          <button className="primary wide" data-testid="pe-submit" disabled={busy}>
+            <Save size={15} /> {busy ? "Guardando…" : "Guardar cambios"}
+          </button>
+        </div>
       </form>
 
       <section className="links-section" data-testid="links-section">

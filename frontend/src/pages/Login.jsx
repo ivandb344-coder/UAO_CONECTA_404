@@ -6,7 +6,6 @@ import BrandLogo from "@/components/BrandLogo";
 import AuthVisual from "@/components/auth/AuthVisual";
 import RegisterFields from "@/components/auth/RegisterFields";
 import InstitutionalBadge, { useInstitutionalCheck } from "@/components/auth/InstitutionalBadge";
-import SyncOverlay, { SYNC_DURATION } from "@/components/auth/SyncOverlay";
 import ForgotPasswordModal from "@/components/auth/ForgotPasswordModal";
 
 // Google (Emergent Auth) a través del backend: GET /api/auth/google/login?redirect=<URL actual>.
@@ -16,8 +15,7 @@ function startGoogleAuth() {
   window.location.href = `${API}/auth/google/login?redirect=${encodeURIComponent(`${window.location.origin}${cleanPath}`)}`;
 }
 
-const INSTITUTIONAL_RE = /@uao\.edu\.co$/i;
-const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Login({ onLogin, initialError = "", initialNotice = "" }) {
   const [mode, setMode] = useState("login");
@@ -26,12 +24,14 @@ export default function Login({ onLogin, initialError = "", initialNotice = "" }
   const [fieldErrors, setFieldErrors] = useState({});
   const [notice, setNotice] = useState(initialNotice);
   const [busy, setBusy] = useState(false);
-  const [syncing, setSyncing] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
   const { identity, check } = useInstitutionalCheck(form.email);
 
   const isProfessor = identity.status === "ok" && identity.role === "professor";
-  const clearError = (key) => setFieldErrors((f) => ({ ...f, [key]: "" }));
+  const clearError = (key) => {
+    setFieldErrors((f) => ({ ...f, [key]: "" }));
+    setError("");
+  };
 
   const switchMode = () => {
     setMode(mode === "register" ? "login" : "register");
@@ -41,17 +41,26 @@ export default function Login({ onLogin, initialError = "", initialNotice = "" }
   const submit = async (e) => {
     e.preventDefault();
     const email = form.email.trim().toLowerCase();
-    if (!INSTITUTIONAL_RE.test(email)) {
-      setFieldErrors({ email: "Solo se permiten correos institucionales @uao.edu.co." });
-      setError("Usa tu correo institucional para continuar.");
+    const validationErrors = {};
+    if (!EMAIL_RE.test(email)) {
+      validationErrors.email = "Escribe un correo electrónico válido.";
+    }
+    if (!form.password) {
+      validationErrors.password = "Escribe tu contraseña.";
+    } else if (mode === "register" && form.password.length < 6) {
+      validationErrors.password = "La contraseña debe tener al menos 6 caracteres.";
+    }
+    if (Object.keys(validationErrors).length) {
+      setFieldErrors(validationErrors);
+      setError("Revisa los campos marcados para continuar.");
       return;
     }
-    setBusy(true); setSyncing(true); setError(""); setNotice("");
+    setBusy(true); setError(""); setNotice("");
     const payload = mode === "register"
       ? { ...form, email, semester: isProfessor ? null : Number(form.semester) }
       : { email, password: form.password };
     try {
-      const [r] = await Promise.all([api.post(mode === "register" ? "/auth/register" : "/auth/login", payload), delay(SYNC_DURATION)]);
+      const r = await api.post(mode === "register" ? "/auth/register" : "/auth/login", payload);
       localStorage.setItem("uao_token", r.data.token);
       onLogin(r.data.user);
     } catch (x) {
@@ -60,11 +69,14 @@ export default function Login({ onLogin, initialError = "", initialNotice = "" }
         setFieldErrors(detail.fields);
         setError("Revisa los campos marcados para continuar.");
       } else {
-        const message = formatApiError(detail, mode === "register" ? "No pudimos crear tu cuenta." : "No pudimos iniciar sesión. Verifica tu correo y contraseña.");
+        const message = mode === "login" && x.response?.status === 401
+          ? (typeof detail === "string" && detail.includes("se creó con Google")
+            ? detail
+            : "El correo o la contraseña no coinciden. Usa la contraseña que creaste para UAO Conecta; la de Google, CampusDigital o Moodle no se valida aquí. Si tu cuenta se creó con Google, entra con ese botón y crea una clave desde Configuración.")
+          : formatApiError(detail, mode === "register" ? "No pudimos crear tu cuenta." : "No pudimos iniciar sesión. Verifica tu correo y contraseña.");
         setError(x.response ? message : "No pudimos conectar con el servidor. Si acaba de despertar, inténtalo de nuevo en unos segundos.");
-        if (x.response?.status === 409) setFieldErrors({ email: message });
+        if ([403, 409].includes(x.response?.status)) setFieldErrors({ email: message });
       }
-      setSyncing(false);
     } finally {
       setBusy(false);
     }
@@ -76,19 +88,13 @@ export default function Login({ onLogin, initialError = "", initialNotice = "" }
       <div className="auth-form-wrap">
         <form className="auth-form" onSubmit={submit} noValidate>
           <BrandLogo caption="Hub de Integración Estudiantil" size="sm" testId="auth-form-logo" />
-          <p className="eyebrow">{mode === "register" ? "CREA TU ACCESO INSTITUCIONAL" : "ACCESO CON CUENTA UAO"}</p>
+          <p className="eyebrow">{mode === "register" ? "CREA TU CUENTA UAO CONECTA" : "ACCESO A UAO CONECTA"}</p>
           <h2 data-testid="login-title">Hub de Integración Estudiantil UAO</h2>
           <p className="muted">
             {mode === "register"
-              ? "Verificamos tu correo contra los sistemas de la universidad y traemos tus datos."
-              : "Una sola sesión para Moodle, Teams, Banner y el apoyo académico entre pares."}
+              ? "Regístrate con tu correo institucional y crea una contraseña propia para UAO Conecta."
+              : "Ingresa con tu cuenta de UAO Conecta o continúa con tu cuenta Google institucional."}
           </p>
-
-          <button type="button" className="google featured" data-testid="google-login-button" onClick={startGoogleAuth} disabled={busy}>
-            <span className="g-icon" aria-hidden="true">G</span>
-            <span>Continuar con Google institucional</span>
-          </button>
-          <div className="or-divider" aria-hidden="true"><span>o con tu correo @uao.edu.co</span></div>
 
           {mode === "register" && (
             <RegisterFields form={form} setForm={setForm} fieldErrors={fieldErrors} clearError={clearError} isProfessor={isProfessor} />
@@ -103,17 +109,17 @@ export default function Login({ onLogin, initialError = "", initialNotice = "" }
               autoComplete="email"
               placeholder="nombre@uao.edu.co"
               aria-invalid={!!fieldErrors.email}
-              aria-describedby="email-help"
+              aria-describedby={fieldErrors.email ? "email-help auth-email-error" : "email-help"}
               value={form.email}
               onChange={(e) => { setForm({ ...form, email: e.target.value }); clearError("email"); }}
               onBlur={check}
             />
-            {fieldErrors.email && <span className="field-error" role="alert" data-testid="auth-email-error">{fieldErrors.email}</span>}
+            {fieldErrors.email && <span id="auth-email-error" className="field-error" role="alert" data-testid="auth-email-error">{fieldErrors.email}</span>}
           </label>
           <InstitutionalBadge identity={identity} />
 
           <label>
-            Contraseña
+            {mode === "register" ? "Crea contraseña de UAO Conecta" : "Contraseña de UAO Conecta"}
             <input
               data-testid="auth-password-input"
               type="password"
@@ -121,17 +127,18 @@ export default function Login({ onLogin, initialError = "", initialNotice = "" }
               minLength={mode === "register" ? 6 : undefined}
               autoComplete={mode === "register" ? "new-password" : "current-password"}
               aria-invalid={!!fieldErrors.password}
+              aria-describedby={fieldErrors.password ? "auth-password-error" : undefined}
               value={form.password}
               onChange={(e) => { setForm({ ...form, password: e.target.value }); clearError("password"); }}
             />
-            {fieldErrors.password && <span className="field-error" role="alert">{fieldErrors.password}</span>}
+            {fieldErrors.password && <span id="auth-password-error" className="field-error" role="alert">{fieldErrors.password}</span>}
           </label>
 
           {notice && <div className="auth-notice" role="status" data-testid="auth-notice"><CheckCircle2 size={15} aria-hidden="true" /> {notice}</div>}
           {error && <div className="error" role="alert" data-testid="auth-error">{error}</div>}
 
-          <button type="submit" className="primary wide" data-testid="auth-submit-button" disabled={busy || identity.status === "rejected"}>
-            {busy ? "Conectando…" : mode === "register" ? "Crear mi acceso" : "Ingresar al Hub"}
+          <button type="submit" className="primary wide" data-testid="auth-submit-button" disabled={busy}>
+            {busy ? "Verificando…" : mode === "register" ? "Crear mi acceso" : "Ingresar al Hub"}
             <ArrowRight size={17} aria-hidden="true" />
           </button>
 
@@ -144,10 +151,22 @@ export default function Login({ onLogin, initialError = "", initialNotice = "" }
             </button>
           </div>
           <p className="field-hint" id="email-help">Solo correos institucionales @uao.edu.co. Los docentes de Ingeniería se reconocen automáticamente.</p>
+
+          {mode === "login" && (
+            <div className="auth-credential-note" role="note" data-testid="auth-credential-note">
+              <strong>Sobre la contraseña manual</strong>
+              <p>Es una clave propia de UAO Conecta. Si solo has entrado con Google, continúa con Google y luego crea tu clave desde Configuración.</p>
+            </div>
+          )}
+
+          <div className="or-divider auth-google-divider" aria-hidden="true"><span>o continúa con Google</span></div>
+          <button type="button" className="google featured" data-testid="google-login-button" onClick={startGoogleAuth} disabled={busy}>
+            <span className="g-icon" aria-hidden="true">G</span>
+            <span>Continuar con Google institucional</span>
+          </button>
         </form>
       </div>
-      <SyncOverlay active={syncing} name={form.name.split(" ")[0]} />
-      <ForgotPasswordModal open={forgotOpen} onClose={() => setForgotOpen(false)} />
+      <ForgotPasswordModal open={forgotOpen} initialEmail={form.email} onClose={() => setForgotOpen(false)} />
     </main>
   );
 }

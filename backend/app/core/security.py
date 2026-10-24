@@ -5,19 +5,34 @@ import jwt
 
 from app.core.config import db, SECRET
 
-def token(user):
-    return jwt.encode({"sub": user["id"], "exp": datetime.now(timezone.utc) + timedelta(days=7)}, SECRET, algorithm="HS256")
+def token(user, auth_method="password"):
+    now = datetime.now(timezone.utc)
+    return jwt.encode(
+        {
+            "sub": user["id"],
+            "exp": now + timedelta(days=7),
+            "iat": int(now.timestamp()),
+            "auth_method": auth_method,
+        },
+        SECRET,
+        algorithm="HS256",
+    )
 
 async def current_user(authorization: Optional[str] = Header(None)):
     if not authorization:
         raise HTTPException(401, "Autenticación requerida")
     try:
-        uid = jwt.decode(authorization.replace("Bearer ", ""), SECRET, algorithms=["HS256"])["sub"]
+        claims = jwt.decode(authorization.replace("Bearer ", ""), SECRET, algorithms=["HS256"])
+        uid = claims["sub"]
     except Exception:
         raise HTTPException(401, "Sesión inválida")
     user = await db.users.find_one({"id": uid}, {"_id": 0})
     if not user:
         raise HTTPException(401, "Usuario no encontrado")
+    # Metadatos internos del JWT para operaciones que requieren autenticación reciente.
+    # public_user selecciona campos explícitos y nunca expone estos valores.
+    user["_auth_method"] = claims.get("auth_method")
+    user["_auth_iat"] = claims.get("iat")
     return user
 
 def _user_from_token(token: Optional[str]):

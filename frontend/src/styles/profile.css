@@ -1,7 +1,7 @@
 /* ====== Complete Profile & Profile Edit & Notifications & Search ====== */
 
 /* Complete profile */
-.complete-profile-shell { min-height:100vh; background: linear-gradient(140deg, #f8fafc 55%, #FBECEC 100%); display:grid; place-items:center; padding: 32px 20px; }
+.complete-profile-shell { min-height:100vh; background: linear-gradient(140deg, #f8fafc 55%, #FBF5EC 100%); display:grid; place-items:center; padding: 32px 20px; }
 .complete-profile-card { width:min(560px, 100%); background:#fff; border:1px solid var(--line); padding: 40px 44px; border-radius: 8px; box-shadow: 0 40px 80px -60px rgba(15,23,42,.35); }
 .complete-profile-card .brand-mark { font-size:20px; margin-bottom:22px; }
 .complete-profile-card h1 { font-size: 34px; letter-spacing:-1px; }
@@ -20,12 +20,15 @@
 
 .role-row { display:flex; gap:8px; flex-wrap:wrap; }
 .role-chip { border:1px solid var(--line); padding: 9px 14px; font-size:12px; font-weight:600; color: var(--muted); border-radius:4px; background:#fff; }
-.role-chip.active { border-color: var(--primary); background:#FBECEC; color: var(--primary); }
+.role-chip.active { border-color: var(--primary); background:#FBF5EC; color: var(--primary); }
 .role-chip:hover { color: var(--ink); }
+.role-chip:disabled { cursor:not-allowed; opacity:.58; color:var(--muted); background:#f5f7fa; border-color:var(--line); }
+.role-chip:disabled:hover { color:var(--muted); }
+.role-restriction { margin-top:8px; max-width:660px; color:var(--muted); font-size:11px; line-height:1.55; }
 
 /* Profile page */
 .profile-hero { display:flex; gap:22px; align-items:center; margin-bottom: 34px; flex-wrap:wrap; }
-.profile-avatar { width:96px; height:96px; border-radius:50%; overflow:hidden; background:#FBECEC; color:#A81B1E; display:grid; place-items:center; font-family: 'DM Sans'; font-weight:700; font-size:36px; flex:none; border:2px solid #F5D0D0; }
+.profile-avatar { width:96px; height:96px; border-radius:50%; overflow:hidden; background:#FBF5EC; color:#AC0B32; display:grid; place-items:center; font-family: 'DM Sans'; font-weight:700; font-size:36px; flex:none; border:2px solid #F5D0D0; }
 .profile-avatar.big { width:120px; height:120px; font-size:44px; }
 .profile-avatar.tiny { width:36px; height:36px; font-size:14px; border-width:1px; }
 .profile-avatar img { width:100%; height:100%; object-fit:cover; }
@@ -53,6 +56,8 @@
 .profile-edit .photo-row .ghost { margin-bottom: 6px; }
 .small.muted, .muted.small { font-size:10px; color: var(--muted); margin-top:6px; }
 .save-badge { display:inline-flex; align-items:center; gap:6px; background:#e5f7ee; color:#07834f; padding:8px 12px; font-size:11px; border-radius:4px; }
+.profile-save-area { margin-top:6px; display:grid; gap:10px; justify-items:start; }
+.profile-save-notice { display:inline-flex; align-items:center; gap:7px; width:100%; max-width:680px; padding:11px 13px; background:#e5f7ee; border:1px solid #b8e8ce; color:#067647; border-radius:4px; font-size:12px; font-weight:600; }
 .links-section { margin-top: 34px; padding-top: 24px; border-top: 1px solid var(--line); }
 .link-editor { background:#fff; border:1px solid var(--line); padding:20px; margin: 14px 0 22px; }
 .link-editor .field:last-of-type { margin-bottom: 10px; }
@@ -96,12 +101,13 @@
 .search-hits li:hover { border-color: var(--primary); }
 .search-hits b { font-size:13px; flex:1; }
 .search-hits small { font-size:11px; color: var(--muted); }
+.search-assist { margin:-15px 0 20px; padding:10px 12px; max-width:720px; border-left:3px solid var(--primary); background:#FBF5EC; color:var(--ink); font-size:12px; line-height:1.5; }
 
 /* Resources */
 .resources-block { margin-top: 42px; padding-top: 24px; border-top: 1px solid var(--line); }
 .resource-list { list-style:none; padding:0; margin:0; display:grid; gap:8px; }
 .resource-item { display:flex; align-items:center; gap:14px; background:#fff; border:1px solid var(--line); padding: 14px 18px; }
-.resource-icon { width:38px; height:38px; background:#FBECEC; color: var(--primary); display:grid; place-items:center; border-radius:4px; }
+.resource-icon { width:38px; height:38px; background:#FBF5EC; color: var(--primary); display:grid; place-items:center; border-radius:4px; }
 .resource-body { flex:1; }
 .resource-body b { display:block; font-size:13px; }
 .resource-body p { font-size:11px; color: var(--muted); margin-top:3px; }

@@ -1,4 +1,4 @@
-import { useViewMode } from "@/lib/viewMode";
+import { useViewMode } from "../../lib/viewMode";
 
 /* Toggle reversible (heurística 3: control y libertad). Solo para estudiantes. */
 export default function MonitorToggle({ compact = false }) {

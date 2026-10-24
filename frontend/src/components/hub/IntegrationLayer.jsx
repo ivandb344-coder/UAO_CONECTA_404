@@ -55,11 +55,6 @@ export default function IntegrationLayer({ user }) {
           {data.systems.map((s, i) => <IntegrationCard system={s} index={i} key={s.key} />)}
         </div>
       )}
-      {data?.mock && (
-        <p className="integration-note" data-testid="integration-mock-note">
-          Datos simulados para el prototipo: la conexión real usará el SSO institucional (Moodle Web Services · Microsoft Graph · Banner).
-        </p>
-      )}
     </section>
     {!loading && <EcosystemLayer />}
     </>

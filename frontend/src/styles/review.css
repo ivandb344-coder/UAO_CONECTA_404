@@ -21,7 +21,7 @@
 .review-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
 .review-head h3 { font-size:18px; margin:8px 0 6px; }
 .review-head .status { display:inline-block; }
-.review-grade { font:700 22px 'DM Sans', sans-serif; color: var(--primary); background:#FBECEC; padding:6px 12px; border-radius:3px; flex:none; }
+.review-grade { font:700 22px 'DM Sans', sans-serif; color: var(--primary); background:#FBF5EC; padding:6px 12px; border-radius:3px; flex:none; }
 .review-text { font-size:12px; line-height:1.7; color:#1e293b; background:#f5f7fa; padding:12px 14px; margin-top:14px; white-space:pre-wrap; }
 .review-link { display:inline-flex; align-items:center; gap:6px; font-size:11px; color: var(--primary); margin-top:10px; word-break:break-all; }
 .review-foot { display:flex; gap:10px; margin-top:14px; padding-top:14px; border-top:1px dashed var(--line); }

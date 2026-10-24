@@ -21,7 +21,7 @@ from urllib.parse import quote, urlparse
 
 import aiosmtplib
 import httpx
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from pymongo.errors import DuplicateKeyError
@@ -73,6 +73,11 @@ class ResetPasswordRequest(BaseModel):
     password: str
 
 
+class SetPasswordRequest(BaseModel):
+    password: str
+    current_password: Optional[str] = None
+
+
 # ============================================================
 # UTILIDADES
 # ============================================================
@@ -115,8 +120,8 @@ async def _ensure_user_id(user: dict) -> dict:
     return user
 
 
-def _session_payload(user: dict) -> dict:
-    return {"token": token(user), "user": public_user(user)}
+def _session_payload(user: dict, auth_method: str = "password") -> dict:
+    return {"token": token(user, auth_method=auth_method), "user": public_user(user)}
 
 
 def _allowed_redirect_origins() -> set:
@@ -224,8 +229,9 @@ async def _send_reset_email(to_email: str, reset_url: str, user_name: str, minut
             timeout=20,
         )
         logger.info("Correo de recuperación enviado a %s", to_email)
-    except Exception as exc:  # El usuario ya recibió la respuesta genérica
+    except Exception as exc:
         logger.error("Error enviando correo de recuperación a %s: %s", to_email, exc)
+        raise
 
 
 # ============================================================
@@ -329,21 +335,58 @@ async def login(data: Login):
     user = await db.users.find_one({"email": email})
 
     if not user or not verify_password(data.password, user.get("password")):
-        if user and user.get("auth_provider") == "google":
+        if user and user.get("auth_provider") == "google" and not user.get("password_setup_at"):
             raise HTTPException(
                 status_code=401,
-                detail="Esta cuenta se creó con Google. Usa «Continuar con Google» o recupera tu contraseña.",
+                detail="Esta cuenta se creó con Google y aún no tiene una contraseña propia de UAO Conecta. Usa «Continuar con Google» y crea una clave desde Configuración.",
             )
         raise HTTPException(status_code=401, detail="Correo o contraseña incorrectos.")
 
     user = await _ensure_user_id(user)
     update = {"last_login": _now().isoformat()}
+    if user.get("auth_provider") == "google" and not user.get("password_setup_at"):
+        # Migra usuarios Google que ya habían habilitado antes una contraseña manual.
+        update["password_setup_at"] = update["last_login"]
     # "Arrastre" desde el directorio docente: un correo de la lista blanca siempre es docente.
     if is_professor(email) and user.get("role") != "professor":
         update["role"] = "professor"
         update["semester"] = None
     await db.users.update_one({"id": user["id"]}, {"$set": update})
     return _session_payload({**user, **update})
+
+
+@router.post("/set-password")
+async def set_password(data: SetPasswordRequest, user=Depends(current_user)):
+    """Create an app password for a Google account or change an existing app password.
+
+    Google-only accounts must have completed Google OAuth in the previous 10 minutes.
+    Google accounts must revalidate with Google. Other accounts must provide the current password.
+    """
+    password_error = _password_error(data.password, MIN_PASSWORD_LENGTH)
+    if password_error:
+        raise HTTPException(status_code=400, detail=password_error)
+
+    if user.get("auth_provider") == "google":
+        auth_time = user.get("_auth_iat")
+        recently_authenticated_with_google = (
+            user.get("_auth_method") == "google"
+            and isinstance(auth_time, (int, float))
+            and 0 <= datetime.now(timezone.utc).timestamp() - auth_time <= 600
+        )
+        if not recently_authenticated_with_google:
+            raise HTTPException(
+                status_code=401,
+                detail="Para crear o cambiar esta contraseña, vuelve a iniciar sesión con Google y luego inténtalo de nuevo.",
+            )
+    elif not verify_password(data.current_password or "", user.get("password")):
+        raise HTTPException(status_code=401, detail="La contraseña actual no es correcta.")
+
+    now = _now().isoformat()
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {"password": hash_password(data.password), "password_setup_at": now}},
+    )
+    return {"message": "Contraseña de UAO Conecta guardada. Ya puedes ingresar con tu correo y esta contraseña.", "has_password": True}
 
 
 @router.get("/me")
@@ -448,7 +491,7 @@ async def google_auth(data: GoogleAuth):
         await db.users.update_one({"id": user["id"]}, {"$set": update})
         user = {**user, **update}
 
-    return _session_payload(user)
+    return _session_payload(user, auth_method="google")
 
 
 # ============================================================
@@ -461,7 +504,7 @@ GENERIC_FORGOT_MESSAGE = (
 
 
 @router.post("/forgot-password")
-async def forgot_password(data: ForgotPasswordRequest, background_tasks: BackgroundTasks):
+async def forgot_password(data: ForgotPasswordRequest):
     email = (data.email or "").strip().lower()
     if not email or "@" not in email:
         raise HTTPException(status_code=400, detail="Escribe un correo electrónico válido.")
@@ -475,17 +518,25 @@ async def forgot_password(data: ForgotPasswordRequest, background_tasks: Backgro
     user = await db.users.find_one({"email": email}, {"_id": 0, "email": 1, "name": 1})
     if user:
         raw_token = secrets.token_urlsafe(32)
+        token_hash = _hash_reset_token(raw_token)
         minutes = int(os.getenv("PASSWORD_RESET_MINUTES") or "30")
         now = _now()
         await db.password_reset_tokens.delete_many({"email": email})
         await db.password_reset_tokens.insert_one({
-            "token_hash": _hash_reset_token(raw_token),
+            "token_hash": token_hash,
             "email": email,
             "expires_at": now + timedelta(minutes=minutes),
             "used": False,
             "created_at": now,
         })
-        background_tasks.add_task(_send_reset_email, email, _reset_link(raw_token), user.get("name") or "usuario", minutes)
+        try:
+            await _send_reset_email(email, _reset_link(raw_token), user.get("name") or "usuario", minutes)
+        except Exception:
+            await db.password_reset_tokens.delete_one({"token_hash": token_hash})
+            raise HTTPException(
+                status_code=503,
+                detail="El servidor no pudo enviar el correo de recuperación. Inténtalo más tarde o contacta al administrador.",
+            )
 
     # Respuesta idéntica exista o no la cuenta (evita enumeración de correos)
     return {"message": GENERIC_FORGOT_MESSAGE}
@@ -517,7 +568,7 @@ async def reset_password(data: ResetPasswordRequest):
 
     result = await db.users.update_one(
         {"email": record["email"]},
-        {"$set": {"password": hash_password(new_password), "password_updated_at": _now().isoformat()}},
+        {"$set": {"password": hash_password(new_password), "password_updated_at": _now().isoformat(), "password_setup_at": _now().isoformat()}},
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="La cuenta asociada a este enlace ya no existe.")

@@ -5,6 +5,7 @@ def public_user(u):
     keys = ["id", "name", "username", "email", "role", "program", "semester", "bio", "picture",
             "phone", "contact_info", "academic_info", "links", "rating", "rating_count", "profile_completed", "auth_provider"]
     out = {k: u.get(k) for k in keys}
+    out["has_password"] = u.get("auth_provider") != "google" or bool(u.get("password_setup_at"))
     if out["profile_completed"] is None:
         out["profile_completed"] = _profile_completed(u)
     out["links"] = out.get("links") or []

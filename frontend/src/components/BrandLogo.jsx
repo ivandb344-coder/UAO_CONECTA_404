@@ -1,6 +1,6 @@
 import { LOGO_UAO } from "@/lib/assets";
 
-/* Logo UAO con área de protección (Manual 2026). `plate` lo monta sobre un contenedor blanco para fondos oscuros. */
+/* Logotipo UAO oficial con su proporción intacta. `plate` lo monta sobre un contenedor blanco en fondos oscuros. */
 export default function BrandLogo({ plate = false, caption = "Hub de Integración Estudiantil", size = "md", testId = "brand-logo" }) {
   return (
     <div className={`brand ${plate ? "brand-plate" : ""} brand-${size}`} data-testid={testId}>

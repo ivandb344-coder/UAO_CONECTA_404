@@ -14,11 +14,12 @@ export const FLOW = [
 ];
 
 export const PALETTE = [
-  { hex: "#A81B1E", name: "Rojo institucional (primario)", use: "Acciones principales, estados activos, acentos", contrast: "7,4 : 1 con blanco · AAA" },
-  { hex: "#1E293B", name: "Azul oscuro (secundario)", use: "Textos, paneles oscuros, Banner", contrast: "14,6 : 1 con blanco · AAA" },
-  { hex: "#FF836C", name: "Coral (acento del manual)", use: "Acentos sobre fondos oscuros", contrast: "6,0 : 1 sobre #1E293B · AA" },
-  { hex: "#F8FAFC", name: "Fondo neutro", use: "Lienzo general", contrast: "Texto #1E293B 13,9 : 1" },
-  { hex: "#FFFFFF", name: "Blanco", use: "Tarjetas, contenedores del logo", contrast: "—" },
+  { hex: "#FF051E", name: "Rojo principal UAO", use: "Logotipo y acentos gráficos; se limita en texto pequeño por contraste", contrast: "3,97 : 1 con blanco · solo texto grande" },
+  { hex: "#AC0B32", name: "Rojo secundario accesible", use: "Acciones, estados activos y texto interactivo", contrast: "7,37 : 1 con blanco · AAA" },
+  { hex: "#FBF5EC", name: "Crema UAO", use: "Fondo cálido y superficies de énfasis", contrast: "Texto #1E293B 13,50 : 1" },
+  { hex: "#1E293B", name: "Neutro de interfaz", use: "Textos, paneles oscuros y contraste", contrast: "14,63 : 1 con blanco · AAA" },
+  { hex: "#FF836C", name: "Coral secundario UAO", use: "Acentos sobre fondos oscuros", contrast: "6,07 : 1 sobre #1E293B · AA" },
+  { hex: "#FFFFFF", name: "Blanco", use: "Tarjetas y contenedores del logotipo", contrast: "—" },
 ];
 
 export const HIGHLIGHTED = [
@@ -32,8 +33,8 @@ export const HIGHLIGHTED = [
   {
     key: "consistency",
     title: "Consistencia y estándares",
-    source: "Nielsen H4 · Manual UAO 2026",
-    text: "Una sola paleta (#A81B1E / #1E293B), una sola familia tipográfica (DM Sans), un solo estilo de botón primario y de tarjeta en todas las vistas. Los sistemas externos conservan su nombre real (Moodle, Teams, Banner) para respetar el modelo mental del estudiante.",
+    source: "Nielsen H4 · Manual de Identidad UAO",
+    text: "El rojo principal y el crema siguen el manual UAO. Los controles usan el rojo secundario #AC0B32 para conservar contraste AAA; DM Sans es la tipografía de interfaz y el logotipo oficial se mantiene como imagen. Los sistemas externos conservan su nombre real (Moodle, Teams, Banner).",
     where: "Sistema de diseño global, encabezado con logo UAO, navegación lateral persistente.",
   },
   {
@@ -49,7 +50,7 @@ export const HEURISTICS = [
   { n: 1, title: "Visibilidad del estado del sistema", apply: "Overlay 'Conectando con los sistemas UAO' paso a paso, chip de estado del servidor, 'Sincronizado hace 1 min' en cada widget, estados de carga esqueléticos." },
   { n: 2, title: "Correspondencia con el mundo real", apply: "Lenguaje académico (asignatura, semestre, asesoría, cupo); los sistemas externos se nombran como los conoce el estudiante." },
   { n: 3, title: "Control y libertad del usuario", apply: "Modo Monitor reversible, cancelar reserva, cerrar diálogos con Esc, alternar entre 'Crear una cuenta' y 'Ya tengo cuenta'." },
-  { n: 4, title: "Consistencia y estándares", apply: "Manual de Identidad UAO 2026 aplicado globalmente; mismos componentes en todas las vistas." },
+  { n: 4, title: "Consistencia y estándares", apply: "Rojo principal, crema, logotipo institucional y controles con contraste accesible según el Manual de Identidad UAO." },
   { n: 5, title: "Prevención de errores", apply: "Filtro de dominio, rol automático, confirmación de acciones irreversibles, botones deshabilitados durante el envío." },
   { n: 6, title: "Reconocer antes que recordar", apply: "Navegación con ícono + texto siempre visible, rol y programa en la barra lateral, tarjetas etiquetadas por sistema." },
   { n: 7, title: "Flexibilidad y eficiencia", apply: "Búsqueda global en el encabezado, accesos directos 'Abrir en Moodle/Teams/Banner', flechas del teclado en el carrusel." },
@@ -65,5 +66,5 @@ export const NEEDS = [
   { id: "N4", need: "Saber a quién acudir", data: "25 % + confirmación docente", reqs: ["RF-E06", "RF-E09", "RF-E11", "RF-M01", "RF-P04"], img: asset("evidencias/04-asesorias.png"), route: "/asesorias", label: "Asesorías · ruta de apoyo" },
   { id: "N5", need: "Preguntar sin exposición", data: "40,4 % · 23,1 % pena", reqs: ["RF-E05", "RNF-13"], img: asset("evidencias/05-dudas.png"), route: "/dudas", label: "Duda anónima" },
   { id: "N6", need: "Acceder a recursos confiables", data: "32,7 % · 28,8 %", reqs: ["RF-E12", "RF-P03", "RNF-16"], img: asset("evidencias/04-asesorias.png"), route: "/asignaturas", label: "Recursos validados" },
-  { id: "T", need: "Identidad y usabilidad (transversal)", data: "Manual UAO 2026 · WCAG 2.1 AA", reqs: ["RNF-04", "RNF-05", "RNF-06", "RNF-07", "RNF-08"], img: asset("evidencias/01-login.png"), route: null, label: "Acceso institucional" },
+  { id: "T", need: "Identidad y usabilidad (transversal)", data: "Manual de Identidad UAO · WCAG 2.1 AA", reqs: ["RNF-04", "RNF-05", "RNF-06", "RNF-07", "RNF-08"], img: asset("evidencias/01-login.png"), route: null, label: "Acceso institucional" },
 ];

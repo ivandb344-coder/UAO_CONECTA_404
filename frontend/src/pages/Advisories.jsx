@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
-import { Plus, Clock3, X, CheckCircle2, Edit3, Trash2, Power, MapPin, Video } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Plus, Clock3, X, CheckCircle2, Edit3, Trash2, Power, MapPin, Video, CircleAlert, ChevronDown, ChevronUp, CalendarDays, List, Inbox, Search } from "lucide-react";
 import { api } from "@/lib/api";
 import { Empty } from "@/components/ui/states";
+import AdvisoryCalendar, { advisoryDateInput, advisoryDateLabel, advisoryHasPassed, advisoryTimeInput, advisoryTimeRange } from "@/components/AdvisoryCalendar";
 
 const STATUS_LABEL = {
   Pendiente: { cls: "open" },
@@ -22,11 +23,19 @@ function BookingStatusPill({ status }) {
 }
 
 function BrowseAdvisories({ items, user, onBook, onManage }) {
+  const [expandedId, setExpandedId] = useState(null);
+
   return (
     <div className="advisory-list">
       {items.length ? (
         items.map((x) => {
           const mine = user && x.advisor_id === user.id;
+          const full = x.available === 0;
+          const passed = advisoryHasPassed(x);
+          const inactive = x.active === false;
+          const unavailable = full || passed || inactive;
+          const expanded = expandedId === x.id;
+          const detailsId = `advisory-details-${x.id}`;
           return (
           <div className="advisory" key={x.id} data-testid={`advisory-${x.id}`}>
             <div className="advisor-avatar">{(x.advisor || "?")[0]}</div>
@@ -34,29 +43,38 @@ function BrowseAdvisories({ items, user, onBook, onManage }) {
               <div className="advisory-meta">
                 <span>{x.role}</span>
                 {mine && <span className="status info">Tu espacio</span>}
-                <span className={`availability ${x.available === 0 ? "full" : ""}`}>
-                  <i /> {x.available === 0 ? "Cupo lleno" : `${x.available} cupos disponibles`}
+                <span className={`availability ${unavailable ? "full" : ""}`} role="status" data-testid={`availability-${x.id}`}>
+                  {unavailable ? <CircleAlert size={15} aria-hidden="true" /> : <CheckCircle2 size={15} aria-hidden="true" />}
+                  {inactive ? "No disponible" : passed ? "Fecha pasada" : full ? "Cupo completo" : `${x.available} cupos disponibles`}
                 </span>
               </div>
               <h3>{x.advisor}</h3>
               <p>
                 {x.subject} · {x.topic}
               </p>
-              <div className="advisory-time">
-                <Clock3 size={16} />
-                {x.date} · {x.time}
-                <span>{x.mode}</span>
+              <div className="advisory-actions">
+                <button
+                  type="button"
+                  className="ghost small advisory-details-toggle"
+                  aria-expanded={expanded}
+                  aria-controls={detailsId}
+                  onClick={() => setExpandedId(expanded ? null : x.id)}
+                  data-testid={`advisory-details-toggle-${x.id}`}
+                >
+                  {expanded ? <ChevronUp size={15} aria-hidden="true" /> : <ChevronDown size={15} aria-hidden="true" />}
+                  {expanded ? "Ocultar asignatura y horario" : "Ver asignatura y horario"}
+                </button>
+                <div id={detailsId} className="advisory-detail-panel" hidden={!expanded}>
+                  <dl>
+                    <div><dt>Asignatura</dt><dd>{x.subject}</dd></div>
+                    <div><dt>Tema</dt><dd>{x.topic}</dd></div>
+                    <div><dt>Horario</dt><dd><Clock3 size={14} aria-hidden="true" /> {advisoryDateLabel(x.date)} · {x.time}</dd></div>
+                    <div><dt>Modalidad</dt><dd>{x.mode}</dd></div>
+                    {x.place && <div><dt>Lugar</dt><dd><MapPin size={14} aria-hidden="true" /> {x.place}</dd></div>}
+                    {x.link && <div><dt>Acceso</dt><dd><Video size={14} aria-hidden="true" /> Enlace virtual incluido en la asesoría</dd></div>}
+                  </dl>
+                </div>
               </div>
-              {x.place && (
-                <div className="advisory-meta-sm">
-                  <MapPin size={13} /> {x.place}
-                </div>
-              )}
-              {x.link && (
-                <div className="advisory-meta-sm">
-                  <Video size={13} /> Enlace virtual
-                </div>
-              )}
             </div>
             {mine ? (
               <button
@@ -70,11 +88,11 @@ function BrowseAdvisories({ items, user, onBook, onManage }) {
             ) : (
               <button
                 className="primary small"
-                disabled={x.available === 0}
+                disabled={unavailable}
                 onClick={() => onBook(x)}
                 data-testid={`book-advisory-${x.id}`}
               >
-                {x.available === 0 ? "Cupo lleno" : "Solicitar cupo"}
+                {inactive ? "No disponible" : passed ? "Fecha pasada" : full ? "Sin cupos" : "Solicitar asesoría"}
               </button>
             )}
           </div>
@@ -87,10 +105,11 @@ function BrowseAdvisories({ items, user, onBook, onManage }) {
 }
 
 function MyBookings({ bookings, onCancel }) {
+  const activeStatuses = ["Pendiente", "Aceptada"];
   const groups = {
-    Próximas: bookings.filter((b) => ["Pendiente", "Aceptada"].includes(b.status)),
-    Completadas: bookings.filter((b) => b.status === "Completada"),
-    Canceladas: bookings.filter((b) => ["Cancelada", "Rechazada", "No asistió"].includes(b.status)),
+    "Próximas asesorías": bookings.filter((b) => activeStatuses.includes(b.status) && !advisoryHasPassed(b)),
+    Realizadas: bookings.filter((b) => b.status === "Completada"),
+    Historial: bookings.filter((b) => (activeStatuses.includes(b.status) && advisoryHasPassed(b)) || ["Cancelada", "Rechazada", "No asistió"].includes(b.status)),
   };
   return (
     <>
@@ -100,6 +119,7 @@ function MyBookings({ bookings, onCancel }) {
             <h3>{label}</h3>
             <span>{list.length}</span>
           </div>
+          {label === "Realizadas" && <p className="booking-history-hint">El estado “Realizada” corresponde a una asesoría que el profesor o monitor marcó como completada.</p>}
           {list.length ? (
             <div className="advisory-list">
               {list.map((b) => (
@@ -113,7 +133,7 @@ function MyBookings({ bookings, onCancel }) {
                     <h3>{b.advisor}</h3>
                     <p>{b.topic}</p>
                     <div className="advisory-time">
-                      <Clock3 size={16} /> {b.date} · {b.time}
+                      <Clock3 size={16} /> {advisoryDateLabel(b.date)} · {b.time}
                       <span>{b.mode}</span>
                     </div>
                   </div>
@@ -135,18 +155,38 @@ function MyBookings({ bookings, onCancel }) {
 }
 
 function AdvisoryForm({ initial, onSubmit, onCancel }) {
-  const [form, setForm] = useState(
-    initial || { subject: "", topic: "", date: "", time: "", mode: "Virtual", slots: 4, place: "", link: "", active: true }
-  );
+  const [form, setForm] = useState(() => initial
+    ? { ...initial, date: advisoryDateInput(initial.date), startTime: advisoryTimeInput(initial.time, 0), endTime: advisoryTimeInput(initial.time, 1) }
+    : { subject: "", topic: "", date: "", startTime: "", endTime: "", mode: "Virtual", slots: 4, place: "", link: "", active: true });
+  const [timeError, setTimeError] = useState("");
+
+  const submit = (e) => {
+    e.preventDefault();
+    if (!form.startTime || !form.endTime || form.endTime <= form.startTime) {
+      setTimeError("Selecciona una hora final posterior a la hora de inicio.");
+      return;
+    }
+    setTimeError("");
+    onSubmit({
+      subject: form.subject,
+      topic: form.topic,
+      date: form.date,
+      time: advisoryTimeRange(form.startTime, form.endTime),
+      mode: form.mode,
+      slots: Number(form.slots),
+      place: form.place,
+      link: form.link,
+      active: form.active,
+    });
+  };
+
   return (
     <form
       className="composer"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit(form);
-      }}
+      onSubmit={submit}
     >
       <h3>{initial ? "Editar espacio" : "Nuevo espacio de asesoría"}</h3>
+      <p className="advisory-form-intro">Elige el día, define el horario completo y señala cuántos estudiantes pueden solicitar este espacio.</p>
       <div className="task-fields">
         <label>
           Asignatura
@@ -169,25 +209,28 @@ function AdvisoryForm({ initial, onSubmit, onCancel }) {
       </div>
       <div className="task-fields">
         <label>
-          Día / Fecha
+          Fecha
           <input
             data-testid="advisory-date-input"
+            type="date"
             required
-            placeholder="Ej. Martes 30 de septiembre"
             value={form.date}
             onChange={(e) => setForm({ ...form, date: e.target.value })}
           />
+          <small className="field-hint">Elige el día en el calendario del dispositivo.</small>
         </label>
-        <label>
-          Hora
-          <input
-            data-testid="advisory-time-input"
-            required
-            placeholder="Ej. 3:00 p. m. – 3:30 p. m."
-            value={form.time}
-            onChange={(e) => setForm({ ...form, time: e.target.value })}
-          />
-        </label>
+        <fieldset className="advisory-time-fields">
+          <legend>Horario</legend>
+          <label>
+            Inicio
+            <input data-testid="advisory-time-input" type="time" required value={form.startTime} onChange={(e) => { setForm({ ...form, startTime: e.target.value }); setTimeError(""); }} />
+          </label>
+          <label>
+            Fin
+            <input data-testid="advisory-end-time-input" type="time" required value={form.endTime} onChange={(e) => { setForm({ ...form, endTime: e.target.value }); setTimeError(""); }} />
+          </label>
+          {timeError && <p className="field-error" role="alert">{timeError}</p>}
+        </fieldset>
       </div>
       <div className="task-fields">
         <label>
@@ -262,7 +305,7 @@ function MyAgenda({ items, onEdit, onDelete, onToggle }) {
               <h3>{x.subject}</h3>
               <p>{x.topic}</p>
               <div className="advisory-time">
-                <Clock3 size={16} /> {x.date} · {x.time}
+                <Clock3 size={16} /> {advisoryDateLabel(x.date)} · {x.time}
               </div>
             </div>
             <div className="agenda-actions">
@@ -286,19 +329,33 @@ function MyAgenda({ items, onEdit, onDelete, onToggle }) {
 }
 
 function IncomingBookings({ items, onStatus }) {
-  return (
-    <div className="advisory-list">
-      {items.length ? (
-        items.map((b) => (
+  const activeStatuses = ["Pendiente", "Aceptada"];
+  const groups = [
+    { label: "Próximas citas", items: items.filter((b) => activeStatuses.includes(b.status) && !advisoryHasPassed(b)) },
+    { label: "Pasadas por cerrar", items: items.filter((b) => activeStatuses.includes(b.status) && advisoryHasPassed(b)) },
+    { label: "Resultado registrado", items: items.filter((b) => ["Completada", "No asistió"].includes(b.status)) },
+    { label: "Solicitudes canceladas o rechazadas", items: items.filter((b) => ["Cancelada", "Rechazada"].includes(b.status)) },
+  ];
+  const orderedGroups = groups.map((group) => ({
+    ...group,
+    items: [...group.items].sort((a, b) => {
+      const dateA = advisoryDateInput(a.date) || "9999-12-31";
+      const dateB = advisoryDateInput(b.date) || "9999-12-31";
+      return group.label === "Próximas citas" ? dateA.localeCompare(dateB) : dateB.localeCompare(dateA);
+    }),
+  })).filter((group) => group.items.length);
+
+  const renderBooking = (b) => (
           <div className="advisory" key={b.id} data-testid={`incoming-${b.id}`}>
             <div className="advisor-avatar">{(b.student || "?")[0]}</div>
             <div className="advisory-info">
               <div className="advisory-meta">
                 <BookingStatusPill status={b.status} />
+                {advisoryHasPassed(b) && activeStatuses.includes(b.status) && <span className="status muted">Fecha pasada · falta cerrar</span>}
                 <span>{b.subject}</span>
               </div>
               <h3>{b.student}</h3>
-              <p>{b.topic} · {b.date} · {b.time}</p>
+              <p>{b.topic} · {advisoryDateLabel(b.date)} · {b.time}</p>
               {b.note && <p className="note">“{b.note}”</p>}
             </div>
             <div className="agenda-actions">
@@ -324,17 +381,24 @@ function IncomingBookings({ items, onStatus }) {
               )}
             </div>
           </div>
-        ))
-      ) : (
-        <Empty text="Sin solicitudes por ahora" />
-      )}
-    </div>
   );
+
+  return items.length ? (
+    <>
+      {orderedGroups.map((group) => (
+        <section className="advisory-group" key={group.label}>
+          <div className="section-title compact"><h3>{group.label}</h3><span>{group.items.length}</span></div>
+          <div className="advisory-list">{group.items.map(renderBooking)}</div>
+        </section>
+      ))}
+    </>
+  ) : <Empty text="Sin solicitudes por ahora" />;
 }
 
 export default function Advisories({ user }) {
   const isAdvisor = user.role !== "student";
   const [tab, setTab] = useState(isAdvisor ? "agenda" : "browse");
+  const [scheduleView, setScheduleView] = useState("calendar");
   const [advisories, setAdvisories] = useState([]);
   const [myAgenda, setMyAgenda] = useState([]);
   const [bookings, setBookings] = useState([]);
@@ -342,11 +406,13 @@ export default function Advisories({ user }) {
   const [error, setError] = useState("");
   const [selected, setSelected] = useState(null);
   const [booked, setBooked] = useState(false);
+  const [bookingError, setBookingError] = useState("");
+  const [bookingSaving, setBookingSaving] = useState(false);
   const [note, setNote] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const calls = [api.get("/advisories"), api.get("/bookings")];
       if (isAdvisor) {
@@ -363,20 +429,25 @@ export default function Advisories({ user }) {
     } catch {
       setError("No pudimos cargar las asesorías.");
     }
-  };
+  }, [isAdvisor]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const reserve = async () => {
+    if (!selected || bookingSaving) return;
+    setBookingSaving(true);
+    setBookingError("");
     try {
       await api.post("/bookings", { advisory_id: selected.id, note });
       setBooked(true);
       setNote("");
       load();
     } catch (x) {
-      setError(x.response?.data?.detail || "No pudimos reservar ese horario.");
+      setBookingError(x.response?.data?.detail || "No pudimos enviar la solicitud para ese horario.");
+    } finally {
+      setBookingSaving(false);
     }
   };
 
@@ -431,14 +502,28 @@ export default function Advisories({ user }) {
 
   const tabs = isAdvisor
     ? [
-        { key: "agenda", label: "Mi agenda" },
-        { key: "incoming", label: `Solicitudes${incoming.length ? ` · ${incoming.filter((b) => b.status === "Pendiente").length}` : ""}` },
-        { key: "browse", label: "Explorar" },
+        { key: "agenda", label: "Mi agenda", description: "Disponibilidad y sesiones", icon: CalendarDays, count: myAgenda.length + incoming.length },
+        { key: "incoming", label: "Citas y solicitudes", description: "Revisa y gestiona", icon: Inbox, count: incoming.filter((b) => b.status === "Pendiente").length },
+        { key: "browse", label: "Explorar", description: "Otros espacios de asesoría", icon: Search },
       ]
     : [
-        { key: "browse", label: "Explorar" },
-        { key: "mine", label: `Mis asesorías${bookings.length ? ` · ${bookings.length}` : ""}` },
+        { key: "browse", label: "Explorar espacios", description: "Busca horarios y cupos", icon: Search },
+        { key: "mine", label: "Mis asesorías", description: "Próximas, realizadas e historial", icon: CalendarDays, count: bookings.length },
       ];
+
+  const agendaCalendarItems = [
+    ...myAgenda.map((item) => ({ ...item, calendarType: "availability", calendarId: `space-${item.id}` })),
+    ...incoming.map((item) => ({ ...item, calendarType: "booking", calendarId: `booking-${item.id}` })),
+  ];
+  const browseAdvisories = advisories.filter((item) => item.advisor_id !== user.id && item.active !== false && !advisoryHasPassed(item));
+  const calendarItems = tab === "browse" ? browseAdvisories : tab === "mine" ? bookings : tab === "agenda" ? agendaCalendarItems : incoming;
+  const calendarDescription = tab === "browse"
+    ? "Toca un espacio con cupos para ver la fecha, el horario y enviar tu solicitud. Usa Lista para comparar todos los detalles."
+    : tab === "mine"
+      ? "Consulta tus reservas por fecha. El historial reúne las asesorías realizadas, pasadas, canceladas o sin asistencia."
+      : tab === "agenda"
+        ? "Tu disponibilidad y las sesiones con estudiantes aparecen juntas; los colores indican si es un espacio o una cita."
+        : "Las solicitudes se muestran en la fecha acordada. Cambia a Lista para aceptar, rechazar o actualizar su estado.";
 
   return (
     <section className="page">
@@ -472,17 +557,36 @@ export default function Advisories({ user }) {
         </div>
       )}
 
-      <div className="tabs" data-testid="advisories-tabs">
+      <div className="tabs advisories-tabs" role="tablist" aria-label="Secciones de asesorías" data-testid="advisories-tabs">
         {tabs.map((t) => (
           <button
             key={t.key}
             className={`tab ${tab === t.key ? "active" : ""}`}
             onClick={() => setTab(t.key)}
+            role="tab"
+            aria-selected={tab === t.key}
             data-testid={`tab-${t.key}`}
           >
-            {t.label}
+            <span className="advisory-tab-title"><t.icon size={17} aria-hidden="true" /><strong>{t.label}</strong>{t.count > 0 && <em>{t.count}</em>}</span>
+            <small>{t.description}</small>
           </button>
         ))}
+      </div>
+
+      <div className="advisory-view-header">
+        <div className="advisory-view-copy">
+          <p className="eyebrow">{scheduleView === "calendar" ? "VISTA DE CALENDARIO" : "VISTA DE LISTA"}</p>
+          <h2>{scheduleView === "calendar" ? "Calendario de asesorías" : "Lista de asesorías"}</h2>
+          <p>{calendarDescription}</p>
+        </div>
+        <div className="advisory-view-toggle" role="group" aria-label="Elige cómo ver las asesorías">
+          <button type="button" className={scheduleView === "calendar" ? "active" : ""} aria-pressed={scheduleView === "calendar"} onClick={() => setScheduleView("calendar")} data-testid="advisory-calendar-view">
+            <CalendarDays size={19} aria-hidden="true" /><span><strong>Calendario</strong><small>Ver por fecha</small></span>
+          </button>
+          <button type="button" className={scheduleView === "list" ? "active" : ""} aria-pressed={scheduleView === "list"} onClick={() => setScheduleView("list")} data-testid="advisory-list-view">
+            <List size={19} aria-hidden="true" /><span><strong>Lista</strong><small>Ver detalles</small></span>
+          </button>
+        </div>
       </div>
 
       {isAdvisor && formOpen && (
@@ -496,52 +600,86 @@ export default function Advisories({ user }) {
         />
       )}
 
-      {tab === "browse" && (
-        <BrowseAdvisories
-          items={advisories}
-          user={user}
-          onBook={(x) => {
-            setSelected(x);
-            setBooked(false);
-          }}
-          onManage={() => setTab(isAdvisor ? "agenda" : "browse")}
+      {scheduleView === "calendar" ? (
+        <AdvisoryCalendar
+          items={calendarItems}
+          kind={tab}
+          onSelect={tab === "browse"
+            ? (item) => {
+                if (!item.available) return;
+                setSelected(item);
+                setBooked(false);
+                setBookingError("");
+                setNote("");
+              }
+            : tab === "agenda"
+              ? (item) => {
+                  if (item.calendarType === "booking") {
+                    setTab("incoming");
+                    setScheduleView("list");
+                  } else {
+                    setEditing(item);
+                    setFormOpen(true);
+                  }
+                }
+              : undefined}
         />
+      ) : (
+        <>
+          {tab === "browse" && (
+            <BrowseAdvisories
+              items={browseAdvisories}
+              user={user}
+              onBook={(x) => {
+                setSelected(x);
+                setBooked(false);
+                setBookingError("");
+                setNote("");
+              }}
+              onManage={() => setTab(isAdvisor ? "agenda" : "browse")}
+            />
+          )}
+          {tab === "mine" && <MyBookings bookings={bookings} onCancel={cancelBooking} />}
+          {tab === "agenda" && (
+            <>
+              <MyAgenda
+                items={myAgenda}
+                onEdit={(x) => {
+                  setEditing(x);
+                  setFormOpen(true);
+                }}
+                onDelete={deleteAdvisory}
+                onToggle={toggleAdvisory}
+              />
+              <IncomingBookings items={incoming} onStatus={changeIncomingStatus} />
+            </>
+          )}
+          {tab === "incoming" && <IncomingBookings items={incoming} onStatus={changeIncomingStatus} />}
+        </>
       )}
-      {tab === "mine" && <MyBookings bookings={bookings} onCancel={cancelBooking} />}
-      {tab === "agenda" && (
-        <MyAgenda
-          items={myAgenda}
-          onEdit={(x) => {
-            setEditing(x);
-            setFormOpen(true);
-          }}
-          onDelete={deleteAdvisory}
-          onToggle={toggleAdvisory}
-        />
-      )}
-      {tab === "incoming" && <IncomingBookings items={incoming} onStatus={changeIncomingStatus} />}
 
       {selected && (
         <div className="modal-backdrop">
-          <div className="modal" data-testid="booking-modal">
-            <button className="close" onClick={() => setSelected(null)} data-testid="close-booking-modal">
+          <div className="modal" role="dialog" aria-modal="true" aria-labelledby="booking-modal-title" data-testid="booking-modal">
+            <button className="close" aria-label="Cerrar solicitud de asesoría" onClick={() => setSelected(null)} data-testid="close-booking-modal">
               <X />
             </button>
-            <p className="eyebrow">CONFIRMAR SOLICITUD</p>
-            <h2>{selected.topic}</h2>
+            <p className="eyebrow">SOLICITUD DE ASESORÍA</p>
+            <h2 id="booking-modal-title">{selected.topic}</h2>
             <p className="modal-detail">
               {selected.advisor} · {selected.subject}
-              <br />
-              {selected.date} · {selected.time} · {selected.mode}
-              <br />
-              {selected.available} de {selected.slots} cupos disponibles
             </p>
+            <div className="booking-schedule-summary">
+              <CalendarDays size={17} aria-hidden="true" />
+              <span><strong>{advisoryDateLabel(selected.date)}</strong><br />{selected.time} · {selected.mode}<br />{selected.available} de {selected.slots} cupos disponibles</span>
+            </div>
             {booked ? (
               <div className="success" data-testid="booking-success">
                 <CheckCircle2 /> Tu solicitud fue enviada correctamente. Te avisaremos cuando la revisen.
               </div>
             ) : (
               <>
+                {bookingError && <div className="error booking-error" role="alert" data-testid="booking-error">{bookingError}</div>}
                 <label>
                   ¿En qué necesitas ayuda?
                   <textarea
@@ -551,8 +689,8 @@ export default function Advisories({ user }) {
                     onChange={(e) => setNote(e.target.value)}
                   />
                 </label>
-                <button className="primary wide" onClick={reserve} data-testid="confirm-booking-button">
-                  Confirmar solicitud
+                <button className="primary wide" onClick={reserve} disabled={bookingSaving} aria-busy={bookingSaving} data-testid="confirm-booking-button">
+                  {bookingSaving ? "Enviando solicitud…" : "Enviar solicitud"}
                 </button>
               </>
             )}
