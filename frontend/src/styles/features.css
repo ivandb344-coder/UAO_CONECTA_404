@@ -239,6 +239,15 @@
 .ranking-section-head h2 { color:var(--navy); font-size:21px; }
 .ranking-section-head p, .ranking-evidence { margin-top:5px; color:var(--muted); font-size:11px; line-height:1.5; }
 .ranking-evidence { margin:0; text-align:right; }
+.ranking-live-row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:-7px 0 14px; color:var(--muted); font-size:10px; }
+.ranking-live-indicator { display:inline-flex; align-items:center; gap:7px; color:#16734a; font-weight:700; }
+.ranking-live-indicator i { width:8px; height:8px; border-radius:50%; background:#16a36a; box-shadow:0 0 0 3px rgba(22,163,106,.12); }
+.ranking-refresh-warning { margin:0 0 12px; color:#9b5a05; font-size:11px; }
+.ranking-showcase { position:relative; margin:0 0 24px; padding:20px 20px 2px; overflow:hidden; border:1px solid #eadfcf; border-top:3px solid var(--primary); border-radius:var(--radius); background:linear-gradient(135deg,#fff 0%,#fffdf8 62%,#f8f4ec 100%); }
+.ranking-showcase-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; color:var(--primary); }
+.ranking-showcase-head .eyebrow { margin-bottom:5px; }
+.ranking-showcase-head h3 { color:var(--navy); font-size:17px; }
+.ranking-showcase > .ranking-podium { margin:0; }
 .ranking-podium { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-items:end; gap:14px; margin:8px 0 28px; }
 .podium-place { position:relative; display:grid; justify-items:center; align-content:start; min-width:0; padding:20px 12px 0; overflow:hidden; border:1px solid var(--line); border-radius:var(--radius) var(--radius) 0 0; background:#fff; text-align:center; animation:podium-rise .6s ease both; }
 .podium-place.place-1 { min-height:270px; padding-top:25px; border-color:#dbbb70; background:linear-gradient(180deg,#fffaf0,#fff 55%); animation-delay:.08s; }
@@ -274,6 +283,8 @@
   .ranking-header .primary { width:100%; justify-content:center; }
   .ranking-section-head { align-items:flex-start; flex-direction:column; }
   .ranking-evidence { text-align:left; }
+  .ranking-live-row { align-items:flex-start; flex-direction:column; }
+  .ranking-showcase { padding:15px 12px 2px; }
   .ranking-podium { gap:7px; }
   .podium-place { padding-inline:6px; }
   .podium-place.place-1 { min-height:250px; }

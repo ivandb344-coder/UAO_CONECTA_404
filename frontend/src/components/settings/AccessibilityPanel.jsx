@@ -103,7 +103,7 @@ export default function AccessibilityPanel() {
         <Toggle id="sounds" checked={prefs.sound_effects} onChange={(v) => save({ sound_effects: v })} label="Sonidos de la interfaz" />
       </PrefRow>
 
-      <PrefRow id="spoken-labels" title="Leer nombres de controles" description="Al recorrer o activar controles, pronuncia su nombre; al cambiar de pantalla, anuncia el título de la sección. Usa la voz disponible en el navegador.">
+      <PrefRow id="spoken-labels" title="Guía hablada" description="Anuncia la sección al entrar y lee botones, enlaces y campos al recorrerlos. Con esta opción activa, también puedes pulsar títulos, textos, etiquetas y avisos para escucharlos. Usa la voz disponible en el navegador.">
         <Toggle id="spoken-labels" checked={prefs.spoken_labels} onChange={(v) => save({ spoken_labels: v })} label="Leer en voz alta los nombres de controles y secciones" />
       </PrefRow>
 

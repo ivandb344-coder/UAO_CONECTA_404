@@ -61,9 +61,9 @@ export function playUiSound(type = "click") {
   }
 }
 
-export function speakUiLabel(text) {
+function speakText(text, maxLength) {
   if (!readPreferences().spoken_labels || typeof window === "undefined" || !window.speechSynthesis) return;
-  const label = String(text || "").replace(/\s+/g, " ").trim().slice(0, 120);
+  const label = String(text || "").replace(/\s+/g, " ").trim().slice(0, maxLength);
   if (!label) return;
   const now = Date.now();
   if (label === lastSpoken && now - lastSpokenAt < 700) return;
@@ -79,6 +79,14 @@ export function speakUiLabel(text) {
   } catch {
     // Speech synthesis varies by browser; it must never block navigation.
   }
+}
+
+export function speakUiLabel(text) {
+  speakText(text, 120);
+}
+
+export function speakUiContent(text) {
+  speakText(text, 360);
 }
 
 export function getUiLabel(element) {

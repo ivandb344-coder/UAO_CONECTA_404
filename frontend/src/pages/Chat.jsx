@@ -538,7 +538,12 @@ export default function Chat({ user }) {
                         <textarea aria-label="Editar mensaje" value={editText} onChange={(event) => setEditText(event.target.value)} maxLength={2000} autoFocus data-testid={`edit-message-input-${m.id}`} />
                         <div><button type="submit" className="message-edit-save" disabled={messageBusy || (!editText.trim() && !m.file)}><Check size={14} /> Guardar</button><button type="button" className="message-edit-cancel" onClick={() => { setEditingMessageId(null); setEditText(""); }} disabled={messageBusy}>Cancelar</button></div>
                       </form>
-                    ) : m.deleted ? <p className="message-deleted">Mensaje eliminado</p> : m.body && <p>{m.body}{m.edited_at && <small className="message-edited-label"> · editado</small>}</p>}
+                    ) : m.deleted ? <p className="message-deleted">Mensaje eliminado</p> : (
+                      <>
+                        {m.body && <p>{m.body}</p>}
+                        {m.edited_at && <p className="message-edited-label" data-testid={`message-edited-${m.id}`}>Mensaje editado</p>}
+                      </>
+                    )}
                     {canEdit && editingMessageId !== m.id && (
                       <div className="message-actions" aria-label="Acciones de tu mensaje">
                         <button type="button" onClick={() => { setEditingMessageId(m.id); setEditText(m.body || ""); }} disabled={messageBusy} title="Editar durante el primer minuto" data-testid={`edit-message-${m.id}`}><Pencil size={13} aria-hidden="true" /> Editar</button>

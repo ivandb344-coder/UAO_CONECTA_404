@@ -11,7 +11,7 @@ import LogoutDialog from "@/components/LogoutDialog";
 import RoleBadge from "@/components/hub/RoleBadge";
 import MonitorToggle from "@/components/hub/MonitorToggle";
 import PresentationMode from "@/components/PresentationMode";
-import { getUiLabel, playUiSound, speakUiLabel } from "@/lib/audioFeedback";
+import { getUiLabel, playUiSound, speakUiContent, speakUiLabel } from "@/lib/audioFeedback";
 
 function readRecentSearches(key) {
   try {
@@ -66,7 +66,8 @@ export default function Layout({ user, onLogout, children }) {
 
   useEffect(() => {
     let keyboardNavigation = false;
-    const actionSelector = "button, a[href], [role='button'], [role='tab'], [role='switch'], input[type='submit']";
+    const actionSelector = "button, a[href], [role='button'], [role='tab'], [role='switch'], input:not([type='hidden']), textarea, select";
+    const readableContentSelector = "h1, h2, h3, h4, p, label, caption, [role='status'], [role='alert'], [data-speak]";
     const onKeyDown = (event) => {
       if (["Tab", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) keyboardNavigation = true;
     };
@@ -77,9 +78,16 @@ export default function Layout({ user, onLogout, children }) {
     };
     const onClick = (event) => {
       const control = event.target?.closest?.(actionSelector);
-      if (!control || control.disabled || control.getAttribute("aria-disabled") === "true") return;
-      playUiSound("click");
-      speakUiLabel(getUiLabel(control));
+      if (control) {
+        if (control.disabled || control.getAttribute("aria-disabled") === "true") return;
+        playUiSound("click");
+        speakUiLabel(getUiLabel(control));
+        return;
+      }
+      const readableContent = event.target?.closest?.(readableContentSelector);
+      if (readableContent && !readableContent.closest("button, a[href], [role='button']")) {
+        speakUiContent(getUiLabel(readableContent));
+      }
     };
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("pointerdown", onPointerDown, true);
