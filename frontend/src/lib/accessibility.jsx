@@ -8,10 +8,12 @@ export const DEFAULT_ACCESSIBILITY = {
   reduced_motion: false,
   focus_visible: false,
   large_controls: false,
+  sound_effects: false,
+  spoken_labels: false,
 };
 
 const STORAGE_KEY = "uao_a11y";
-const AccessibilityContext = createContext({ prefs: DEFAULT_ACCESSIBILITY, update: () => {}, saving: false, saveError: "" });
+const AccessibilityContext = createContext({ prefs: DEFAULT_ACCESSIBILITY, update: async () => true, saving: false, saveError: "" });
 
 function readCached() {
   try {
@@ -33,8 +35,9 @@ export function applyAccessibility(prefs) {
 
 export function AccessibilityProvider({ user, children }) {
   const [prefs, setPrefs] = useState(readCached);
-  const [saving, setSaving] = useState(false);
+  const [pendingSaves, setPendingSaves] = useState(0);
   const [saveError, setSaveError] = useState("");
+  const saving = pendingSaves > 0;
 
   useEffect(() => {
     if (user?.preferences?.accessibility) {
@@ -49,20 +52,21 @@ export function AccessibilityProvider({ user, children }) {
 
   const update = useCallback(
     async (patch) => {
-      const next = { ...prefs, ...patch };
-      setPrefs(next);
-      if (!user) return;
-      setSaving(true);
+      setPrefs((current) => ({ ...current, ...patch }));
+      if (!user) return true;
+      setPendingSaves((current) => current + 1);
       setSaveError("");
       try {
         await api.patch("/profile/preferences", patch);
+        return true;
       } catch {
         setSaveError("No pudimos guardar tus preferencias en tu cuenta. Se mantienen en este dispositivo.");
+        return false;
       } finally {
-        setSaving(false);
+        setPendingSaves((current) => Math.max(0, current - 1));
       }
     },
-    [prefs, user],
+    [user],
   );
 
   const value = useMemo(() => ({ prefs, update, saving, saveError }), [prefs, update, saving, saveError]);

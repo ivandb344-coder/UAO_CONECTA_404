@@ -7,6 +7,7 @@ import { PLATFORMS, platformMeta } from "@/lib/platforms";
 import { Loading } from "@/components/ui/states";
 import { useProtectedFileUrl } from "@/hooks/useProtectedFile";
 import { storagePathFromFileUrl } from "@/services/fileService";
+import { playUiSound } from "@/lib/audioFeedback";
 
 const ROLE_OPTIONS = [
   { value: "student", label: "Estudiante" },
@@ -21,6 +22,7 @@ function fieldError(errors, key) {
 export default function ProfileEdit({ me, onUpdate }) {
   const nav = useNavigate();
   const fileRef = useRef(null);
+  const savedTimer = useRef(null);
   const [programs, setPrograms] = useState([]);
   const [form, setForm] = useState({
     name: me.name || "",
@@ -45,6 +47,8 @@ export default function ProfileEdit({ me, onUpdate }) {
   const [newLink, setNewLink] = useState({ platform: "linkedin", url: "", label: "", icon: "" });
   const [linkErrors, setLinkErrors] = useState({});
 
+  useEffect(() => () => window.clearTimeout(savedTimer.current), []);
+
   useEffect(() => {
     api.get("/programs").then((r) => setPrograms(r.data));
   }, []);
@@ -64,6 +68,7 @@ export default function ProfileEdit({ me, onUpdate }) {
       return c;
     });
     setSaved(false);
+    window.clearTimeout(savedTimer.current);
   };
 
   const validate = () => {
@@ -94,6 +99,9 @@ export default function ProfileEdit({ me, onUpdate }) {
       const r = await api.patch("/profile/me", payload);
       onUpdate(r.data);
       setSaved(true);
+      playUiSound("save");
+      window.clearTimeout(savedTimer.current);
+      savedTimer.current = window.setTimeout(() => setSaved(false), 3500);
     } catch (x) {
       const detail = x.response?.data?.detail;
       if (detail && typeof detail === "object" && detail.fields) setErrors(detail.fields);
@@ -116,6 +124,10 @@ export default function ProfileEdit({ me, onUpdate }) {
       const r = await api.post("/profile/photo", fd, { headers: { "Content-Type": "multipart/form-data" } });
       set("picture", r.data.picture);
       onUpdate({ ...me, picture: r.data.picture });
+      setSaved(true);
+      playUiSound("save");
+      window.clearTimeout(savedTimer.current);
+      savedTimer.current = window.setTimeout(() => setSaved(false), 3500);
     } catch {
       setRemoteMsg("No pudimos subir la foto, intenta de nuevo.");
     }
@@ -174,6 +186,7 @@ export default function ProfileEdit({ me, onUpdate }) {
       </div>
 
       {remoteMsg && <div className="error" data-testid="profile-edit-error">{remoteMsg}</div>}
+      {saved && <div className="save-toast success" role="status" aria-live="polite" data-testid="save-badge"><Check size={15} aria-hidden="true" /> Cambios guardados. Tu perfil ya está actualizado.</div>}
 
       <form className="profile-form" onSubmit={submit}>
         <div className="photo-row">
@@ -308,11 +321,6 @@ export default function ProfileEdit({ me, onUpdate }) {
         </div>
 
         <div className="profile-save-area">
-          {saved && (
-            <div className="profile-save-notice" role="status" aria-live="polite" data-testid="save-badge">
-              <Check size={15} aria-hidden="true" /> Cambios guardados. Tu perfil ya está actualizado.
-            </div>
-          )}
           <button className="primary wide" data-testid="pe-submit" disabled={busy}>
             <Save size={15} /> {busy ? "Guardando…" : "Guardar cambios"}
           </button>

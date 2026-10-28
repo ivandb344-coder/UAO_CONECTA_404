@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Bot, Send, MessageSquarePlus } from "lucide-react";
 import { API } from "@/lib/api";
+import { playUiSound } from "@/lib/audioFeedback";
 
 const STORAGE_KEY = "uao_chat_history";
 const WELCOME = {
@@ -79,6 +80,10 @@ export default function AI() {
         },
         body: JSON.stringify({
           message: question,
+          history: messages.slice(-8).map((item) => ({
+            role: item.from === "ai" ? "assistant" : "user",
+            content: item.text,
+          })),
         }),
       });
 
@@ -107,6 +112,8 @@ export default function AI() {
       }
 
       const text = await res.text();
+      const responseMode = res.headers.get("X-Assistant-Mode");
+      playUiSound("ai");
 
       setMessages((messages) => [
         ...messages,
@@ -115,6 +122,7 @@ export default function AI() {
           text:
             text.trim() ||
             "No recibí una respuesta del asistente.",
+          limited: responseMode === "limited",
         },
       ]);
     } catch (error) {
@@ -182,6 +190,7 @@ export default function AI() {
             >
               <div className="ai-bubble">
                 {m.text}
+                {m.limited && <small className="ai-mode-note">Orientación básica: el asistente avanzado no está conectado. Verifica la información institucional en sus fuentes oficiales.</small>}
               </div>
             </div>
           ))}

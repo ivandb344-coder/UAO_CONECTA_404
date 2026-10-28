@@ -90,7 +90,23 @@ html[data-text-size="xlarge"] body { zoom: 1.25; }
 .a11y-high-contrast .switch-btn::after { background:#000; }
 .a11y-high-contrast .switch-btn[aria-checked="true"] { background:#8A1428; }
 .a11y-high-contrast .switch-btn[aria-checked="true"]::after { background:#fff; }
+.a11y-high-contrast .recent-searches, .a11y-high-contrast .not-found-search-hint { color:#000; background:#fff; border:2px solid #000; }
+.a11y-high-contrast .recent-search-item { color:#000; }
 .pref-status { font-size:11px; color: var(--muted); margin-top:10px; min-height:16px; }
+.a11y-footer { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; }
+.a11y-footer .pref-status { margin:0; }
+.a11y-footer .ghost { min-height:40px; }
+.draft-status { margin:-7px 0 14px; color:var(--muted); font-size:11px; }
+.not-found-page { max-width:820px; }
+.not-found-code { margin:42px 0 8px; color:var(--primary); font-size:clamp(68px,13vw,132px); font-weight:700; line-height:.9; letter-spacing:-.08em; }
+.not-found-page h1 { font-size:clamp(30px,5vw,46px); }
+.not-found-page .lede { max-width:600px; line-height:1.6; }
+.not-found-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:28px; }
+.not-found-actions .primary, .not-found-actions .ghost { min-height:44px; }
+.not-found-search-hint { display:flex; align-items:flex-start; gap:8px; max-width:600px; margin-top:26px; padding:14px; border:1px solid var(--line); border-radius:8px; color:var(--muted); background:#fff; font-size:12px; line-height:1.5; }
+.not-found-search-hint svg { flex:none; margin-top:1px; color:var(--primary); }
+.search-error { display:flex; align-items:center; justify-content:space-between; gap:12px; max-width:780px; }
+.search-error .ghost { flex:none; }
 .settings-summary { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
 .settings-summary div { background:#f5f7fa; padding:12px 14px; font-size:12px; }
 .settings-summary div small { display:block; font-size:10px; color: var(--muted); margin-bottom:3px; }
@@ -106,4 +122,10 @@ html[data-text-size="xlarge"] body { zoom: 1.25; }
 @media (max-width:850px) {
   .pref-row { flex-direction:column; align-items:flex-start; }
   .settings-summary { grid-template-columns:1fr; }
+}
+@media(max-width:520px) {
+  .not-found-code { margin-top:28px; }
+  .not-found-actions { flex-direction:column; }
+  .not-found-actions button { width:100%; justify-content:center; }
+  .search-error { align-items:flex-start; flex-direction:column; }
 }

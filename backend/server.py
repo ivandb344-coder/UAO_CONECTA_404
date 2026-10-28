@@ -22,6 +22,7 @@ from app.routers import (
     notifications,
     profile,
     questions,
+    ranking,
     subjects,
 )
 from app.services.seed import seed
@@ -41,6 +42,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Assistant-Mode"],
 )
 
 
@@ -64,7 +66,7 @@ async def health():
     return {"status": "ok" if database_ok else "degraded", "database": database_ok, "tls": USE_TLS}
 
 
-for module in (auth, dashboard, subjects, profile, questions, advisories, chat, files, ai, notifications, integrations):
+for module in (auth, dashboard, subjects, profile, questions, ranking, advisories, chat, files, ai, notifications, integrations):
     api.include_router(module.router)
 
 app.include_router(api)

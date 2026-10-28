@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Paperclip, Send, Users, Wifi, WifiOff, FileText, X as XIcon, UserRoundPlus, Search, MessageCircle } from "lucide-react";
+import { Paperclip, Send, Users, Wifi, WifiOff, FileText, X as XIcon, UserRoundPlus, Search, MessageCircle, Pencil, Trash2, Check } from "lucide-react";
 import { api, API } from "@/lib/api";
 import { openProtectedFile } from "@/services/fileService";
 import { useProtectedFileUrl } from "@/hooks/useProtectedFile";
 import { Empty } from "@/components/ui/states";
 import { useChatUnread } from "@/lib/chatUnread";
+import { useNotifications } from "@/lib/notifications";
+import { playUiSound } from "@/lib/audioFeedback";
 
 const WS_BASE = API.replace(/^http/, "ws");
 const MAX_ATTACH_MB = 8;
@@ -52,6 +54,9 @@ export default function Chat({ user }) {
   const nav = useNavigate();
   const room = routeRoom || "general";
   const unread = useChatUnread();
+  const { refresh: refreshNotifications } = useNotifications();
+  const refreshChatUnread = unread.refresh;
+  const markChatRead = unread.markRead;
   const [messages, setMessages] = useState([]);
   const [body, setBody] = useState("");
   const [connected, setConnected] = useState(false);
@@ -67,15 +72,23 @@ export default function Chat({ user }) {
   const [attachment, setAttachment] = useState(null); // {name, storage_path, content_type, size}
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editText, setEditText] = useState("");
+  const [messageBusy, setMessageBusy] = useState(false);
+  const [roomClosedEvent, setRoomClosedEvent] = useState(false);
+  const [clockNow, setClockNow] = useState(Date.now());
   const wsRef = useRef(null);
   const messagesRef = useRef(null);
   const fileInputRef = useRef(null);
   const retryRef = useRef(0);
   const retryTimerRef = useRef(null);
   const pollTimerRef = useRef(null);
+  const knownMessageIdsRef = useRef(new Set());
 
   const directConversation = directConversations.find((item) => item.room === room);
   const isDirectRoom = room.startsWith("dm-");
+  const roomSubject = subjects.find((item) => item.id === room);
+  const roomClosed = roomClosedEvent || ["closed", "deleted"].includes(roomSubject?.status);
 
   const roomLabel = useMemo(() => {
     if (room === "general") return "Comunidad UAO";
@@ -97,6 +110,13 @@ export default function Chat({ user }) {
       });
     }
   }, [user.role]);
+
+  useEffect(() => {
+    setRoomClosedEvent(false);
+    setEditingMessageId(null);
+    const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [room]);
 
   const startDirectConversation = async (professor) => {
     setDirectLoading(true);
@@ -126,7 +146,10 @@ export default function Chat({ user }) {
     api
       .get(`/chat/${room}`)
       .then((r) => {
-        if (!cancelled) setMessages(r.data);
+        if (!cancelled) {
+          knownMessageIdsRef.current = new Set(r.data.map((message) => message.id));
+          setMessages(r.data);
+        }
       })
       .catch((requestError) => {
         if (!cancelled) setError(requestError.response?.data?.detail || "No pudimos cargar los mensajes de esta sala.");
@@ -157,9 +180,24 @@ export default function Chat({ user }) {
         try {
           const payload = JSON.parse(evt.data);
           if (payload.type === "message") {
+            const newMessage = payload.message && !knownMessageIdsRef.current.has(payload.message.id);
+            if (payload.message?.id) knownMessageIdsRef.current.add(payload.message.id);
+            if (newMessage && (payload.message?.system || (payload.message?.user_id && payload.message.user_id !== user?.id))) playUiSound("message");
             setMessages((prev) =>
               prev.some((m) => m.id === payload.message.id) ? prev : [...prev, payload.message]
             );
+          } else if (payload.type === "message_updated") {
+            setMessages((prev) => prev.map((message) => message.id === payload.message.id ? payload.message : message));
+          } else if (payload.type === "message_deleted") {
+            setMessages((prev) => prev.map((message) => message.id === payload.id ? { ...message, body: "", file: null, deleted: true, deleted_at: payload.deleted_at } : message));
+          } else if (payload.type === "subject_closed" || payload.type === "subject_deleted") {
+            setRoomClosedEvent(true);
+            if (payload.message) {
+              const newAnnouncement = !knownMessageIdsRef.current.has(payload.message.id);
+              knownMessageIdsRef.current.add(payload.message.id);
+              if (newAnnouncement) playUiSound("message");
+              setMessages((prev) => prev.some((m) => m.id === payload.message.id) ? prev : [...prev, payload.message]);
+            }
           } else if (payload.type === "presence") {
             setPresence(payload.users || []);
           }
@@ -179,10 +217,18 @@ export default function Chat({ user }) {
           setConnectionState("forbidden");
           return;
         }
+        if (event.code === 4404) {
+          setConnectionState("unavailable");
+          setError("Esta sala ya no está disponible para tu cuenta.");
+          return;
+        }
         retryRef.current += 1;
         if (retryRef.current >= 2) {
           const pollMessages = () => api.get(`/chat/${encodeURIComponent(room)}`).then((response) => {
             if (cancelled) return;
+            const incoming = response.data.filter((message) => !knownMessageIdsRef.current.has(message.id));
+            if (incoming.some((message) => message.system || (message.user_id && message.user_id !== user?.id))) playUiSound("message");
+            incoming.forEach((message) => knownMessageIdsRef.current.add(message.id));
             setMessages(response.data);
             setConnectionState("polling");
           }).catch(() => {
@@ -222,19 +268,20 @@ export default function Chat({ user }) {
         /* ignore */
       }
     };
-  }, [room]);
+  }, [room, user?.id]);
 
   // Mark room as seen when we open it and every time a new message arrives while we're here
   useEffect(() => {
     if (!room) return;
     const ping = () => {
-      api.post(`/chat/${room}/seen`).catch(() => {});
-      unread.markRead(room);
+      markChatRead(room);
+      api.post(`/chat/${encodeURIComponent(room)}/seen`)
+        .then(() => refreshNotifications())
+        .catch(() => refreshChatUnread());
     };
     ping();
     return () => {};
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [room, messages.length]);
+  }, [room, messages.length, markChatRead, refreshChatUnread, refreshNotifications]);
 
   useEffect(() => {
     messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight, behavior: "smooth" });
@@ -286,6 +333,7 @@ export default function Chat({ user }) {
       }
     }
     api.post("/chat", { ...payload, room }).then((r) => {
+      knownMessageIdsRef.current.add(r.data.id);
       setMessages((prev) => (prev.some((m) => m.id === r.data.id) ? prev : [...prev, r.data]));
       setDirectConversations((current) => current.map((item) => item.room === room ? { ...item, last_message: r.data, updated_at: r.data.created_at } : item));
       setBody("");
@@ -293,6 +341,37 @@ export default function Chat({ user }) {
     }).catch((requestError) => {
       setError(requestError.response?.data?.detail || "No pudimos enviar el mensaje. Se conservará el texto para que puedas reintentar.");
     });
+  };
+
+  const updateMessage = async (messageId) => {
+    if (messageBusy) return;
+    setMessageBusy(true);
+    setError("");
+    try {
+      const response = await api.patch(`/chat/${encodeURIComponent(room)}/${encodeURIComponent(messageId)}`, { body: editText });
+      setMessages((prev) => prev.map((message) => message.id === messageId ? response.data : message));
+      setEditingMessageId(null);
+      setEditText("");
+    } catch (requestError) {
+      setError(requestError.response?.data?.detail || "No pudimos editar el mensaje.");
+    } finally {
+      setMessageBusy(false);
+    }
+  };
+
+  const removeMessage = async (messageId) => {
+    if (messageBusy || !window.confirm("¿Eliminar este mensaje? El contenido y su adjunto se ocultarán del chat.")) return;
+    setMessageBusy(true);
+    setError("");
+    try {
+      const response = await api.delete(`/chat/${encodeURIComponent(room)}/${encodeURIComponent(messageId)}`);
+      setMessages((prev) => prev.map((message) => message.id === messageId ? { ...message, body: "", file: null, deleted: true, deleted_at: response.data.deleted_at } : message));
+      if (editingMessageId === messageId) setEditingMessageId(null);
+    } catch (requestError) {
+      setError(requestError.response?.data?.detail || "No pudimos eliminar el mensaje.");
+    } finally {
+      setMessageBusy(false);
+    }
   };
 
   const filteredProfessors = professorContacts.filter((professor) =>
@@ -358,6 +437,7 @@ export default function Chat({ user }) {
             data-testid={`chat-room-${s.code}`}
           >
             # {s.name}
+            {s.status === "closed" && <em className="room-badge room-closed-badge">Solo lectura</em>}
             {unread.rooms[s.id] ? <em className="room-badge">{unread.rooms[s.id]}</em> : null}
           </button>
         ))}
@@ -435,7 +515,10 @@ export default function Chat({ user }) {
         <div className="messages" ref={messagesRef}>
           {messages.length ? (
             messages.map((m) => {
+              if (m.system) return <div className="chat-system-message" key={m.id} role="status" data-testid={`chat-system-message-${m.id}`}>{m.body}</div>;
               const mine = user && m.user_id === user.id;
+              const age = clockNow - new Date(m.created_at).getTime();
+              const canEdit = mine && !m.deleted && Number.isFinite(age) && age >= 0 && age < 60_000 && !roomClosed;
               return (
                 <div className={`message ${mine ? "mine" : ""}`} key={m.id} data-testid={`chat-message-${m.id}`}>
                   {!mine && <div className={`avatar mini role-${m.role || "student"}`}>{(m.author || "?")[0]}</div>}
@@ -449,8 +532,20 @@ export default function Chat({ user }) {
                         minute: "2-digit",
                       })}
                     </small>
-                    {m.file && <MessageFile file={m.file} />}
-                    {m.body && <p>{m.body}</p>}
+                    {!m.deleted && m.file && <MessageFile file={m.file} />}
+                    {editingMessageId === m.id ? (
+                      <form className="message-edit-form" onSubmit={(event) => { event.preventDefault(); updateMessage(m.id); }}>
+                        <textarea aria-label="Editar mensaje" value={editText} onChange={(event) => setEditText(event.target.value)} maxLength={2000} autoFocus data-testid={`edit-message-input-${m.id}`} />
+                        <div><button type="submit" className="message-edit-save" disabled={messageBusy || (!editText.trim() && !m.file)}><Check size={14} /> Guardar</button><button type="button" className="message-edit-cancel" onClick={() => { setEditingMessageId(null); setEditText(""); }} disabled={messageBusy}>Cancelar</button></div>
+                      </form>
+                    ) : m.deleted ? <p className="message-deleted">Mensaje eliminado</p> : m.body && <p>{m.body}{m.edited_at && <small className="message-edited-label"> · editado</small>}</p>}
+                    {canEdit && editingMessageId !== m.id && (
+                      <div className="message-actions" aria-label="Acciones de tu mensaje">
+                        <button type="button" onClick={() => { setEditingMessageId(m.id); setEditText(m.body || ""); }} disabled={messageBusy} title="Editar durante el primer minuto" data-testid={`edit-message-${m.id}`}><Pencil size={13} aria-hidden="true" /> Editar</button>
+                        <button type="button" onClick={() => removeMessage(m.id)} disabled={messageBusy} title="Eliminar durante el primer minuto" data-testid={`delete-message-${m.id}`}><Trash2 size={13} aria-hidden="true" /> Eliminar</button>
+                        <span>Disponible {Math.max(1, Math.ceil((60_000 - age) / 1000))} s</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -459,6 +554,7 @@ export default function Chat({ user }) {
             <Empty text={isDirectRoom ? "Envía el primer mensaje privado a este docente." : "Sé la primera persona en saludar"} />
           )}
         </div>
+        {roomClosed && <div className="chat-room-closed" role="status" data-testid="chat-room-closed">Esta asignatura está cerrada. El chat se conserva en modo de solo lectura.</div>}
         <AttachmentPreview file={attachment} onClear={() => setAttachment(null)} />
         <form className="chat-compose" onSubmit={send}>
           <input
@@ -472,7 +568,7 @@ export default function Chat({ user }) {
           <button
             type="button"
             onClick={openFilePicker}
-            disabled={uploading}
+            disabled={uploading || roomClosed}
             data-testid="attach-chat-file"
             aria-label="Adjuntar archivo"
           >
@@ -480,12 +576,12 @@ export default function Chat({ user }) {
           </button>
           <input
             data-testid="chat-message-input"
-            placeholder={uploading ? "Subiendo archivo…" : "Escribe un mensaje…"}
+            placeholder={roomClosed ? "Asignatura cerrada · solo lectura" : uploading ? "Subiendo archivo…" : "Escribe un mensaje…"}
             value={body}
-            disabled={uploading}
+            disabled={uploading || roomClosed}
             onChange={(e) => setBody(e.target.value)}
           />
-          <button className="send" data-testid="send-chat-message" aria-label="Enviar mensaje">
+          <button className="send" data-testid="send-chat-message" aria-label="Enviar mensaje" disabled={uploading || roomClosed || (!body.trim() && !attachment)}>
             <Send size={17} />
           </button>
         </form>

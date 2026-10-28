@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, Plus, X, CheckCircle2, MessageCircle, Upload, FileText, ClipboardCheck } from "lucide-react";
+import { ArrowRight, Plus, X, CheckCircle2, MessageCircle, Upload, FileText, ClipboardCheck, LockKeyhole, Trash2, LogOut } from "lucide-react";
 import { api } from "@/lib/api";
 import { Empty } from "@/components/ui/states";
 import SubjectResources from "@/components/SubjectResources";
 import FileActions from "@/components/files/FileActions";
 import FilePreviewModal from "@/components/files/FilePreviewModal";
+
+const localDateInput = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
 export default function SubjectDetail({ user }) {
   const { id } = useParams();
@@ -19,20 +21,23 @@ export default function SubjectDetail({ user }) {
   const [attachment, setAttachment] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [subjectActionBusy, setSubjectActionBusy] = useState(false);
   const fileRef = useRef(null);
   const nav = useNavigate();
 
-  const load = () =>
+  const load = useCallback(() =>
     Promise.all([api.get("/subjects"), api.get(`/subjects/${id}/tasks`)])
       .then(([s, t]) => {
-        setSubject(s.data.find((x) => x.id === id));
+        const found = s.data.find((x) => x.id === id);
+        setSubject(found || null);
         setTasks(t.data);
+        if (!found) setError("No tienes acceso a esta asignatura o ya no está disponible.");
       })
-      .catch(() => setError("No pudimos cargar esta asignatura."));
+      .catch(() => setError("No pudimos cargar esta asignatura.")), [id]);
 
   useEffect(() => {
     load();
-  }, [id]);
+  }, [load]);
 
   const create = async (e) => {
     e.preventDefault();
@@ -42,7 +47,49 @@ export default function SubjectDetail({ user }) {
       setForm({ title: "", description: "", due_date: "", due_time: "23:59" });
       load();
     } catch (x) {
-      setError(x.response?.data?.detail || "No pudimos crear la tarea.");
+      const detail = x.response?.data?.detail;
+      setError(detail?.fields?.due_date || detail?.fields?.due_time || detail?.fields?.title || detail || "No pudimos crear la tarea.");
+    }
+  };
+
+  const closeSubject = async () => {
+    if (!window.confirm(`¿Cerrar ${subject.name}? Sus integrantes conservarán el historial y el chat quedará en solo lectura.`)) return;
+    setSubjectActionBusy(true);
+    setError("");
+    try {
+      await api.post(`/subjects/${id}/close`);
+      setSubject((current) => ({ ...current, status: "closed" }));
+      setShowCreate(false);
+    } catch (requestError) {
+      setError(requestError.response?.data?.detail || "No pudimos cerrar la asignatura.");
+    } finally {
+      setSubjectActionBusy(false);
+    }
+  };
+
+  const deleteSubject = async () => {
+    if (!window.confirm(`¿Eliminar ${subject.name} del listado? El chat se cerrará y la asignatura dejará de estar disponible para sus integrantes.`)) return;
+    setSubjectActionBusy(true);
+    setError("");
+    try {
+      await api.delete(`/subjects/${id}`);
+      nav("/asignaturas");
+    } catch (requestError) {
+      setError(requestError.response?.data?.detail || "No pudimos eliminar la asignatura.");
+      setSubjectActionBusy(false);
+    }
+  };
+
+  const leaveSubject = async () => {
+    if (!window.confirm(`¿Salir de ${subject.name}? Ya no verás el espacio ni podrás escribir en su chat.`)) return;
+    setSubjectActionBusy(true);
+    setError("");
+    try {
+      await api.delete(`/subjects/${id}/members/me`);
+      nav("/asignaturas");
+    } catch (requestError) {
+      setError(requestError.response?.data?.detail || "No pudimos salir de la asignatura.");
+      setSubjectActionBusy(false);
     }
   };
 
@@ -85,6 +132,12 @@ export default function SubjectDetail({ user }) {
     }
   };
 
+  if (!subject && error) return (
+    <section className="page">
+      <div className="error" role="alert" data-testid="subject-unavailable">{error}</div>
+      <button type="button" className="ghost" onClick={() => nav("/asignaturas")} data-testid="subject-unavailable-back">Volver a asignaturas</button>
+    </section>
+  );
   if (!subject)
     return (
       <section className="page">
@@ -109,7 +162,7 @@ export default function SubjectDetail({ user }) {
             {subject.professor} · {subject.program}
           </p>
         </div>
-        {user.role !== "student" && (
+          {user.role !== "student" && subject.status !== "closed" && (
           <div className="head-actions">
             <button
               className="ghost"
@@ -123,7 +176,7 @@ export default function SubjectDetail({ user }) {
             </button>
           </div>
         )}
-        {user.role === "student" && (
+          {user.role === "student" && (
           <button
             className="ghost"
             onClick={() => nav(`/chat/${subject.id}`)}
@@ -132,13 +185,22 @@ export default function SubjectDetail({ user }) {
             <MessageCircle size={15} /> Abrir chat
           </button>
         )}
+        {subject.owner_id === user.id ? (
+          <div className="subject-owner-actions">
+            {subject.status !== "closed" && <button type="button" className="ghost small" onClick={closeSubject} disabled={subjectActionBusy} data-testid="close-subject-button"><LockKeyhole size={14} /> Cerrar asignatura</button>}
+            <button type="button" className="ghost small danger" onClick={deleteSubject} disabled={subjectActionBusy} data-testid="delete-subject-button"><Trash2 size={14} /> Eliminar asignatura</button>
+          </div>
+        ) : (
+          <button type="button" className="ghost small subject-leave-button" onClick={leaveSubject} disabled={subjectActionBusy} data-testid="leave-subject-button"><LogOut size={14} /> Salir de la asignatura</button>
+        )}
       </div>
+      {subject.status === "closed" && <div className="chat-room-closed subject-closed-banner" role="status" data-testid="subject-closed-banner">Asignatura cerrada. Puedes consultar el material y el historial del chat, pero ya no se pueden publicar tareas, recursos ni mensajes.</div>}
       {error && (
         <div className="error" data-testid="tasks-error">
           {error}
         </div>
       )}
-      {showCreate && (
+      {showCreate && subject.status !== "closed" && (
         <form className="composer task-form" onSubmit={create}>
           <h3>Crear tarea</h3>
           <input
@@ -162,6 +224,7 @@ export default function SubjectDetail({ user }) {
                 data-testid="task-due-date-input"
                 type="date"
                 required
+                min={localDateInput()}
                 value={form.due_date}
                 onChange={(e) => setForm({ ...form, due_date: e.target.value })}
               />
@@ -287,7 +350,7 @@ export default function SubjectDetail({ user }) {
         </div>
       )}
 
-      <SubjectResources subjectId={id} user={user} />
+      <SubjectResources subjectId={id} user={user} readOnly={subject.status === "closed"} />
       {preview && <FilePreviewModal file={preview} onClose={() => setPreview(null)} />}
     </section>
   );

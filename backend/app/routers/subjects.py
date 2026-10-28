@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+import re
 import uuid
 
 from app.core.config import db, PROGRAM_NAMES
@@ -8,15 +9,40 @@ from app.models.schemas import TaskCreate, SubmissionCreate, FeedbackCreate, Sub
 from app.services.users import clean, _url_ok
 from app.services.notifications import _create_notification
 from app.services.files import _file_meta, _can_review_task, _reviewable_tasks
+from app.services.chat import manager
 
 router = APIRouter()
 
 @router.get("/subjects")
 async def subjects(user=Depends(current_user)):
-    return await db.subjects.find({}, {"_id": 0}).to_list(100)
+    docs = await db.subjects.find({"status": {"$ne": "deleted"}, "deleted_at": {"$exists": False}}, {"_id": 0}).to_list(100)
+    return [doc for doc in docs if user["id"] not in (doc.get("left_members") or [])]
+
+
+async def _announce_subject(subject: dict, text: str, event_type: str = "message"):
+    now = datetime.now(timezone.utc).isoformat()
+    announcement = {
+        "id": str(uuid.uuid4()), "room": subject["id"], "body": text,
+        "author": "UAO Conecta", "user_id": None, "role": "system", "system": True,
+        "created_at": now,
+    }
+    await db.messages.insert_one(announcement)
+    await manager.broadcast(subject["id"], {"type": event_type, "message": clean(announcement)})
+    recipients = set(subject.get("members") or [])
+    if subject.get("owner_id"):
+        recipients.add(subject["owner_id"])
+    for member_id in recipients:
+        link = "/asignaturas" if event_type == "subject_deleted" or member_id in (subject.get("left_members") or []) else f"/chat/{subject['id']}"
+        await _create_notification(
+            member_id, "asignatura_actualizada", "Actualización de asignatura", text,
+            link,
+        )
+    return announcement
 
 @router.post("/subjects")
 async def create_subject(data: SubjectCreate, user=Depends(current_user)):
+    if user.get("role") not in {"professor", "monitor"}:
+        raise HTTPException(403, "Solo profesores y monitores pueden crear asignaturas.")
     errors = {}
     name = data.name.strip()
     code = data.code.strip().upper()
@@ -24,6 +50,8 @@ async def create_subject(data: SubjectCreate, user=Depends(current_user)):
         errors["name"] = "Escribe un nombre válido para la asignatura."
     if len(code) < 2:
         errors["code"] = "El código debe tener al menos 2 caracteres."
+    elif not re.fullmatch(r"[A-Z0-9-]{2,20}", code):
+        errors["code"] = "Usa de 2 a 20 letras, números o guiones, sin espacios."
     if data.program not in PROGRAM_NAMES:
         errors["program"] = "Selecciona un programa académico válido."
     if data.semester < 1 or data.semester > 12:
@@ -59,12 +87,67 @@ async def join_subject(data: SubjectJoin, user=Depends(current_user)):
     subject = await db.subjects.find_one({"access_code": code}, {"_id": 0})
     if not subject:
         raise HTTPException(404, "No encontramos una asignatura con ese código de unión.")
-    await db.subjects.update_one({"id": subject["id"]}, {"$addToSet": {"members": user["id"]}})
+    if subject.get("status") in {"closed", "deleted"}:
+        raise HTTPException(409, "Esta asignatura ya está cerrada y no acepta nuevos integrantes.")
+    await db.subjects.update_one(
+        {"id": subject["id"]},
+        {"$addToSet": {"members": user["id"]}, "$pull": {"left_members": user["id"]}},
+    )
     subject["members"] = list({*(subject.get("members") or []), user["id"]})
     return subject
 
+
+@router.post("/subjects/{subject_id}/close")
+async def close_subject(subject_id: str, user=Depends(current_user)):
+    subject = await db.subjects.find_one({"id": subject_id}, {"_id": 0})
+    if not subject or subject.get("status") == "deleted":
+        raise HTTPException(404, "Asignatura no encontrada")
+    if user.get("role") not in {"professor", "monitor"} or subject.get("owner_id") != user["id"]:
+        raise HTTPException(403, "Solo quien creó esta asignatura puede cerrarla.")
+    if subject.get("status") == "closed":
+        return {"ok": True, "status": "closed"}
+    closed_at = datetime.now(timezone.utc).isoformat()
+    await db.subjects.update_one({"id": subject_id}, {"$set": {"status": "closed", "closed_at": closed_at, "closed_by": user["id"]}})
+    await _announce_subject(subject, f"{user['name']} cerró la asignatura. El chat queda en modo de solo lectura.", "subject_closed")
+    return {"ok": True, "status": "closed", "closed_at": closed_at}
+
+
+@router.delete("/subjects/{subject_id}")
+async def delete_subject(subject_id: str, user=Depends(current_user)):
+    subject = await db.subjects.find_one({"id": subject_id}, {"_id": 0})
+    if not subject or subject.get("status") == "deleted":
+        raise HTTPException(404, "Asignatura no encontrada")
+    if user.get("role") not in {"professor", "monitor"} or subject.get("owner_id") != user["id"]:
+        raise HTTPException(403, "Solo quien creó esta asignatura puede eliminarla.")
+    deleted_at = datetime.now(timezone.utc).isoformat()
+    await db.subjects.update_one({"id": subject_id}, {"$set": {"status": "deleted", "deleted_at": deleted_at, "deleted_by": user["id"]}})
+    await _announce_subject(subject, f"{user['name']} eliminó la asignatura y cerró su chat.", "subject_deleted")
+    return {"ok": True, "status": "deleted"}
+
+
+@router.delete("/subjects/{subject_id}/members/me")
+async def leave_subject(subject_id: str, user=Depends(current_user)):
+    subject = await db.subjects.find_one({"id": subject_id}, {"_id": 0})
+    if not subject or subject.get("status") == "deleted":
+        raise HTTPException(404, "Asignatura no encontrada")
+    if subject.get("owner_id") == user["id"]:
+        raise HTTPException(409, "Como responsable, cierra o elimina la asignatura para finalizarla.")
+    if user["id"] in (subject.get("left_members") or []):
+        raise HTTPException(409, "Ya saliste de esta asignatura.")
+    await db.subjects.update_one(
+        {"id": subject_id},
+        {"$pull": {"members": user["id"]}, "$addToSet": {"left_members": user["id"]}},
+    )
+    await _announce_subject({**subject, "left_members": [user["id"]]}, f"{user['name']} salió de la asignatura.")
+    return {"ok": True}
+
 @router.get("/subjects/{subject_id}/tasks")
 async def subject_tasks(subject_id: str, user=Depends(current_user)):
+    subject = await db.subjects.find_one({"id": subject_id}, {"_id": 0, "id": 1, "status": 1, "left_members": 1})
+    if not subject or subject.get("status") == "deleted":
+        raise HTTPException(404, "Asignatura no encontrada")
+    if user["id"] in (subject.get("left_members") or []):
+        raise HTTPException(403, "Saliste de esta asignatura.")
     tasks = await db.tasks.find({"subject_id": subject_id}, {"_id": 0}).sort("due_date", 1).to_list(100)
     for task in tasks:
         submission = await db.submissions.find_one({"task_id": task["id"], "student_id": user["id"]}, {"_id": 0})
@@ -96,9 +179,29 @@ async def incoming_submissions(user=Depends(current_user)):
 async def create_task(subject_id: str, data: TaskCreate, user=Depends(current_user)):
     if user["role"] not in ["professor", "monitor"]:
         raise HTTPException(403, "Solo profesores y monitores pueden crear tareas")
-    if not await db.subjects.find_one({"id": subject_id}):
+    subject = await db.subjects.find_one({"id": subject_id}, {"_id": 0})
+    if not subject or subject.get("status") == "deleted":
         raise HTTPException(404, "Asignatura no encontrada")
-    task = {"id": str(uuid.uuid4()), "subject_id": subject_id, **data.model_dump(), "author": user["name"], "author_id": user["id"], "created_at": datetime.now(timezone.utc).isoformat()}
+    if subject.get("status") == "closed":
+        raise HTTPException(409, "No puedes publicar tareas en una asignatura cerrada.")
+    if user["id"] in (subject.get("left_members") or []):
+        raise HTTPException(403, "Saliste de esta asignatura.")
+    payload = data.model_dump()
+    errors = {}
+    if not payload["title"].strip():
+        errors["title"] = "Escribe un título para la tarea."
+    try:
+        parsed_date = date.fromisoformat(payload["due_date"])
+        if parsed_date.isoformat() != payload["due_date"]:
+            raise ValueError
+    except (TypeError, ValueError):
+        errors["due_date"] = "Selecciona una fecha válida en el calendario."
+    if not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", payload["due_time"] or ""):
+        errors["due_time"] = "Selecciona una hora válida entre 00:00 y 23:59."
+    if errors:
+        raise HTTPException(status_code=422, detail={"fields": errors})
+    payload["title"] = payload["title"].strip()
+    task = {"id": str(uuid.uuid4()), "subject_id": subject_id, **payload, "author": user["name"], "author_id": user["id"], "created_at": datetime.now(timezone.utc).isoformat()}
     await db.tasks.insert_one(task)
     return clean(task)
 
@@ -132,14 +235,24 @@ async def give_feedback(submission_id: str, data: FeedbackCreate, user=Depends(c
 
 @router.get("/subjects/{sid}/resources")
 async def list_resources(sid: str, user=Depends(current_user)):
+    subject = await db.subjects.find_one({"id": sid}, {"_id": 0, "id": 1, "status": 1, "left_members": 1})
+    if not subject or subject.get("status") == "deleted":
+        raise HTTPException(404, "Asignatura no encontrada")
+    if user["id"] in (subject.get("left_members") or []):
+        raise HTTPException(403, "Saliste de esta asignatura.")
     return await db.resources.find({"subject_id": sid}, {"_id": 0}).sort("created_at", -1).to_list(200)
 
 @router.post("/subjects/{sid}/resources")
 async def create_resource(sid: str, data: ResourceCreate, user=Depends(current_user)):
     if user["role"] not in ("professor", "monitor"):
         raise HTTPException(403, "Solo profesores y monitores pueden publicar recursos")
-    if not await db.subjects.find_one({"id": sid}):
+    subject = await db.subjects.find_one({"id": sid}, {"_id": 0})
+    if not subject or subject.get("status") == "deleted":
         raise HTTPException(404, "Asignatura no encontrada")
+    if subject.get("status") == "closed":
+        raise HTTPException(409, "No puedes publicar recursos en una asignatura cerrada.")
+    if user["id"] in (subject.get("left_members") or []):
+        raise HTTPException(403, "Saliste de esta asignatura.")
     if data.kind not in ("file", "link"):
         raise HTTPException(422, "Tipo de recurso no válido")
     payload = data.model_dump()
@@ -174,5 +287,10 @@ async def delete_resource(rid: str, user=Depends(current_user)):
         raise HTTPException(404, "Recurso no encontrado")
     if res.get("owner_id") != user["id"]:
         raise HTTPException(403, "Solo el autor puede eliminar el recurso")
+    subject = await db.subjects.find_one({"id": res.get("subject_id")}, {"_id": 0, "status": 1})
+    if not subject or subject.get("status") == "deleted":
+        raise HTTPException(404, "La asignatura ya no está disponible.")
+    if subject.get("status") == "closed":
+        raise HTTPException(409, "No puedes eliminar recursos de una asignatura cerrada.")
     await db.resources.delete_one({"id": rid})
     return {"ok": True}

@@ -11,13 +11,26 @@ import LogoutDialog from "@/components/LogoutDialog";
 import RoleBadge from "@/components/hub/RoleBadge";
 import MonitorToggle from "@/components/hub/MonitorToggle";
 import PresentationMode from "@/components/PresentationMode";
+import { getUiLabel, playUiSound, speakUiLabel } from "@/lib/audioFeedback";
+
+function readRecentSearches(key) {
+  try {
+    const stored = JSON.parse(localStorage.getItem(key) || "[]");
+    return Array.isArray(stored) ? stored.filter((item) => typeof item === "string").slice(0, 5) : [];
+  } catch {
+    return [];
+  }
+}
 
 export default function Layout({ user, onLogout, children }) {
   const loc = useLocation();
   const navg = useNavigate();
   const { viewRole } = useViewMode();
   const NAV = navForRole(viewRole);
+  const recentSearchesKey = `uao_recent_searches_${user?.id || user?.email || "session"}`;
   const [search, setSearch] = useState("");
+  const [recentSearches, setRecentSearches] = useState(() => readRecentSearches(recentSearchesKey));
+  const [searchHistoryOpen, setSearchHistoryOpen] = useState(false);
   const unread = useChatUnread();
   const notif = useNotifications();
   const totalUnread = unread.total || 0;
@@ -25,6 +38,8 @@ export default function Layout({ user, onLogout, children }) {
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const searchRef = useRef(null);
+  const searchWrapRef = useRef(null);
 
   useEffect(() => {
     if (!notifOpen) return;
@@ -35,15 +50,79 @@ export default function Layout({ user, onLogout, children }) {
     return () => document.removeEventListener("mousedown", onClick);
   }, [notifOpen]);
 
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        searchRef.current?.focus();
+        setSearchHistoryOpen(true);
+      } else if (event.key === "Escape") {
+        setSearchHistoryOpen(false);
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    let keyboardNavigation = false;
+    const actionSelector = "button, a[href], [role='button'], [role='tab'], [role='switch'], input[type='submit']";
+    const onKeyDown = (event) => {
+      if (["Tab", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) keyboardNavigation = true;
+    };
+    const onPointerDown = () => { keyboardNavigation = false; };
+    const onFocusIn = (event) => {
+      const control = event.target?.closest?.(actionSelector);
+      if (keyboardNavigation && control) speakUiLabel(getUiLabel(control));
+    };
+    const onClick = (event) => {
+      const control = event.target?.closest?.(actionSelector);
+      if (!control || control.disabled || control.getAttribute("aria-disabled") === "true") return;
+      playUiSound("click");
+      speakUiLabel(getUiLabel(control));
+    };
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("click", onClick);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("click", onClick);
+    };
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const title = document.querySelector("main h1")?.textContent?.trim();
+      if (title) speakUiLabel(`Sección: ${title}`);
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [loc.pathname]);
+
+  useEffect(() => {
+    if (!searchHistoryOpen) return;
+    const onClick = (event) => {
+      if (searchWrapRef.current && !searchWrapRef.current.contains(event.target)) setSearchHistoryOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [searchHistoryOpen]);
+
   const runSearch = (e) => {
     e.preventDefault();
     const q = search.trim();
     if (!q) return;
+    const nextRecent = [q, ...recentSearches.filter((item) => item.toLocaleLowerCase() !== q.toLocaleLowerCase())].slice(0, 5);
+    setRecentSearches(nextRecent);
+    try { localStorage.setItem(recentSearchesKey, JSON.stringify(nextRecent)); } catch { /* Search still works when storage is unavailable. */ }
+    setSearchHistoryOpen(false);
     navg(`/buscar?q=${encodeURIComponent(q)}`);
   };
 
   const bellCount = notif.unread || 0;
-  const mobileNav = NAV.filter((n) => ["/inicio", "/dudas", "/asignaturas", "/asesorias", "/chat", "/evidencias-dcu"].includes(n.path));
+  const mobileNav = NAV.filter((n) => ["/inicio", "/dudas", "/asignaturas", "/asesorias", "/chat", "/ranking", "/evidencias-dcu"].includes(n.path));
 
   return (
     <div className="shell">
@@ -85,10 +164,41 @@ export default function Layout({ user, onLogout, children }) {
           <div className="header-brand" onClick={() => navg("/inicio")} role="button" tabIndex={0} aria-label="Ir al inicio" onKeyDown={(e) => e.key === "Enter" && navg("/inicio")}>
             <BrandLogo caption={null} size="xs" testId="header-logo" />
           </div>
-          <form className="search" onSubmit={runSearch} role="search">
-            <Search size={18} aria-hidden="true" />
-            <input data-testid="global-search-input" aria-label="Buscar en UAO Conecta" placeholder="Buscar asignatura, duda, persona o recurso…" value={search} onChange={(e) => setSearch(e.target.value)} />
-          </form>
+          <div className="global-search-wrap" ref={searchWrapRef}>
+            <form className="search" onSubmit={runSearch} role="search">
+              <Search size={18} aria-hidden="true" />
+              <input
+                ref={searchRef}
+                data-testid="global-search-input"
+                aria-label="Buscar en UAO Conecta"
+                aria-keyshortcuts="Control+K Meta+K"
+                aria-expanded={searchHistoryOpen && recentSearches.length > 0}
+                placeholder="Buscar asignatura, duda, persona o recurso…"
+                value={search}
+                onFocus={() => { if (!search.trim() && recentSearches.length) setSearchHistoryOpen(true); }}
+                onChange={(e) => { setSearch(e.target.value); if (e.target.value) setSearchHistoryOpen(false); }}
+              />
+              <kbd className="search-shortcut" aria-hidden="true">Ctrl K</kbd>
+            </form>
+            {searchHistoryOpen && recentSearches.length > 0 && (
+              <div className="recent-searches" role="region" aria-label="Búsquedas recientes" data-testid="recent-searches">
+                <div className="recent-searches-head">
+                  <span>Búsquedas recientes en este dispositivo</span>
+                  <button type="button" className="link" onClick={() => { setRecentSearches([]); try { localStorage.removeItem(recentSearchesKey); } catch { /* Search history is optional. */ } }} data-testid="clear-recent-searches">Borrar</button>
+                </div>
+                {recentSearches.map((query) => (
+                  <button
+                    type="button"
+                    className="recent-search-item"
+                    key={query}
+                    onClick={() => { setSearch(query); setSearchHistoryOpen(false); navg(`/buscar?q=${encodeURIComponent(query)}`); }}
+                  >
+                    <Search size={14} aria-hidden="true" /> <span>{query}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button className="tour-launch" data-testid="presentation-mode-button" onClick={() => setTourOpen(true)} aria-label="Abrir tutorial guiado de UAO Conecta">
             <PlayCircle size={17} aria-hidden="true" /> <span>Tutorial guiado</span>
           </button>
@@ -104,7 +214,7 @@ export default function Layout({ user, onLogout, children }) {
               <div className="notif-dropdown" data-testid="notif-dropdown">
                 <div className="notif-dropdown-head">
                   <b>Notificaciones</b>
-                  <button className="link" onClick={() => notif.markAllRead()} data-testid="dropdown-mark-all-read"><CheckCheck size={13} /> Marcar todo como leído</button>
+                  <button className="link" onClick={async () => { await notif.markAllRead(); await unread.refresh(); }} data-testid="dropdown-mark-all-read"><CheckCheck size={13} /> Marcar todo como leído</button>
                 </div>
                 {notif.items.length ? (
                   <ul>

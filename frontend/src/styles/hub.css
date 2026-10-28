@@ -398,6 +398,20 @@ aside .brand { padding: 0 6px; }
   .eco-foot { flex-wrap: wrap; }
 }
 
+/* Search history and shortcut */
+.global-search-wrap { position:relative; width:min(430px,45vw); flex:none; }
+.global-search-wrap .search { width:100%; }
+.search-shortcut { flex:none; padding:2px 5px; border:1px solid #d9e0e8; border-radius:4px; color:#75839a; background:#fff; font-family:inherit; font-size:10px; font-weight:500; line-height:1.4; white-space:nowrap; }
+.recent-searches { position:absolute; z-index:20; top:calc(100% + 8px); inset-inline:0; overflow:hidden; padding:7px; border:1px solid var(--line); border-radius:10px; background:#fff; box-shadow:0 12px 32px rgba(15,23,42,.14); }
+.recent-searches-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 9px; color:var(--muted); font-size:10px; }
+.recent-searches-head .link { flex:none; color:var(--primary); font-size:10px; font-weight:600; }
+.recent-search-item { display:flex; align-items:center; width:100%; gap:9px; padding:9px; border-radius:6px; color:var(--ink); text-align:left; font-size:12px; }
+.recent-search-item:hover, .recent-search-item:focus-visible { background:#FBF5EC; }
+.recent-search-item svg { flex:none; color:var(--muted); }
+.recent-search-item span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+@media (max-width:850px) { .global-search-wrap { width:auto; min-width:0; flex:1; } }
+@media (max-width:520px) { .search-shortcut { display:none; } }
+
 
 /* ===== Ecosistema por categorías + editar enlaces ===== */
 .eco-category { margin-bottom: 18px; }

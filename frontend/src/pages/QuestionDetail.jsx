@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowRight, Send, CheckCircle2, Award, ShieldCheck } from "lucide-react";
 import { api } from "@/lib/api";
@@ -13,15 +13,15 @@ export default function QuestionDetail() {
   const [body, setBody] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const load = () =>
+  const load = useCallback(() =>
     api
       .get(`/questions/${id}`)
       .then((r) => setQuestion(r.data))
-      .catch(() => setError("No pudimos cargar esta duda."));
+      .catch(() => setError("No pudimos cargar esta duda.")), [id]);
 
   useEffect(() => {
     load();
-  }, [id]);
+  }, [load]);
 
   if (!question && !error) return <Loading label="Cargando duda…" />;
   if (error) return <div className="page"><div className="error">{error}</div></div>;

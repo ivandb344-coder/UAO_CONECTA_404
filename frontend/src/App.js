@@ -31,6 +31,8 @@ import SearchResults from "@/pages/SearchResults";
 import Reviews from "@/pages/Reviews";
 import Settings from "@/pages/Settings";
 import EvidenciasDCU from "@/pages/EvidenciasDCU";
+import NotFound from "@/pages/NotFound";
+import Ranking from "@/pages/Ranking";
 
 import { ChatUnreadProvider } from "@/lib/chatUnread";
 import { NotificationsProvider } from "@/lib/notifications";
@@ -112,14 +114,15 @@ function AuthenticatedShell({ user, setUser, onLogout }) {
       <Routes>
         <Route path="/" element={<Navigate to="/inicio" replace />} />
         <Route path="/inicio" element={<Dashboard user={user} />} />
-        <Route path="/dudas" element={<Questions />} />
+        <Route path="/dudas" element={<Questions user={user} />} />
         <Route path="/dudas/:id" element={<QuestionDetail />} />
-        <Route path="/asignaturas" element={<Subjects />} />
+        <Route path="/asignaturas" element={<Subjects user={user} />} />
         <Route path="/asignaturas/:id" element={<SubjectDetail user={user} />} />
         <Route path="/asesorias" element={<Advisories user={user} />} />
         <Route path="/chat" element={<Chat user={user} />} />
         <Route path="/chat/:room" element={<Chat user={user} />} />
         <Route path="/asistente-ia" element={<AI />} />
+        <Route path="/ranking" element={<Ranking />} />
         <Route path="/evidencias-dcu" element={<EvidenciasDCU user={user} />} />
         <Route path="/perfil" element={<Profile me={user} />} />
         <Route
@@ -133,7 +136,7 @@ function AuthenticatedShell({ user, setUser, onLogout }) {
           <Route path="/revisiones" element={<Reviews />} />
         )}
         <Route path="/configuracion" element={<Settings user={user} />} />
-        <Route path="*" element={<Navigate to="/inicio" replace />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Layout>
   );

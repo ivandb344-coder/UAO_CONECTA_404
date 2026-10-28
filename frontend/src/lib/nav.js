@@ -1,4 +1,4 @@
-import { Home, BookOpen, MessageCircle, CalendarDays, Bot, CircleHelp, ClipboardCheck, Settings, Compass } from "lucide-react";
+import { Home, BookOpen, MessageCircle, CalendarDays, Bot, CircleHelp, ClipboardCheck, Settings, Compass, Trophy } from "lucide-react";
 
 export const NAV = [
   { path: "/inicio", label: "Inicio", icon: Home },
@@ -8,6 +8,7 @@ export const NAV = [
   { path: "/chat", label: "Chat", icon: MessageCircle },
   { path: "/revisiones", label: "Revisiones", icon: ClipboardCheck, roles: ["professor", "monitor"] },
   { path: "/asistente-ia", label: "Asistente IA", icon: Bot },
+  { path: "/ranking", label: "Reconocimientos", mobileLabel: "Ranking", icon: Trophy },
   { path: "/evidencias-dcu", label: "Tutorial de navegación", mobileLabel: "Guía", icon: Compass, testId: "nav-evidencias-dcu" },
   { path: "/configuracion", label: "Configuración", icon: Settings },
 ];

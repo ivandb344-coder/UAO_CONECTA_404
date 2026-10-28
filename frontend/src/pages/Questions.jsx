@@ -2,9 +2,13 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, ArrowRight, Search, ShieldCheck, X } from "lucide-react";
 import { api } from "@/lib/api";
+import { matchesSearch } from "@/lib/searchText";
 import { Empty } from "@/components/ui/states";
+import { playUiSound } from "@/lib/audioFeedback";
 
-export default function Questions() {
+const emptyForm = () => ({ title: "", description: "", subject: "Cálculo I", tags: [], anonymous: false });
+
+export default function Questions({ user }) {
   const [items, setItems] = useState([]);
   const [open, setOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -12,14 +16,11 @@ export default function Questions() {
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
-  const [form, setForm] = useState({
-    title: "",
-    description: "",
-    subject: "Cálculo I",
-    tags: [],
-    anonymous: false,
-  });
+  const [form, setForm] = useState(emptyForm);
+  const [draftLoaded, setDraftLoaded] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
   const nav = useNavigate();
+  const draftKey = `uao_question_draft_${user?.id || "session"}`;
 
   const load = () =>
     api
@@ -30,6 +31,31 @@ export default function Questions() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(draftKey) || "null");
+      if (saved && typeof saved === "object") {
+        setForm({ ...emptyForm(), ...saved });
+        setOpen(true);
+        setDraftRestored(true);
+      }
+    } catch {
+      try { sessionStorage.removeItem(draftKey); } catch { /* Ignore unavailable browser storage. */ }
+    } finally {
+      setDraftLoaded(true);
+    }
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (!draftLoaded) return;
+    try {
+      if (form.title.trim() || form.description.trim()) sessionStorage.setItem(draftKey, JSON.stringify(form));
+      else sessionStorage.removeItem(draftKey);
+    } catch {
+      // The question form remains usable if the browser blocks session storage.
+    }
+  }, [form, draftLoaded, draftKey]);
 
   const create = async (e) => {
     e.preventDefault();
@@ -42,9 +68,12 @@ export default function Questions() {
     setError("");
     try {
       const r = await api.post("/questions", form);
+      playUiSound("question");
       setConfirmOpen(false);
       setOpen(false);
-      setForm({ ...form, title: "", description: "" });
+      setForm(emptyForm());
+      setDraftRestored(false);
+      try { sessionStorage.removeItem(draftKey); } catch { /* Ignore unavailable browser storage. */ }
       nav(`/dudas/${r.data.id}`);
     } catch {
       setError("No pudimos publicar la duda. Intenta de nuevo.");
@@ -56,7 +85,7 @@ export default function Questions() {
 
   const filtered = items
     .filter((q) => (filter === "resolved" ? q.status === "Resuelta" : filter === "unanswered" ? q.status === "Sin respuesta" : true))
-    .filter((q) => (query ? (q.title + q.description + q.subject).toLowerCase().includes(query.toLowerCase()) : true));
+    .filter((q) => matchesSearch(query, `${q.title} ${q.description} ${q.subject}`));
 
   return (
     <section className="page" data-testid="questions-page">
@@ -78,6 +107,9 @@ export default function Questions() {
       {open && (
         <form className="composer" onSubmit={create}>
           <h3>Plantea tu duda</h3>
+          <p className="draft-status" role="status" data-testid="question-draft-status">
+            {draftRestored ? "Recuperamos tu borrador de esta sesión." : "El borrador se conserva en este navegador mientras completas la duda."}
+          </p>
           <input
             data-testid="question-title-input"
             placeholder="Título claro y específico"

@@ -1,13 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import uuid, json
 
 from app.core.config import db
 from app.core.security import current_user, _user_from_token
-from app.models.schemas import ChatMessage
+from app.models.schemas import ChatMessage, ChatMessageEdit
 from app.services.users import clean
 from app.services.chat import manager
 from app.services.chat_rooms import DIRECT_ROOM_PREFIX, can_access_direct_room, direct_room_id
+from app.services.chat_read_state import unread_chat_counts, visible_chat_rooms
 
 router = APIRouter()
 
@@ -30,7 +31,28 @@ async def _require_room_access(room: str, user: dict):
         if not can_access_direct_room(conversation, user["id"]):
             raise HTTPException(status_code=403, detail="No tienes acceso a esta conversación privada.")
         return conversation
+    if room != "general":
+        subject = await db.subjects.find_one({"id": room}, {"_id": 0})
+        if not subject or subject.get("status") == "deleted" or subject.get("deleted_at"):
+            raise HTTPException(status_code=404, detail="Esta asignatura ya no está disponible.")
+        if user["id"] in (subject.get("left_members") or []):
+            raise HTTPException(status_code=403, detail="Saliste de esta asignatura y ya no tienes acceso a su chat.")
+        return subject
     return None
+
+
+def _can_edit_message(message: dict, user: dict):
+    if message.get("user_id") != user["id"] or message.get("system") or message.get("deleted"):
+        raise HTTPException(status_code=403, detail="Solo puedes editar o eliminar tus propios mensajes activos.")
+    try:
+        created_at = datetime.fromisoformat(str(message["created_at"]).replace("Z", "+00:00"))
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(status_code=409, detail="No pudimos verificar el tiempo de este mensaje.")
+    age = datetime.now(timezone.utc) - created_at.astimezone(timezone.utc)
+    if age < timedelta(0) or age > timedelta(minutes=1):
+        raise HTTPException(status_code=409, detail="Solo puedes editar o eliminar un mensaje durante el primer minuto.")
 
 
 async def _owned_chat_file(file_info, user_id: str):
@@ -52,33 +74,9 @@ async def _owned_chat_file(file_info, user_id: str):
 @router.get("/chat/summary")
 async def chat_summary(user=Depends(current_user)):
     """Returns unread message counts per room for the current user."""
-    seen_docs = await db.chat_seen.find({"user_id": user["id"]}, {"_id": 0}).to_list(500)
-    seen_map = {s["room"]: s["seen_at"] for s in seen_docs}
-    pipeline = [
-        {"$match": {"user_id": {"$ne": user["id"]}}},
-        {"$group": {"_id": "$room", "last": {"$max": "$created_at"}, "count": {"$sum": 1}}},
-    ]
-    rooms = await db.messages.aggregate(pipeline).to_list(200)
-    private_rooms = {
-        conversation["room"]
-        for conversation in await db.chat_conversations.find(
-            {"participants": user["id"]}, {"_id": 0, "room": 1}
-        ).to_list(500)
-    }
-    result = {}
-    total = 0
-    for r in rooms:
-        room = r["_id"]
-        if room.startswith(DIRECT_ROOM_PREFIX) and room not in private_rooms:
-            continue
-        seen_at = seen_map.get(room)
-        if not seen_at:
-            unread = r["count"]
-        else:
-            unread = await db.messages.count_documents({"room": room, "user_id": {"$ne": user["id"]}, "created_at": {"$gt": seen_at}})
-        if unread:
-            result[room] = unread
-            total += unread
+    visible = await visible_chat_rooms(user["id"])
+    result = await unread_chat_counts(user["id"], visible.keys())
+    total = sum(result.values())
     return {"total": total, "rooms": result}
 
 
@@ -158,11 +156,17 @@ async def chat_mark_seen(room: str, user=Depends(current_user)):
         {"$set": {"user_id": user["id"], "room": room, "seen_at": now}},
         upsert=True,
     )
+    await db.notifications.update_many(
+        {"user_id": user["id"], "link": f"/chat/{room}", "read": {"$ne": True}},
+        {"$set": {"read": True}},
+    )
     return {"ok": True, "seen_at": now}
 
 @router.post("/chat")
 async def send_chat(data: ChatMessage, user=Depends(current_user)):
-    await _require_room_access(data.room, user)
+    subject = await _require_room_access(data.room, user)
+    if subject and subject.get("status") == "closed":
+        raise HTTPException(status_code=409, detail="El profesor cerró esta asignatura. El chat está en modo de solo lectura.")
     body = (data.body or "").strip()[:2000]
     file_info = await _owned_chat_file(data.file, user["id"])
     if not body and not file_info:
@@ -176,6 +180,42 @@ async def send_chat(data: ChatMessage, user=Depends(current_user)):
     await manager.broadcast(data.room, {"type": "message", "message": clean(dict(item))})
     return clean(item)
 
+
+@router.patch("/chat/{room}/{message_id}")
+async def edit_chat_message(room: str, message_id: str, data: ChatMessageEdit, user=Depends(current_user)):
+    subject = await _require_room_access(room, user)
+    if subject and subject.get("status") == "closed":
+        raise HTTPException(status_code=409, detail="El chat de esta asignatura está cerrado.")
+    message = await db.messages.find_one({"id": message_id, "room": room}, {"_id": 0})
+    if not message:
+        raise HTTPException(status_code=404, detail="No encontramos ese mensaje.")
+    _can_edit_message(message, user)
+    body = (data.body or "").strip()
+    if not body and not message.get("file"):
+        raise HTTPException(status_code=422, detail="El mensaje no puede quedar vacío.")
+    await db.messages.update_one({"id": message_id, "room": room}, {"$set": {"body": body[:2000], "edited_at": datetime.now(timezone.utc).isoformat()}})
+    updated = await db.messages.find_one({"id": message_id, "room": room}, {"_id": 0})
+    await manager.broadcast(room, {"type": "message_updated", "message": clean(updated)})
+    return clean(updated)
+
+
+@router.delete("/chat/{room}/{message_id}")
+async def delete_chat_message(room: str, message_id: str, user=Depends(current_user)):
+    subject = await _require_room_access(room, user)
+    if subject and subject.get("status") == "closed":
+        raise HTTPException(status_code=409, detail="El chat de esta asignatura está cerrado.")
+    message = await db.messages.find_one({"id": message_id, "room": room}, {"_id": 0})
+    if not message:
+        raise HTTPException(status_code=404, detail="No encontramos ese mensaje.")
+    _can_edit_message(message, user)
+    deleted_at = datetime.now(timezone.utc).isoformat()
+    await db.messages.update_one(
+        {"id": message_id, "room": room},
+        {"$set": {"body": "", "file": None, "deleted": True, "deleted_at": deleted_at}},
+    )
+    await manager.broadcast(room, {"type": "message_deleted", "id": message_id, "deleted_at": deleted_at})
+    return {"ok": True, "id": message_id, "deleted_at": deleted_at}
+
 @router.websocket("/ws/chat/{room}")
 async def chat_ws(websocket: WebSocket, room: str, token: str = Query(...)):
     uid = _user_from_token(token)
@@ -186,11 +226,11 @@ async def chat_ws(websocket: WebSocket, room: str, token: str = Query(...)):
     if not user:
         await websocket.close(code=4401)
         return
-    if room.startswith(DIRECT_ROOM_PREFIX):
-        conversation = await _direct_conversation(room, user["id"])
-        if not can_access_direct_room(conversation, user["id"]):
-            await websocket.close(code=4403)
-            return
+    try:
+        await _require_room_access(room, user)
+    except HTTPException as exc:
+        await websocket.close(code=4403 if exc.status_code == 403 else 4404)
+        return
     user_meta = {
         "id": user["id"],
         "name": user["name"],
@@ -208,6 +248,15 @@ async def chat_ws(websocket: WebSocket, room: str, token: str = Query(...)):
             try:
                 payload = json.loads(raw)
             except Exception:
+                continue
+            try:
+                subject = await _require_room_access(room, user)
+            except HTTPException:
+                await websocket.send_text(json.dumps({"type": "subject_deleted"}))
+                await websocket.close(code=4404)
+                return
+            if subject and subject.get("status") == "closed":
+                await websocket.send_text(json.dumps({"type": "subject_closed"}))
                 continue
             body = (payload.get("body") or "").strip()
             file_info = payload.get("file")

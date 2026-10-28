@@ -13,7 +13,7 @@ const OFFICIAL_COURSES = UAO_CURRICULA.flatMap((curriculum) => [
   ...(curriculum.electiveOptions || []),
 ].map((course) => ({ ...course, program: curriculum.program })));
 
-export default function Subjects() {
+export default function Subjects({ user }) {
   const [items, setItems] = useState([]);
   const [error, setError] = useState("");
   const [showCreate, setShowCreate] = useState(false);
@@ -66,7 +66,7 @@ export default function Subjects() {
         </div>
         {view === "spaces" && <div className="head-actions">
           <button className="ghost" onClick={() => setShowJoin(!showJoin)} data-testid="join-subject-button"><Link2 size={15} /> Unirme con código</button>
-          <button className="primary" onClick={() => setShowCreate(!showCreate)} data-testid="create-subject-button"><Plus size={15} /> Crear asignatura</button>
+          {user && ["professor", "monitor"].includes(user.role) && <button className="primary" onClick={() => setShowCreate(!showCreate)} data-testid="create-subject-button"><Plus size={15} /> Crear asignatura</button>}
         </div>}
       </div>
       <div className="tabs subject-tabs" role="group" aria-label="Espacios y catálogo académico">
@@ -80,7 +80,7 @@ export default function Subjects() {
       {error && <div className="error" data-testid="subjects-error">{error}</div>}
       {view === "spaces" ? (
         <>
-          {showCreate && <CreateSubjectForm onCancel={() => setShowCreate(false)} onCreated={(created) => { setItems((current) => [created, ...current]); setShowCreate(false); }} />}
+          {showCreate && user && ["professor", "monitor"].includes(user.role) && <CreateSubjectForm onCancel={() => setShowCreate(false)} onCreated={(created) => { setItems((current) => [created, ...current]); setShowCreate(false); }} />}
           {showJoin && (
             <form className="composer join-subject-form" onSubmit={join} data-testid="join-subject-form">
               <label className="field"><span>Código de unión</span><input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} placeholder="Ej. A1B2C3D4" required data-testid="join-subject-code" /></label>

@@ -6,8 +6,8 @@ import { Empty } from "@/components/ui/states";
 import FileActions from "@/components/files/FileActions";
 import FilePreviewModal from "@/components/files/FilePreviewModal";
 
-export default function SubjectResources({ subjectId, user }) {
-  const canPublish = user.role === "professor" || user.role === "monitor";
+export default function SubjectResources({ subjectId, user, readOnly = false }) {
+  const canPublish = !readOnly && (user.role === "professor" || user.role === "monitor");
   const [items, setItems] = useState([]);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -106,7 +106,7 @@ export default function SubjectResources({ subjectId, user }) {
 
       {error && <div className="error">{error}</div>}
 
-      {open && (
+      {open && canPublish && (
         <form className="composer" onSubmit={create}>
           <h3>Nuevo recurso</h3>
           <div className="task-fields">
@@ -210,7 +210,7 @@ export default function SubjectResources({ subjectId, user }) {
                     Abrir
                   </a>
                 )}
-                {user.id === r.owner_id && (
+                {!readOnly && user.id === r.owner_id && (
                   <button className="icon-mini danger" onClick={() => remove(r)} data-testid={`delete-resource-${r.id}`}>
                     <Trash2 size={13} />
                   </button>

@@ -58,6 +58,9 @@ class ChatMessage(BaseModel):
     room: str = "general"
     file: Optional[dict] = None
 
+class ChatMessageEdit(BaseModel):
+    body: str
+
 class AIQuestion(BaseModel):
     message: str
     history: List[dict] = []
@@ -132,6 +135,8 @@ class AccessibilityPrefs(BaseModel):
     reduced_motion: Optional[bool] = None
     focus_visible: Optional[bool] = None
     large_controls: Optional[bool] = None
+    sound_effects: Optional[bool] = None
+    spoken_labels: Optional[bool] = None
 
 class ResourceCreate(BaseModel):
     title: str

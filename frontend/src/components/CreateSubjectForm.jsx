@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { X, Save } from "lucide-react";
 import { api } from "@/lib/api";
 import { SEMESTERS } from "@/lib/programs";
+import { UAO_CURRICULA } from "@/data/uaoCurricula";
 
 function fieldError(errors, key) {
   return errors[key] ? <span className="field-error">{errors[key]}</span> : null;
@@ -31,9 +32,16 @@ export default function CreateSubjectForm({ onCreated, onCancel }) {
     groups[item.group].push(item.name);
     return groups;
   }, {}), [programs]);
+  const officialCourses = useMemo(() => {
+    const curriculum = UAO_CURRICULA.find((item) => item.program === form.program);
+    if (!curriculum) return [];
+    return [...curriculum.courses, ...curriculum.electives, ...(curriculum.electiveOptions || [])]
+      .map((course) => course.name)
+      .filter((name, index, names) => names.indexOf(name) === index);
+  }, [form.program]);
 
   const update = (key, value) => {
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm((current) => ({ ...current, [key]: value, ...(key === "program" ? { name: "" } : {}) }));
     setErrors((current) => ({ ...current, [key]: undefined }));
     setMessage("");
   };
@@ -68,12 +76,15 @@ export default function CreateSubjectForm({ onCreated, onCancel }) {
       <div className="task-fields">
         <label className="field">
           <span>Nombre</span>
-          <input data-testid="subject-name-input" value={form.name} onChange={(event) => update("name", event.target.value)} className={errors.name ? "invalid" : ""} required />
+          <select data-testid="subject-name-input" value={form.name} onChange={(event) => update("name", event.target.value)} className={errors.name ? "invalid" : ""} required disabled={!form.program}>
+            <option value="">{form.program ? "— Selecciona una materia oficial —" : "Primero selecciona el programa"}</option>
+            {officialCourses.map((name) => <option key={name} value={name}>{name}</option>)}
+          </select>
           {fieldError(errors, "name")}
         </label>
         <label className="field">
           <span>Código</span>
-          <input data-testid="subject-code-input" value={form.code} onChange={(event) => update("code", event.target.value)} className={errors.code ? "invalid" : ""} placeholder="INF301" required />
+          <input data-testid="subject-code-input" value={form.code} onChange={(event) => update("code", event.target.value.toUpperCase())} className={errors.code ? "invalid" : ""} placeholder="INF301" pattern="[A-Za-z0-9-]{2,20}" maxLength={20} title="Usa de 2 a 20 letras, números o guiones, sin espacios." required />
           {fieldError(errors, "code")}
         </label>
       </div>

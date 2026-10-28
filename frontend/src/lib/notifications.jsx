@@ -24,23 +24,34 @@ export function NotificationsProvider({ enabled, children }) {
 
   const markRead = useCallback(
     async (id) => {
+      setState((previous) => {
+        const item = previous.items.find((entry) => entry.id === id);
+        if (!item || item.read) return previous;
+        return {
+          unread: Math.max(0, previous.unread - 1),
+          items: previous.items.map((entry) => entry.id === id ? { ...entry, read: true } : entry),
+        };
+      });
       try {
-        await api.post(`/notifications/${id}/read`);
+        await api.post(`/notifications/${encodeURIComponent(id)}/read`);
       } catch {
-        /* ignore */
+        await refresh();
+        return;
       }
-      refresh();
+      await refresh();
     },
     [refresh]
   );
 
   const markAllRead = useCallback(async () => {
+    setState((previous) => ({ unread: 0, items: previous.items.map((item) => ({ ...item, read: true })) }));
     try {
       await api.post("/notifications/read-all");
     } catch {
-      /* ignore */
+      await refresh();
+      return;
     }
-    refresh();
+    await refresh();
   }, [refresh]);
 
   useEffect(() => {

@@ -3,6 +3,7 @@ import { Plus, Clock3, X, CheckCircle2, Edit3, Trash2, Power, MapPin, Video, Cir
 import { api } from "@/lib/api";
 import { Empty } from "@/components/ui/states";
 import AdvisoryCalendar, { advisoryDateInput, advisoryDateKey, advisoryDateLabel, advisoryHasPassed, advisoryTimeInput, advisoryTimeRange } from "@/components/AdvisoryCalendar";
+import { UAO_CURRICULA } from "@/data/uaoCurricula";
 
 const STATUS_LABEL = {
   Pendiente: { cls: "open" },
@@ -11,6 +12,22 @@ const STATUS_LABEL = {
   Cancelada: { cls: "muted" },
   Completada: { cls: "done" },
   "No asistió": { cls: "danger" },
+};
+
+const localToday = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+};
+const advisorySubjects = Array.from(new Set(UAO_CURRICULA.flatMap((curriculum) => [
+  ...curriculum.courses,
+  ...curriculum.electives,
+  ...(curriculum.electiveOptions || []),
+].map((course) => course.name))));
+const isRealISODate = (value) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || "")) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const parsed = new Date(year, month - 1, day);
+  return parsed.getFullYear() === year && parsed.getMonth() === month - 1 && parsed.getDate() === day;
 };
 
 function BookingStatusPill({ status }) {
@@ -159,9 +176,29 @@ function AdvisoryForm({ initial, onSubmit, onCancel }) {
     ? { ...initial, date: advisoryDateInput(initial.date), startTime: advisoryTimeInput(initial.time, 0), endTime: advisoryTimeInput(initial.time, 1) }
     : { subject: "", topic: "", date: "", startTime: "", endTime: "", mode: "Virtual", slots: 4, place: "", link: "", active: true });
   const [timeError, setTimeError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  const update = (key, value) => {
+    setForm((current) => ({ ...current, [key]: value }));
+    setFieldErrors((current) => ({ ...current, [key]: "" }));
+    setTimeError("");
+  };
 
   const submit = (e) => {
     e.preventDefault();
+    const errors = {};
+    if (form.subject.trim().length < 2) errors.subject = "Escribe el nombre de una asignatura válida.";
+    if (form.topic.trim().length < 2) errors.topic = "Describe el tema con al menos 2 caracteres.";
+    if (!isRealISODate(form.date)) errors.date = "Selecciona una fecha válida en el calendario.";
+    else if (form.date < localToday()) errors.date = "La fecha debe ser hoy o posterior.";
+    if (!Number.isInteger(Number(form.slots)) || Number(form.slots) < 1 || Number(form.slots) > 30) errors.slots = "Indica entre 1 y 30 cupos.";
+    if (form.link.trim()) {
+      try { if (!["http:", "https:"].includes(new URL(form.link).protocol)) throw new Error(); }
+      catch { errors.link = "Escribe una URL completa que comience por https://"; }
+    }
+    if (form.mode === "Presencial" && !form.place.trim()) errors.place = "Indica el salón o lugar de encuentro.";
+    setFieldErrors(errors);
+    if (Object.keys(errors).length) return;
     if (!form.startTime || !form.endTime || form.endTime <= form.startTime) {
       setTimeError("Selecciona una hora final posterior a la hora de inicio.");
       return;
@@ -190,12 +227,19 @@ function AdvisoryForm({ initial, onSubmit, onCancel }) {
       <div className="task-fields">
         <label>
           Asignatura
-          <input
+          <select
             data-testid="advisory-subject-input"
             required
             value={form.subject}
-            onChange={(e) => setForm({ ...form, subject: e.target.value })}
-          />
+            aria-invalid={!!fieldErrors.subject}
+            aria-describedby={fieldErrors.subject ? "advisory-subject-error" : undefined}
+            onChange={(e) => update("subject", e.target.value)}
+          >
+            <option value="">Selecciona la asignatura</option>
+            {form.subject && !advisorySubjects.includes(form.subject) && <option value={form.subject}>{form.subject} · actual</option>}
+            {advisorySubjects.map((subject) => <option key={subject} value={subject}>{subject}</option>)}
+          </select>
+          {fieldErrors.subject && <small className="field-error" id="advisory-subject-error" role="alert">{fieldErrors.subject}</small>}
         </label>
         <label>
           Tema
@@ -203,8 +247,11 @@ function AdvisoryForm({ initial, onSubmit, onCancel }) {
             data-testid="advisory-topic-input"
             required
             value={form.topic}
-            onChange={(e) => setForm({ ...form, topic: e.target.value })}
+            aria-invalid={!!fieldErrors.topic}
+            aria-describedby={fieldErrors.topic ? "advisory-topic-error" : undefined}
+            onChange={(e) => update("topic", e.target.value)}
           />
+          {fieldErrors.topic && <small className="field-error" id="advisory-topic-error" role="alert">{fieldErrors.topic}</small>}
         </label>
       </div>
       <div className="task-fields">
@@ -214,20 +261,23 @@ function AdvisoryForm({ initial, onSubmit, onCancel }) {
             data-testid="advisory-date-input"
             type="date"
             required
+            min={localToday()}
             value={form.date}
-            onChange={(e) => setForm({ ...form, date: e.target.value })}
+            aria-invalid={!!fieldErrors.date}
+            aria-describedby={fieldErrors.date ? "advisory-date-error" : "advisory-date-hint"}
+            onChange={(e) => update("date", e.target.value)}
           />
-          <small className="field-hint">Elige el día en el calendario del dispositivo.</small>
+          {fieldErrors.date ? <small className="field-error" id="advisory-date-error" role="alert">{fieldErrors.date}</small> : <small className="field-hint" id="advisory-date-hint">Elige el día en el calendario del dispositivo.</small>}
         </label>
         <fieldset className="advisory-time-fields">
           <legend>Horario</legend>
           <label>
             Inicio
-            <input data-testid="advisory-time-input" type="time" required value={form.startTime} onChange={(e) => { setForm({ ...form, startTime: e.target.value }); setTimeError(""); }} />
+            <input data-testid="advisory-time-input" type="time" required value={form.startTime} onChange={(e) => update("startTime", e.target.value)} />
           </label>
           <label>
             Fin
-            <input data-testid="advisory-end-time-input" type="time" required value={form.endTime} onChange={(e) => { setForm({ ...form, endTime: e.target.value }); setTimeError(""); }} />
+            <input data-testid="advisory-end-time-input" type="time" required value={form.endTime} onChange={(e) => update("endTime", e.target.value)} />
           </label>
           {timeError && <p className="field-error" role="alert">{timeError}</p>}
         </fieldset>
@@ -238,7 +288,7 @@ function AdvisoryForm({ initial, onSubmit, onCancel }) {
           <select
             data-testid="advisory-mode-select"
             value={form.mode}
-            onChange={(e) => setForm({ ...form, mode: e.target.value })}
+            onChange={(e) => update("mode", e.target.value)}
           >
             <option value="Virtual">Virtual</option>
             <option value="Presencial">Presencial</option>
@@ -253,8 +303,10 @@ function AdvisoryForm({ initial, onSubmit, onCancel }) {
             min={1}
             max={30}
             value={form.slots}
-            onChange={(e) => setForm({ ...form, slots: parseInt(e.target.value || 0, 10) })}
+            aria-invalid={!!fieldErrors.slots}
+            onChange={(e) => update("slots", parseInt(e.target.value || 0, 10))}
           />
+          {fieldErrors.slots && <small className="field-error" role="alert">{fieldErrors.slots}</small>}
         </label>
       </div>
       <div className="task-fields">
@@ -263,16 +315,22 @@ function AdvisoryForm({ initial, onSubmit, onCancel }) {
           <input
             data-testid="advisory-place-input"
             value={form.place}
-            onChange={(e) => setForm({ ...form, place: e.target.value })}
+            required={form.mode === "Presencial"}
+            aria-invalid={!!fieldErrors.place}
+            onChange={(e) => update("place", e.target.value)}
           />
+          {fieldErrors.place && <small className="field-error" role="alert">{fieldErrors.place}</small>}
         </label>
         <label>
           Enlace virtual
           <input
             data-testid="advisory-link-input"
+            type="url"
             value={form.link}
-            onChange={(e) => setForm({ ...form, link: e.target.value })}
+            aria-invalid={!!fieldErrors.link}
+            onChange={(e) => update("link", e.target.value)}
           />
+          {fieldErrors.link && <small className="field-error" role="alert">{fieldErrors.link}</small>}
         </label>
       </div>
       <div className="form-actions">
@@ -470,7 +528,8 @@ export default function Advisories({ user }) {
       setEditing(null);
       load();
     } catch (x) {
-      setError(x.response?.data?.detail || "No pudimos guardar el espacio.");
+      const detail = x.response?.data?.detail;
+      setError(detail?.fields ? Object.values(detail.fields).join(" ") : typeof detail === "string" ? detail : "No pudimos guardar el espacio.");
     }
   };
 

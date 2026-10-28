@@ -17,7 +17,8 @@ async def programs():
 async def dashboard(user=Depends(current_user)):
     questions = await db.questions.find({}, {"_id": 0}).sort("created_at", -1).to_list(5)
     bookings = await db.bookings.find({"user_id": user["id"]}, {"_id": 0}).sort("date", 1).to_list(3)
-    subjects = await db.subjects.find({}, {"_id": 0}).to_list(10)
+    subjects = [item for item in await db.subjects.find({"status": {"$ne": "deleted"}, "deleted_at": {"$exists": False}}, {"_id": 0}).to_list(100)
+                if user["id"] not in (item.get("left_members") or [])][:10]
     return {
         "user": public_user(user),
         "subjects": subjects,
@@ -64,6 +65,7 @@ async def search(q: str = "", user=Depends(current_user)):
         {"$or": [{"name": rx}, {"code": rx}, {"professor": rx}, {"program": rx}]},
         {"_id": 0},
     ).limit(15).to_list(15)
+    subjects = [item for item in subjects if item.get("status") != "deleted" and not item.get("deleted_at") and user["id"] not in (item.get("left_members") or [])]
     questions = await db.questions.find(
         {"$or": [{"title": rx}, {"description": rx}, {"subject": rx}]},
         {"_id": 0},
@@ -86,8 +88,8 @@ async def search(q: str = "", user=Depends(current_user)):
     # small spelling mistakes without turning every query into a broad match.
     people = [p for p in await db.users.find({}, {"_id": 0, "password": 0}).limit(150).to_list(150)
               if document_matches(q, (p.get("name"), p.get("username"), p.get("program")))][:15]
-    subjects = [item for item in await db.subjects.find({}, {"_id": 0}).limit(150).to_list(150)
-                if document_matches(q, (item.get("name"), item.get("code"), item.get("professor"), item.get("program")))][:15]
+    subjects = [item for item in await db.subjects.find({"status": {"$ne": "deleted"}, "deleted_at": {"$exists": False}}, {"_id": 0}).limit(150).to_list(150)
+                if user["id"] not in (item.get("left_members") or []) and document_matches(q, (item.get("name"), item.get("code"), item.get("professor"), item.get("program")))][:15]
     questions = [item for item in await db.questions.find({}, {"_id": 0}).limit(150).to_list(150)
                  if document_matches(q, (item.get("title"), item.get("description"), item.get("subject")))][:15]
     resources = [item for item in await db.resources.find({}, {"_id": 0}).limit(150).to_list(150)

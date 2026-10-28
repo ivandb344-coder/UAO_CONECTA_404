@@ -43,6 +43,8 @@ DEFAULT_ACCESSIBILITY = {
     "reduced_motion": False,
     "focus_visible": False,
     "large_controls": False,
+    "sound_effects": False,
+    "spoken_labels": False,
 }
 DEMO_SUBJECTS = [
     {"name": "Cálculo I", "code": "MAT101", "program": "Ingeniería Informática", "semester": 1, "professor": "Dra. Laura Gómez", "color": "teal"},
