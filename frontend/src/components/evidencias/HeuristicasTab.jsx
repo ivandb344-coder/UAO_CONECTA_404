@@ -41,9 +41,9 @@ export default function HeuristicasTab() {
   return (
     <div className="ev-tab" data-testid="ev-tab-heuristicas">
       <div className="ev-statement">
-        <p className="eyebrow">MANUAL DE IDENTIDAD UAO 2026</p>
+        <p className="eyebrow">SISTEMA VISUAL UAO CONECTA</p>
         <h2>Sistema de diseño aplicado</h2>
-        <p className="lede">Paleta, tipografía y logo del manual institucional, verificados con contraste WCAG 2.1 AA.</p>
+        <p className="lede">Paleta, tipografía y logotipo usados en la interfaz. Los pares de color se revisan con los criterios de contraste WCAG 2.1 AA.</p>
       </div>
       <div className="ev-manual">
         <div className="ev-swatches" data-testid="ev-swatches">

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, Plus, Link2, Search, BookOpen, ExternalLink } from "lucide-react";
 import { api } from "@/lib/api";
 import CreateSubjectForm from "@/components/CreateSubjectForm";
@@ -19,11 +19,17 @@ export default function Subjects() {
   const [showCreate, setShowCreate] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [showJoin, setShowJoin] = useState(false);
-  const [view, setView] = useState("spaces");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [view, setView] = useState(() => searchParams.get("vista") === "catalogo" ? "catalog" : "spaces");
   const [catalogQuery, setCatalogQuery] = useState("");
   const [catalogProgram, setCatalogProgram] = useState("");
   const [catalogKind, setCatalogKind] = useState("all");
   const nav = useNavigate();
+
+  const changeView = (nextView) => {
+    setView(nextView);
+    setSearchParams(nextView === "catalog" ? { vista: "catalogo" } : {}, { replace: true });
+  };
 
   const load = () => api.get("/subjects").then((r) => setItems(r.data)).catch(() => setError("No pudimos cargar las asignaturas."));
   useEffect(() => { load(); }, []);
@@ -64,10 +70,10 @@ export default function Subjects() {
         </div>}
       </div>
       <div className="tabs subject-tabs" role="group" aria-label="Espacios y catálogo académico">
-        <button type="button" className={`tab ${view === "spaces" ? "active" : ""}`} aria-pressed={view === "spaces"} onClick={() => setView("spaces")} data-testid="subject-spaces-tab">
+        <button type="button" className={`tab ${view === "spaces" ? "active" : ""}`} aria-pressed={view === "spaces"} onClick={() => changeView("spaces")} data-testid="subject-spaces-tab">
           Mis espacios <span>{items.length}</span>
         </button>
-        <button type="button" className={`tab ${view === "catalog" ? "active" : ""}`} aria-pressed={view === "catalog"} onClick={() => setView("catalog")} data-testid="official-catalog-tab">
+        <button type="button" className={`tab ${view === "catalog" ? "active" : ""}`} aria-pressed={view === "catalog"} onClick={() => changeView("catalog")} data-testid="official-catalog-tab">
           <BookOpen size={15} aria-hidden="true" /> Catálogo oficial UAO
         </button>
       </div>

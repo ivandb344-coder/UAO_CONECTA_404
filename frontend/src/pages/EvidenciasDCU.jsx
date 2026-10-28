@@ -18,7 +18,7 @@ import HeuristicasTab from "@/components/evidencias/HeuristicasTab";
 import NecesidadesTab from "@/components/evidencias/NecesidadesTab";
 
 const DOCUMENTATION_TABS = [
-  { key: "propuesta", label: "Propuesta y prototipo", icon: Lightbulb, component: PropuestaTab },
+  { key: "propuesta", label: "Propuesta y pantallas", icon: Lightbulb, component: PropuestaTab },
   { key: "hci", label: "Análisis HCI", icon: Palette, component: HeuristicasTab },
   { key: "necesidades", label: "Necesidades", icon: Table2, component: NecesidadesTab },
 ];
@@ -34,10 +34,10 @@ const GUIDE_ITEMS = [
   },
   {
     step: "02",
-    title: "Consulta tus asignaturas",
-    text: "En Mis espacios revisa las comunidades a las que perteneces. En Catálogo oficial UAO puedes consultar materias por programa y electivas publicadas.",
-    to: "/asignaturas",
-    action: "Ver materias y espacios",
+    title: "Espacios y catálogo UAO",
+    text: "Mis espacios reúne tus comunidades; el catálogo muestra materias oficiales por programa y distingue las electivas del plan.",
+    to: "/asignaturas?vista=catalogo",
+    action: "Abrir catálogo UAO",
     icon: BookOpen,
   },
   {
