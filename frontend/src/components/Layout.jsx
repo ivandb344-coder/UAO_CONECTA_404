@@ -89,7 +89,7 @@ export default function Layout({ user, onLogout, children }) {
             <Search size={18} aria-hidden="true" />
             <input data-testid="global-search-input" aria-label="Buscar en UAO Conecta" placeholder="Buscar asignatura, duda, persona o recurso…" value={search} onChange={(e) => setSearch(e.target.value)} />
           </form>
-          <button className="tour-launch" data-testid="presentation-mode-button" onClick={() => setTourOpen(true)} aria-label="Abrir tutorial guiado, duración estimada de 3 minutos y 30 segundos">
+          <button className="tour-launch" data-testid="presentation-mode-button" onClick={() => setTourOpen(true)} aria-label="Abrir tutorial guiado de UAO Conecta">
             <PlayCircle size={17} aria-hidden="true" /> <span>Tutorial guiado</span>
           </button>
           <button className="icon-btn mobile-only" aria-label="Configuración" onClick={() => navg("/configuracion")} data-testid="header-settings-button">
@@ -120,6 +120,16 @@ export default function Layout({ user, onLogout, children }) {
               </div>
             )}
           </div>
+          <button
+            className="mobile-profile"
+            type="button"
+            onClick={() => navg("/perfil")}
+            aria-label="Mi perfil"
+            title="Mi perfil"
+            data-testid="mobile-profile-button"
+          >
+            <Avatar user={user} size="tiny" />
+          </button>
           <button
             className="mobile-logout"
             type="button"

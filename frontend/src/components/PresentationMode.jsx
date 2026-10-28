@@ -1,52 +1,56 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight, X, PlayCircle } from "lucide-react";
-import ForgotPasswordModal from "@/components/auth/ForgotPasswordModal";
 
 const STEPS = [
   {
-    title: "Dashboard & Identidad UAO 2026",
-    desc: "Una sola sesión @uao.edu.co y las métricas clave del semestre, con la identidad visual UAO 2026.",
-    time: "0:45",
+    title: "Inicio y herramientas",
+    desc: "Encuentra tus accesos institucionales y el resumen de actividad del Hub.",
+    time: "30 s",
     route: "/inicio",
-    selector: ".stats",
+    selector: "[data-testid='integration-layer']",
   },
   {
-    title: "Asistente IA con persistencia",
-    desc: "El asistente responde con IA y la conversación se conserva al navegar (sessionStorage).",
-    time: "0:45",
-    route: "/asistente-ia",
-    selector: "[data-testid='ai-chat']",
+    title: "Asignaturas y catálogo UAO",
+    desc: "Separa tus espacios colaborativos del catálogo de materias y consulta las fuentes oficiales por programa.",
+    time: "30 s",
+    route: "/asignaturas",
+    selector: "[data-testid='subjects-page']",
   },
   {
-    title: "Evidencias DCU y Lightbox",
-    desc: "Cada necesidad enlaza con su captura real; haz clic en una imagen para ampliarla.",
-    time: "0:40",
-    route: "/evidencias-dcu",
-    selector: "[data-testid='flow-carousel']",
+    title: "Dudas de la comunidad",
+    desc: "Busca preguntas, consulta sus respuestas o publica una duda nueva.",
+    time: "30 s",
+    route: "/dudas",
+    selector: "[data-testid='questions-page']",
   },
   {
-    title: "Capa de integración y personalización docente",
-    desc: "Comunicación, foros y soporte en un lugar. Los docentes pueden personalizar los enlaces.",
-    time: "0:40",
-    route: "/inicio",
-    selector: "[data-testid='ecosystem-layer']",
+    title: "Asesorías y agenda",
+    desc: "Explora espacios, solicita una asesoría y cambia entre Calendario y Lista para revisar reservas e historial.",
+    time: "30 s",
+    route: "/asesorias",
+    selector: "[data-testid='advisories-page']",
   },
   {
-    title: "Recuperación de contraseña",
-    desc: "La solicitud de recuperación se envía al servicio real y confirma el resultado sin exponer tokens en pantalla.",
-    time: "0:40",
-    route: null,
-    selector: null,
-    forgot: true,
+    title: "Chat de campus",
+    desc: "Abre la conversación general o el canal de una asignatura y revisa los mensajes disponibles.",
+    time: "30 s",
+    route: "/chat",
+    selector: "[data-testid='chat-page']",
+  },
+  {
+    title: "Tu perfil",
+    desc: "Actualiza tu presentación, información académica y enlaces. En móvil, abre Mi perfil desde el avatar superior.",
+    time: "30 s",
+    route: "/perfil",
+    selector: "[data-testid='profile-page']",
   },
 ];
 
-/* Tutorial guiado de ~3:30 en 5 pasos, con resaltado y navegación. */
+/* Recorrido guiado por las pantallas actuales del Hub. */
 export default function PresentationMode({ open, onClose }) {
   const nav = useNavigate();
   const [step, setStep] = useState(0);
-  const [forgot, setForgot] = useState(false);
   const highlightRef = useRef(null);
 
   const clearHighlight = () => {
@@ -63,12 +67,10 @@ export default function PresentationMode({ open, onClose }) {
   useEffect(() => {
     if (!open) {
       clearHighlight();
-      setForgot(false);
       return undefined;
     }
     const s = STEPS[step];
     clearHighlight();
-    setForgot(Boolean(s.forgot));
     if (s.route) nav(s.route);
     if (!s.selector) return undefined;
 
@@ -78,13 +80,16 @@ export default function PresentationMode({ open, onClose }) {
       const el = document.querySelector(s.selector);
       if (el) {
         el.classList.add("tour-highlight");
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          || document.documentElement.classList.contains("a11y-reduced-motion")
+          || document.documentElement.classList.contains("a11y-no-anim");
+        el.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "center" });
         highlightRef.current = el;
         clearInterval(timer);
-      } else if (tries > 14) {
+      } else if (tries > 59) {
         clearInterval(timer);
       }
-    }, 150);
+    }, 100);
     return () => clearInterval(timer);
   }, [open, step, nav]);
 
@@ -92,9 +97,17 @@ export default function PresentationMode({ open, onClose }) {
 
   const close = useCallback(() => {
     clearHighlight();
-    setForgot(false);
     onClose();
   }, [onClose]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") close();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, close]);
 
   if (!open) return null;
 
@@ -104,11 +117,11 @@ export default function PresentationMode({ open, onClose }) {
 
   return (
     <>
-      <div className="tour-banner" role="region" aria-label="Tutorial guiado" data-testid="presentation-banner">
-        <div className="tour-progress" style={{ width: `${pct}%` }} aria-hidden="true" />
+      <div className="tour-banner" role="region" aria-label={`Tutorial guiado, paso ${step + 1} de ${STEPS.length}`} data-testid="presentation-banner">
+        <div className="tour-progress" style={{ width: `${pct}%` }} role="progressbar" aria-label="Progreso del tutorial" aria-valuemin={1} aria-valuemax={STEPS.length} aria-valuenow={step + 1} />
         <div className="tour-step-badge">
           <span><PlayCircle size={16} aria-hidden="true" /> Paso {step + 1} de {STEPS.length}</span>
-          <em>Sugerido: {s.time} min</em>
+          <em>Tiempo sugerido: {s.time}</em>
         </div>
         <div className="tour-copy">
           <b data-testid="tour-step-title">{s.title}</b>
@@ -132,7 +145,6 @@ export default function PresentationMode({ open, onClose }) {
           </button>
         </div>
       </div>
-      <ForgotPasswordModal open={forgot} onClose={() => setForgot(false)} />
     </>
   );
 }

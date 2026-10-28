@@ -534,7 +534,7 @@ export default function Advisories({ user }) {
     : calendarDescription;
 
   return (
-    <section className="page">
+    <section className="page" data-testid="advisories-page">
       <div className="page-head">
         <div>
           <p className="eyebrow">COORDINAR · ACOMPAÑAMIENTO</p>

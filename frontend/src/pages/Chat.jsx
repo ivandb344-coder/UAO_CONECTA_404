@@ -314,7 +314,7 @@ export default function Chat({ user }) {
             : "Chat no disponible";
 
   return (
-    <section className="page chat-page">
+    <section className="page chat-page" data-testid="chat-page">
       <div className="page-head">
         <div>
           <p className="eyebrow">COORDINAR · EN COMUNIDAD</p>

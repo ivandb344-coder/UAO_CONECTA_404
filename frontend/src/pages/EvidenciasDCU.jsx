@@ -5,14 +5,13 @@ import {
   Palette,
   Table2,
   LayoutDashboard,
-  CircleHelp,
   MessageSquareText,
   BookOpen,
   CalendarDays,
-  ExternalLink,
   Smartphone,
   ArrowRight,
   X,
+  UserRound,
 } from "lucide-react";
 import PropuestaTab from "@/components/evidencias/PropuestaTab";
 import HeuristicasTab from "@/components/evidencias/HeuristicasTab";
@@ -27,51 +26,51 @@ const DOCUMENTATION_TABS = [
 const GUIDE_ITEMS = [
   {
     step: "01",
-    title: "Recorre Inicio",
-    text: "Consulta tus asignaturas, la actividad reciente y los accesos a sistemas institucionales desde un solo lugar.",
+    title: "Empieza en Inicio",
+    text: "Consulta tus resúmenes, avisos y accesos a las herramientas institucionales. Cada servicio puede abrirse por separado.",
     to: "/inicio",
     action: "Abrir Inicio",
     icon: LayoutDashboard,
   },
   {
     step: "02",
-    title: "Encuentra Dudas",
-    text: "Abre Dudas desde la navegación. Allí puedes buscar preguntas y filtrar las que no tienen respuesta o ya fueron resueltas.",
-    to: "/dudas",
-    action: "Ir a Dudas",
-    icon: CircleHelp,
+    title: "Consulta tus asignaturas",
+    text: "En Mis espacios revisa las comunidades a las que perteneces. En Catálogo oficial UAO puedes consultar materias por programa y electivas publicadas.",
+    to: "/asignaturas",
+    action: "Ver materias y espacios",
+    icon: BookOpen,
   },
   {
     step: "03",
-    title: "Pregunta o responde",
-    text: "En Dudas, elige Nueva duda para publicar. Abre una pregunta para leerla y escribir una respuesta clara y respetuosa.",
+    title: "Publica o responde una duda",
+    text: "Busca preguntas por tema, abre una para revisar sus respuestas o usa Nueva duda para compartir una pregunta con la comunidad.",
     to: "/dudas",
-    action: "Ver preguntas",
+    action: "Abrir Dudas",
     icon: MessageSquareText,
   },
   {
     step: "04",
-    title: "Consulta tus asignaturas",
-    text: "Revisa las asignaturas disponibles. Para unirte a una, usa el código de unión que te comparte el docente.",
-    to: "/asignaturas",
-    action: "Ver asignaturas",
-    icon: BookOpen,
-  },
-  {
-    step: "05",
     title: "Solicita una asesoría",
-    text: "En Explorar, consulta la asignatura, el tema, el horario y los cupos antes de enviar tu solicitud.",
+    text: "Explora los espacios y consulta tema, horario y cupos. Cambia entre Calendario y Lista para revisar tus reservas y su historial.",
     to: "/asesorias",
     action: "Ver asesorías",
     icon: CalendarDays,
   },
   {
+    step: "05",
+    title: "Conversa en el chat",
+    text: "Abre el chat general o el de una asignatura para revisar mensajes y participar en la conversación disponible.",
+    to: "/chat",
+    action: "Abrir Chat",
+    icon: MessageSquareText,
+  },
+  {
     step: "06",
-    title: "Abre tus herramientas",
-    text: "En Inicio, usa Abrir para acceder a Moodle, Teams, correo, Piazza, WhatsApp o Banner/SINU.",
-    to: "/inicio",
-    action: "Ver herramientas",
-    icon: ExternalLink,
+    title: "Completa tu perfil",
+    text: "Desde Mi perfil puedes editar tu descripción, datos académicos y enlaces. En móvil, abre Mi perfil desde el avatar de la barra superior.",
+    to: "/perfil",
+    action: "Abrir Mi perfil",
+    icon: UserRound,
   },
 ];
 
@@ -101,7 +100,7 @@ function TutorialView() {
       {showMobileNote && (
         <aside className="tutorial-mobile-note" aria-label="Navegación desde el móvil" data-testid="tutorial-mobile-note">
           <Smartphone size={18} aria-hidden="true" />
-          <p><strong>En móvil:</strong> usa la barra inferior para ir a Inicio, Dudas, Asignaturas, Asesorías, Chat o abrir esta Guía.</p>
+          <p><strong>En móvil:</strong> usa el avatar junto a la barra superior para abrir Mi perfil y editarlo. La barra inferior da acceso a Inicio, Dudas, Asignaturas, Asesorías, Chat y esta Guía.</p>
           <button type="button" className="tutorial-note-close" aria-label="Cerrar aviso de navegación móvil" onClick={() => setShowMobileNote(false)} data-testid="close-tutorial-mobile-note">
             <X size={16} aria-hidden="true" />
           </button>

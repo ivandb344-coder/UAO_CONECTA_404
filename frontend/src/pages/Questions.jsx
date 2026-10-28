@@ -59,7 +59,7 @@ export default function Questions() {
     .filter((q) => (query ? (q.title + q.description + q.subject).toLowerCase().includes(query.toLowerCase()) : true));
 
   return (
-    <section className="page">
+    <section className="page" data-testid="questions-page">
       <div className="page-head">
         <div>
           <p className="eyebrow">ENCONTRAR · COMUNIDAD</p>
