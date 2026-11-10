@@ -42,10 +42,10 @@ export default function ForgotPassword() {
       setEmail("");
     } catch (err) {
       const detail = err.response?.data?.detail;
-      setError(err.response?.status === 503
-        ? "El servidor de UAO Conecta no tiene habilitado el envío de correo, así que no puede enviar este enlace. La página oficial de UAO Virtual de abajo solo restablece la contraseña institucional."
-        : typeof detail === "string"
-          ? detail
+      setError(typeof detail === "string"
+        ? detail
+        : err.response?.status === 503
+          ? "El servicio de correo no pudo enviar el enlace en este momento. Inténtalo más tarde."
           : "No se pudo procesar la solicitud. Inténtalo nuevamente.");
     } finally {
       setLoading(false);

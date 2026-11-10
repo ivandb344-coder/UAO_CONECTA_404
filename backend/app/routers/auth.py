@@ -200,8 +200,20 @@ def _smtp_configured() -> bool:
     return bool(cfg["user"] and cfg["password"])
 
 
+def _google_mail_relay_settings() -> dict:
+    return {
+        "url": (os.getenv("GOOGLE_MAIL_RELAY_URL") or "").strip(),
+        "secret": (os.getenv("GOOGLE_MAIL_RELAY_SECRET") or "").strip(),
+    }
+
+
+def _mail_configured() -> bool:
+    relay = _google_mail_relay_settings()
+    return bool((relay["url"] and relay["secret"]) or _smtp_configured())
+
+
 async def _send_reset_email(to_email: str, reset_url: str, user_name: str, minutes: int) -> None:
-    """Envío asíncrono (aiosmtplib) en segundo plano para no bloquear la respuesta."""
+    """Envía por Apps Script/HTTPS en Render Free; usa SMTP solo como respaldo."""
     cfg = _smtp_settings()
     safe_name = escape(user_name or "usuario")
     safe_url = escape(reset_url, quote=True)
@@ -242,6 +254,30 @@ async def _send_reset_email(to_email: str, reset_url: str, user_name: str, minut
     msg.attach(MIMEText(text, "plain", "utf-8"))
     msg.attach(MIMEText(html, "html", "utf-8"))
 
+    relay = _google_mail_relay_settings()
+    if relay["url"] and relay["secret"]:
+        try:
+            async with httpx.AsyncClient(timeout=25.0, follow_redirects=True) as client:
+                response = await client.post(
+                    relay["url"],
+                    json={
+                        "secret": relay["secret"],
+                        "to": to_email,
+                        "subject": msg["Subject"],
+                        "text": text,
+                        "html": html,
+                    },
+                )
+            response.raise_for_status()
+            result = response.json()
+            if result.get("ok") is not True:
+                raise RuntimeError("El servicio de correo no confirmó el envío.")
+            logger.info("Correo de recuperación enviado mediante el servicio HTTPS.")
+            return
+        except Exception as exc:
+            logger.error("Falló el envío de recuperación mediante el servicio HTTPS (%s).", type(exc).__name__)
+            raise
+
     implicit_tls = cfg["port"] == 465
     try:
         await aiosmtplib.send(
@@ -254,9 +290,9 @@ async def _send_reset_email(to_email: str, reset_url: str, user_name: str, minut
             start_tls=not implicit_tls,
             timeout=20,
         )
-        logger.info("Correo de recuperación enviado a %s", to_email)
+        logger.info("Correo de recuperación enviado mediante SMTP.")
     except Exception as exc:
-        logger.error("Error enviando correo de recuperación a %s: %s", to_email, exc)
+        logger.error("Falló el envío de recuperación mediante SMTP (%s).", type(exc).__name__)
         raise
 
 
@@ -539,11 +575,11 @@ async def forgot_password(data: ForgotPasswordRequest):
     email = (data.email or "").strip().lower()
     if not email or "@" not in email:
         raise HTTPException(status_code=400, detail="Escribe un correo electrónico válido.")
-    if not _smtp_configured():
-        logger.error("Recuperación de contraseña solicitada pero SMTP_USER/SMTP_PASSWORD no están configurados.")
+    if not _mail_configured():
+        logger.error("Recuperación solicitada sin un servicio de correo configurado.")
         raise HTTPException(
             status_code=503,
-            detail="La recuperación por correo no está disponible en este momento. Contacta al administrador.",
+            detail="El envío de recuperación todavía no está configurado en el servidor. Contacta al administrador.",
         )
 
     user = await db.users.find_one({"email": email}, {"_id": 0, "email": 1, "name": 1})
@@ -566,7 +602,7 @@ async def forgot_password(data: ForgotPasswordRequest):
             await db.password_reset_tokens.delete_one({"token_hash": token_hash})
             raise HTTPException(
                 status_code=503,
-                detail="El servidor no pudo enviar el correo de recuperación. Inténtalo más tarde o contacta al administrador.",
+                detail="El servicio de correo no pudo enviar el enlace. Inténtalo más tarde o contacta al administrador.",
             )
 
     # Respuesta idéntica exista o no la cuenta (evita enumeración de correos)

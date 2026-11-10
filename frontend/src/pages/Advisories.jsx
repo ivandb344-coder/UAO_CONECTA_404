@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, Clock3, X, CheckCircle2, Edit3, Trash2, Power, MapPin, Video, CircleAlert, ChevronDown, ChevronUp, CalendarDays, List, Inbox, Search } from "lucide-react";
 import { api } from "@/lib/api";
 import { Empty } from "@/components/ui/states";
@@ -171,7 +171,7 @@ function MyBookings({ bookings, onCancel }) {
   );
 }
 
-function AdvisoryForm({ initial, onSubmit, onCancel }) {
+function AdvisoryForm({ initial, onSubmit, onCancel, formRef }) {
   const [form, setForm] = useState(() => initial
     ? { ...initial, date: advisoryDateInput(initial.date), startTime: advisoryTimeInput(initial.time, 0), endTime: advisoryTimeInput(initial.time, 1) }
     : { subject: "", topic: "", date: "", startTime: "", endTime: "", mode: "Virtual", slots: 4, place: "", link: "", active: true });
@@ -219,6 +219,8 @@ function AdvisoryForm({ initial, onSubmit, onCancel }) {
 
   return (
     <form
+      ref={formRef}
+      id="advisory-create-form"
       className="composer"
       onSubmit={submit}
     >
@@ -470,6 +472,7 @@ export default function Advisories({ user, viewRole = user.role }) {
   const [bookingSaving, setBookingSaving] = useState(false);
   const [note, setNote] = useState("");
   const [formOpen, setFormOpen] = useState(false);
+  const advisoryFormRef = useRef(null);
   const [editing, setEditing] = useState(null);
 
   useEffect(() => {
@@ -477,6 +480,17 @@ export default function Advisories({ user, viewRole = user.role }) {
     setFormOpen(false);
     setEditing(null);
   }, [isAdvisor]);
+
+  useEffect(() => {
+    if (!formOpen || !window.matchMedia("(max-width: 850px)").matches) return;
+    const frame = window.requestAnimationFrame(() => {
+      advisoryFormRef.current?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+        block: "start",
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [formOpen]);
 
   const load = useCallback(async () => {
     try {
@@ -619,6 +633,8 @@ export default function Advisories({ user, viewRole = user.role }) {
               setEditing(null);
               setFormOpen(!formOpen);
             }}
+            aria-expanded={formOpen}
+            aria-controls="advisory-create-form"
             data-testid="new-advisory-button"
           >
             <Plus size={17} /> Nuevo espacio
@@ -692,6 +708,7 @@ export default function Advisories({ user, viewRole = user.role }) {
 
       {isAdvisor && formOpen && (
         <AdvisoryForm
+          formRef={advisoryFormRef}
           initial={editing}
           onSubmit={saveAdvisory}
           onCancel={() => {

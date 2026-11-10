@@ -239,6 +239,21 @@
   .advisories-tabs { grid-template-columns:1fr; }
 }
 
+@media (max-width: 850px) {
+  [data-testid="advisories-page"] .composer { scroll-margin-top:14px; scroll-margin-bottom:92px; }
+  [data-testid="advisories-page"] .composer > .form-actions {
+    position:sticky;
+    bottom:calc(68px + env(safe-area-inset-bottom, 0px));
+    z-index:4;
+    margin:16px -1px -1px;
+    padding:12px 1px 5px;
+    border-top:1px solid var(--line);
+    background:rgba(255,255,255,.97);
+    backdrop-filter:blur(8px);
+  }
+  [data-testid="advisories-page"] [data-testid="new-advisory-button"] { min-height:46px; }
+}
+
 /* Reconocimientos entre pares */
 .ranking-page { max-width:1120px; }
 .ranking-header .primary { flex:none; }

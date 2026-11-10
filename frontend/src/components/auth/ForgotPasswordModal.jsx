@@ -47,9 +47,11 @@ export default function ForgotPasswordModal({ open, initialEmail = "", onClose }
     } catch (err) {
       const detail = err.response?.data?.detail;
       const unavailable = err.response?.status === 503;
-      setError(unavailable
-        ? "UAO Conecta no pudo enviar el enlace: el servidor aún no tiene habilitado el servicio de correo. La recuperación oficial de UAO Virtual que aparece abajo cambia la clave institucional, no la de UAO Conecta."
-        : typeof detail === "string" ? detail : "No se pudo procesar la solicitud. Inténtalo nuevamente.");
+      setError(typeof detail === "string"
+        ? detail
+        : unavailable
+          ? "El servicio de correo no pudo enviar el enlace en este momento. Inténtalo más tarde."
+          : "No se pudo procesar la solicitud. Inténtalo nuevamente.");
     } finally {
       setLoading(false);
     }

@@ -11,12 +11,12 @@ export const NAV = [
   { path: "/asignaturas", label: "Asignaturas", icon: BookOpen },
   { path: "/asesorias", label: "Asesorías", icon: CalendarDays },
   { path: "/chat", label: "Chat", icon: MessageCircle },
-  { path: "/revisiones", label: "Revisiones", icon: ClipboardCheck, roles: ["professor", "monitor"] },
-  { path: "/asistente-ia", label: "Asistente IA", icon: Bot },
+  { path: "/revisiones", label: "Revisiones", mobileLabel: "Revisión", icon: ClipboardCheck, roles: ["professor", "monitor"] },
+  { path: "/asistente-ia", label: "Asistente IA", mobileLabel: "IA", icon: Bot },
   { path: "/ranking", label: "Reconocimientos", mobileLabel: "Ranking", icon: Trophy },
-  { path: "/vida-uao", label: "Vida UAO", icon: Newspaper },
+  { path: "/vida-uao", label: "Vida UAO", mobileLabel: "Vida UAO", icon: Newspaper },
   { path: "/evidencias-dcu", label: "Tutorial de navegación", mobileLabel: "Guía", icon: Compass, testId: "nav-evidencias-dcu" },
-  { path: "/configuracion", label: "Configuración", icon: AccessibilityMark },
+  { path: "/configuracion", label: "Configuración", mobileLabel: "Ajustes", icon: AccessibilityMark },
 ];
 
 export const navForRole = (role) => NAV.filter((n) => !n.roles || n.roles.includes(role));

@@ -1,10 +1,10 @@
 import logging
 import os
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
 from dotenv import load_dotenv
-from openai import AsyncOpenAI
 
 from app.core.security import current_user
 from app.models.schemas import AIQuestion
@@ -14,8 +14,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Modelo por defecto utilizando cliente estándar de OpenAI
-MODEL_NAME = os.getenv("LLM_MODEL", "gpt-4o-mini")
+# Gemini Flash-Lite ofrece una cuota gratuita limitada para proyectos elegibles.
+MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent"
 
 SYSTEM_PROMPT = (
     "Eres el asistente académico y de navegación de UAO Conecta, una aplicación de apoyo "
@@ -46,108 +47,46 @@ SYSTEM_PROMPT = (
     "credenciales y procesos oficiales."
 )
 
-# ---------------------------------------------------------------------------
-# MODO SIMULADO (Mock AI): garantiza que el chat SIEMPRE responda con sentido
-# académico sobre la UAO aunque falle la conexión externa o falte la clave.
-# ---------------------------------------------------------------------------
-_MOCK_RULES = [
-    (("editar mensaje", "modificar mensaje", "eliminar mensaje", "borrar mensaje"),
-     "En Chat, abre la sala y busca tu mensaje. Usa Editar o Eliminar durante el primer minuto después de enviarlo; "
-     "pasado ese plazo, el contenido queda fijo. Solo puedes cambiar tus propios mensajes."),
-    (("salir de la asignatura", "salirme de la asignatura", "abandonar la asignatura", "salir de una materia"),
-     "Abre Asignaturas → Mis espacios → Ver asignatura y elige Salir de la asignatura. Dejarás de ver el espacio "
-     "y su chat, y se publicará un aviso en la conversación para el grupo. Si tú creaste el espacio como responsable, "
-     "debes cerrarlo o eliminarlo en vez de salir."),
-    (("cerrar asignatura", "cerrar materia", "eliminar asignatura", "eliminar materia"),
-     "Solo la persona que creó el espacio como profesor o monitor puede gestionarlo. Entra en Asignaturas → Mis espacios "
-     "→ Ver asignatura. Cerrar conserva tareas, recursos e historial y deja el chat en solo lectura; eliminar lo retira "
-     "del listado y cierra el chat para sus integrantes."),
-    (("ranking", "reconocimientos", "podio", "mejores monitores"),
-     "Abre Reconocimientos desde el menú. Puedes cambiar entre Más respuestas y Mejor valorados; el ranking se basa "
-     "en respuestas y valoraciones registradas, y puedes abrir el perfil de cada monitor."),
-    (("contraseña actual", "cambiar contraseña", "inicie con google", "inicié con google", "inicie sesión con google", "inicié sesión con google"),
-     "Si entraste con Google, no tienes una contraseña manual actual para UAO Conecta. Ve a Configuración → Acceso manual "
-     "y crea una contraseña para este Hub; no necesitas escribir la contraseña de Google. Esta clave solo sirve para "
-     "UAO Conecta y no modifica Google, Moodle ni UAO Virtual."),
-    (("recuperar contraseña", "recuperar contrasena", "olvidé mi contraseña", "olvide mi contraseña", "restablecer contraseña", "restablecer contrasena"),
-     "Para recuperar la clave propia de UAO Conecta, vuelve al inicio de sesión y abre ¿Olvidaste tu contraseña?; "
-     "el enlace se envía al correo asociado si el servicio de correo está habilitado. Si aparece un aviso de que el "
-     "servidor no puede enviar correos, esa recuperación no está disponible hasta configurar el correo del servidor. "
-     "Para cambiar la clave institucional de Google, CampusDigital o UAO Virtual, usa el portal oficial de UAO Virtual; "
-     "esa clave es distinta de la de UAO Conecta."),
-    (("contraseña", "contrasena", "login", "iniciar sesión", "iniciar sesion", "ingresar"),
-     "En el inicio, usa Continuar con Google institucional para entrar con tu cuenta @uao.edu.co. El formulario manual "
-     "usa una contraseña propia de UAO Conecta, no la clave de Google, CampusDigital, Moodle ni UAO Virtual. Si ya "
-     "entraste con Google, crea la clave del Hub en Configuración → Acceso manual."),
-    (("asesoria", "asesoría", "tutoria", "tutoría", "monitor", "monitoria", "monitoría"),
-     "Abre Asesorías y entra en Explorar espacios para ver fechas, modalidad y cupos publicados. "
-     "No puedo consultar desde aquí la disponibilidad actual; confirma el espacio antes de reservar."),
-    (("horario", "clase", "clases", "cuando", "cuándo", "hora"),
-     "No tengo acceso a tu horario personal ni a una sincronización en vivo con Banner. Consulta "
-     "Banner o el canal oficial de tu programa; si compartes aquí un horario, puedo ayudarte a interpretarlo."),
-    (("nota", "notas", "calificacion", "calificación", "promedio", "parcial"),
-     "No puedo ver tus calificaciones ni tu promedio. Consulta la plataforma oficial que indique "
-     "tu curso o pregunta a tu docente; si pegas los datos aquí, te ayudo a revisarlos."),
-    (("matricula", "matrícula", "banner", "creditos", "créditos", "inscripcion", "inscripción"),
-     "No puedo consultar tu matrícula ni confirmar una sincronización con Banner. Revisa Banner y "
-     "los avisos oficiales de Registro Académico para conocer tu estado o fechas de trámite."),
-    (("moodle", "entrega", "entregas", "tarea", "taller", "quiz", "recurso"),
-     "En Asignaturas puedes consultar tareas y recursos publicados en el Hub. No tengo acceso al "
-     "contenido de tus aulas Moodle; abre Moodle desde los enlaces institucionales para revisar "
-     "entregas o actividades oficiales."),
-    (("teams", "reunion", "reunión", "mensaje", "chat", "grupo"),
-     "Para coordinarte en UAO Conecta, abre Chat y elige la sala de tu asignatura. No puedo leer "
-     "Teams ni ver sus reuniones; consulta Teams para tus conversaciones institucionales."),
-    (("duda", "pregunta", "preguntar", "acudir", "ayuda", "no se", "no sé"),
-     "Puedes publicar una pregunta en Dudas y elegir la asignatura; las respuestas y valoraciones "
-     "quedan en la misma conversación. Para conversar en tiempo real, revisa Asesorías o el Chat."),
-    (("hola", "buenas", "buenos dias", "buenos días", "buenas tardes", "que tal", "qué tal"),
-     "¡Hola! Soy el asistente de UAO Conecta. Puedo orientarte sobre asesorías, horarios, notas, "
-     "matrícula y dónde resolver tus dudas. ¿Qué necesitas encontrar hoy?"),
-]
-
-_MOCK_DEFAULT = (
-    "Puedo orientarte sobre cómo usar Inicio, Dudas, Asignaturas, Asesorías, Chat, tu perfil o "
-    "Configuración. No tengo acceso a datos personales ni a los sistemas institucionales en vivo. "
-    "Dime qué tarea concreta intentas completar y en qué pantalla estás para darte los pasos exactos."
-)
-
-
-def _mock_answer(message: str) -> str:
-    text = (message or "").lower()
-    for keywords, answer in _MOCK_RULES:
-        if any(k in text for k in keywords):
-            return answer
-    return _MOCK_DEFAULT
-
-
-async def _llm_answer(message: str, session_id: str, history: list[dict]) -> str:
-    """Respuesta con el LLM utilizando la librería estándar de OpenAI."""
-    api_key = (os.getenv("EMERGENT_LLM_KEY") or os.getenv("OPENAI_API_KEY") or "").strip()
+async def _llm_answer(message: str, history: list[dict]) -> str:
+    """Genera respuestas mediante Gemini, manteniendo la clave solo en el servidor."""
+    api_key = (os.getenv("GEMINI_API_KEY") or "").strip()
     if not api_key:
-        raise RuntimeError("Sin EMERGENT_LLM_KEY/OPENAI_API_KEY configurada.")
+        raise RuntimeError("Sin GEMINI_API_KEY configurada.")
 
-    client = AsyncOpenAI(api_key=api_key)
-
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    contents = []
     for item in history[-8:]:
         role = item.get("role")
         content = str(item.get("content") or "").strip()[:1200]
         if role in {"user", "assistant"} and content:
-            messages.append({"role": role, "content": content})
-    messages.append({"role": "user", "content": message})
+            contents.append({
+                "role": "model" if role == "assistant" else "user",
+                "parts": [{"text": content}],
+            })
+    contents.append({"role": "user", "parts": [{"text": message}]})
 
-    response = await client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=messages,
-        max_tokens=500,
-        temperature=0.25,
+    payload = {
+        "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+        "contents": contents,
+        "generationConfig": {"maxOutputTokens": 700, "temperature": 0.25},
+    }
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(
+            GEMINI_API_URL,
+            headers={"x-goog-api-key": api_key},
+            json=payload,
+        )
+    response.raise_for_status()
+
+    candidates = response.json().get("candidates") or []
+    parts = (candidates[0].get("content") or {}).get("parts") or [] if candidates else []
+    answer = "\n".join(
+        str(part.get("text") or "").strip()
+        for part in parts
+        if str(part.get("text") or "").strip()
     )
-
-    content = response.choices[0].message.content if response.choices else None
-    if not content or not content.strip():
-        raise RuntimeError("El modelo devolvió una respuesta vacía.")
-    return content.strip()
+    if not answer:
+        raise RuntimeError("Gemini no devolvió texto en su respuesta.")
+    return answer
 
 
 @router.post("/ai")
@@ -160,20 +99,29 @@ async def ai(data: AIQuestion, user=Depends(current_user)):
             detail="Escribe un mensaje para el asistente.",
         )
 
-    session_id = f"uao-ai-{user.get('id') or user.get('email') or 'anon'}"
-
     try:
         safe_history = [item for item in data.history if isinstance(item, dict)]
-        answer = await _llm_answer(message, session_id, safe_history)
-        mode = "model"
+        answer = await _llm_answer(message, safe_history)
     except Exception as exc:
-        # El modo limitado ofrece rutas seguras y no inventa datos personales o disponibilidad.
-        logger.warning("Asistente IA en modo simulado (fallback): %s", exc)
-        answer = _mock_answer(message)
-        mode = "limited"
+        # Nunca sustituir el modelo por respuestas prefabricadas: informar la desconexión.
+        logger.warning("No fue posible obtener respuesta del modelo de IA (%s).", type(exc).__name__)
+        if not (os.getenv("GEMINI_API_KEY") or "").strip():
+            detail = (
+                "El asistente con IA aún no está conectado. Configura GEMINI_API_KEY en las variables "
+                "privadas del servicio de Render y vuelve a intentarlo. Puedes crear una clave gratuita en Google AI Studio."
+            )
+        elif isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 429:
+            detail = "Se alcanzó el límite gratuito de consultas por ahora. Espera un momento y vuelve a intentarlo."
+        elif isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code in {401, 403}:
+            detail = "La clave de Gemini no es válida o no tiene acceso a este modelo. Revisa GEMINI_API_KEY en Render."
+        else:
+            detail = (
+                "No pude conectar con Gemini en este momento. Inténtalo de nuevo en unos minutos."
+            )
+        raise HTTPException(status_code=503, detail=detail) from exc
 
     return PlainTextResponse(
         content=answer,
         media_type="text/plain; charset=utf-8",
-        headers={"X-Assistant-Mode": mode},
+        headers={"X-Assistant-Mode": "model"},
     )

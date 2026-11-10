@@ -112,7 +112,6 @@ export default function AI() {
       }
 
       const text = await res.text();
-      const responseMode = res.headers.get("X-Assistant-Mode");
       playUiSound("ai");
 
       setMessages((messages) => [
@@ -122,7 +121,6 @@ export default function AI() {
           text:
             text.trim() ||
             "No recibí una respuesta del asistente.",
-          limited: responseMode === "limited",
         },
       ]);
     } catch (error) {
@@ -162,6 +160,11 @@ export default function AI() {
           tareas, recursos y personas. Si no tengo
           certeza, te lo diré.
         </p>
+        <p className="ai-data-note" role="note">
+          Respuestas generadas con Gemini. En el nivel gratuito, Google puede usar
+          las consultas para mejorar sus productos. No compartas contraseñas ni datos
+          personales o académicos privados.
+        </p>
       </div>
 
       <div
@@ -190,7 +193,6 @@ export default function AI() {
             >
               <div className="ai-bubble">
                 {m.text}
-                {m.limited && <small className="ai-mode-note">Orientación básica: el asistente avanzado no está conectado. Verifica la información institucional en sus fuentes oficiales.</small>}
               </div>
             </div>
           ))}

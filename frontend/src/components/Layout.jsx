@@ -65,6 +65,7 @@ export default function Layout({ user, onLogout, children }) {
   const dropdownRef = useRef(null);
   const searchRef = useRef(null);
   const searchWrapRef = useRef(null);
+  const mobileNavRef = useRef(null);
 
   useEffect(() => {
     try { setTourPromptOpen(!localStorage.getItem(tourPromptKey)); } catch { setTourPromptOpen(true); }
@@ -175,7 +176,18 @@ export default function Layout({ user, onLogout, children }) {
   };
 
   const bellCount = notif.unread || 0;
-  const mobileNav = NAV.filter((n) => ["/inicio", "/dudas", "/asignaturas", "/asesorias", "/chat", "/ranking", "/evidencias-dcu"].includes(n.path));
+  const mobileNav = NAV;
+
+  useEffect(() => {
+    const nav = mobileNavRef.current;
+    const active = nav?.querySelector('[aria-current="page"]');
+    if (!nav || !active || window.matchMedia("(min-width: 851px)").matches) return;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    nav.scrollTo({
+      left: Math.max(0, active.offsetLeft - nav.offsetLeft - (nav.clientWidth - active.clientWidth) / 2),
+      behavior: reducedMotion ? "auto" : "smooth",
+    });
+  }, [loc.pathname, mobileNav.length]);
 
   return (
     <div className="shell">
@@ -339,16 +351,19 @@ export default function Layout({ user, onLogout, children }) {
       <LogoutDialog open={confirmLogout} onCancel={() => setConfirmLogout(false)} onConfirm={() => { setConfirmLogout(false); onLogout(); }} />
       <PresentationMode open={tourOpen} onClose={() => setTourOpen(false)} />
       <nav className="bottom-nav" aria-label="Navegación móvil">
-        {mobileNav.map((n) => {
-          const active = loc.pathname.startsWith(n.path);
-          return (
-            <button key={n.path} className={active ? "active" : ""} aria-label={n.label} aria-current={active ? "page" : undefined} onClick={() => navg(n.path)} data-testid={`mobile-nav-${n.mobileLabel || n.label}`}>
-              <n.icon size={18} aria-hidden="true" />
-              <span>{n.mobileLabel || n.label}</span>
-              {n.path === "/chat" && totalUnread > 0 && <em className="mobile-nav-dot" />}
-            </button>
-          );
-        })}
+        {user?.role === "student" && <div className="bottom-nav-monitor"><MonitorToggle compact mobileNav /></div>}
+        <div className="bottom-nav-scroller" role="group" aria-label="Secciones; desliza horizontalmente para ver más" ref={mobileNavRef}>
+          {mobileNav.map((n) => {
+            const active = loc.pathname.startsWith(n.path);
+            return (
+              <button key={n.path} className={active ? "active" : ""} aria-label={n.label} aria-current={active ? "page" : undefined} onClick={() => navg(n.path)} data-testid={`mobile-nav-${n.mobileLabel || n.label}`}>
+                <n.icon size={18} aria-hidden="true" />
+                <span>{n.mobileLabel || n.label}</span>
+                {n.path === "/chat" && totalUnread > 0 && <em className="mobile-nav-dot" />}
+              </button>
+            );
+          })}
+        </div>
       </nav>
     </div>
   );

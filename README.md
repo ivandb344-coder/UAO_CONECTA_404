@@ -74,11 +74,12 @@ cp frontend/.env.example frontend/.env
 | backend/.env | `JWT_SECRET` | Secreto largo y aleatorio para firmar JWT |
 | backend/.env | `CORS_ORIGINS` | Orígenes extra separados por coma (siempre se permiten `https://ivandb344-coder.github.io` y `http://localhost:3000`) |
 | backend/.env | `FRONTEND_URL` | URL pública del frontend (por defecto `https://ivandb344-coder.github.io/UAO_CONECTA_404`). Se usa en correos y como destino por defecto de Google |
-| backend/.env | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Correo de recuperación de contraseña (sin SMTP, `/forgot-password` responde 503) |
-| backend/.env | `OPENAI_API_KEY` | Asistente IA (`/api/ai`) |
+| backend/.env / Render | `GOOGLE_MAIL_RELAY_URL`, `GOOGLE_MAIL_RELAY_SECRET` | Envío de recuperación por Google Apps Script sobre HTTPS (recomendado para Render Free) |
+| backend/.env / Render | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Respaldo SMTP para servicios que permiten salida por puertos SMTP |
+| backend/.env / Render | `GEMINI_API_KEY`, `GEMINI_MODEL` (opcional) | Asistente IA (`/api/ai`); modelo predeterminado `gemini-3.5-flash-lite` |
 | frontend/.env | `REACT_APP_BACKEND_URL` | URL pública del backend (sin `/api`). En GitHub Pages, si falta o apunta a localhost, se usa `https://uao-conecta-404.onrender.com` |
 
-Para recuperar una contraseña propia de **UAO Conecta** por correo, configura `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` y `SMTP_PASSWORD` en el entorno del backend (en Render: **Environment**). Si usas Gmail, `SMTP_PASSWORD` debe ser una contraseña de aplicación de Google (requiere verificación en dos pasos); no uses ni publiques la contraseña normal de la cuenta. Los secretos del `.env` local no se copian al hacer `git push`. Sin SMTP el endpoint devuelve `503` y el formulario ofrece alternativas. La recuperación de CampusDigital/UAO Virtual usa su [página oficial](https://campus.uaovirtual.edu.co/login/forgot_password.php) y cambia la contraseña institucional, no la contraseña propia de UAO Conecta. Una persona que entra con Google también puede crear una contraseña exclusiva de UAO Conecta en **Configuración → Acceso manual**, después de revalidar su sesión de Google.
+Render Free bloquea el tráfico SMTP saliente por los puertos 25, 465 y 587. Para recuperación de contraseñas en ese plan, despliega `scripts/google_apps_script_mail_relay.gs` como una aplicación web de Google Apps Script, configura la propiedad de script `GOOGLE_MAIL_RELAY_SECRET` con un secreto aleatorio y añade su URL y el mismo secreto en Render como `GOOGLE_MAIL_RELAY_URL` y `GOOGLE_MAIL_RELAY_SECRET`. La aplicación web debe ejecutarse como su propietario y aceptar solicitudes anónimas; el secreto aleatorio y el filtro `@uao.edu.co` protegen el endpoint. Si se usa una cuenta personal, Apps Script permite hasta 100 destinatarios de correo al día; las cuotas pueden cambiar. Los secretos no se agregan al repositorio. El asistente usa Gemini por `GEMINI_API_KEY`; la cuota gratuita tiene límites y Google puede usar las consultas para mejorar sus productos. La recuperación de CampusDigital/UAO Virtual usa su [página oficial](https://campus.uaovirtual.edu.co/login/forgot_password.php) y cambia la contraseña institucional, no la contraseña propia de UAO Conecta. Una persona que entra con Google también puede crear una contraseña exclusiva de UAO Conecta en **Configuración → Acceso manual**, después de revalidar su sesión de Google.
 
 Nunca subas `.env`, claves, contraseñas ni tokens al repositorio.
 
@@ -90,7 +91,7 @@ Nunca subas `.env`, claves, contraseñas ni tokens al repositorio.
 | Frontend (GitHub Pages) | `https://ivandb344-coder.github.io/UAO_CONECTA_404` (HashRouter: rutas `#/…`) |
 | Base de datos | MongoDB Atlas (Motor, TLS) |
 
-1. **Backend (Render)**: variables de entorno en el panel → `MONGODB_URL` (o `MONGO_URL`), `DB_NAME`, `JWT_SECRET`, y opcionalmente `FRONTEND_URL`, `CORS_ORIGINS`, `SMTP_*`, `OPENAI_API_KEY`. Build: `pip install -r requirements.txt` · Start: `uvicorn server:app --host 0.0.0.0 --port $PORT` (directorio `backend`). El `requirements.txt` de la raíz incluye el de `backend/`.
+1. **Backend (Render)**: variables de entorno en el panel → `MONGODB_URL` (o `MONGO_URL`), `DB_NAME`, `JWT_SECRET`, `GEMINI_API_KEY`, y opcionalmente `FRONTEND_URL`, `CORS_ORIGINS`, `GOOGLE_MAIL_RELAY_URL`, `GOOGLE_MAIL_RELAY_SECRET` o `SMTP_*` como respaldo. Build: `pip install -r requirements.txt` · Start: `uvicorn server:app --host 0.0.0.0 --port $PORT` (directorio `backend`). El `requirements.txt` de la raíz incluye el de `backend/`.
 2. **Frontend (GitHub Pages)**: `cd frontend && npm install && npm run deploy` (construye y publica la rama `gh-pages`).
 3. **Verificación**: `GET https://uao-conecta-404.onrender.com/api/health` → `{"status":"ok","database":true,"tls":true}`.
 
