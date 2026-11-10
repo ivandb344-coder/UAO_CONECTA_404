@@ -12,7 +12,11 @@ import {
   ArrowRight,
   X,
   UserRound,
+  Bot,
+  Trophy,
+  Newspaper,
 } from "lucide-react";
+import { AccessibilityMark } from "@/lib/nav";
 import PropuestaTab from "@/components/evidencias/PropuestaTab";
 import HeuristicasTab from "@/components/evidencias/HeuristicasTab";
 import NecesidadesTab from "@/components/evidencias/NecesidadesTab";
@@ -66,6 +70,38 @@ const GUIDE_ITEMS = [
   },
   {
     step: "06",
+    title: "Consulta el asistente IA",
+    text: "Haz preguntas académicas y consulta la respuesta del asistente. Revisa la información antes de usarla en tus trabajos.",
+    to: "/asistente-ia",
+    action: "Abrir Asistente IA",
+    icon: Bot,
+  },
+  {
+    step: "07",
+    title: "Reconocimientos de la comunidad",
+    text: "Consulta el podio y las contribuciones destacadas de monitores y participantes.",
+    to: "/ranking",
+    action: "Ver reconocimientos",
+    icon: Trophy,
+  },
+  {
+    step: "08",
+    title: "Explora Vida UAO",
+    text: "Encuentra enlaces a noticias, eventos, biblioteca y al formulario para reportar problemas o enviar sugerencias.",
+    to: "/vida-uao",
+    action: "Abrir Vida UAO",
+    icon: Newspaper,
+  },
+  {
+    step: "09",
+    title: "Ajusta la accesibilidad",
+    text: "En Configuración puedes adaptar contraste, tamaño de texto, movimiento, foco, controles y sonidos.",
+    to: "/configuracion",
+    action: "Abrir Configuración",
+    icon: AccessibilityMark,
+  },
+  {
+    step: "10",
     title: "Completa tu perfil",
     text: "Desde Mi perfil puedes editar tu descripción, datos académicos y enlaces. En móvil, abre Mi perfil desde el avatar de la barra superior.",
     to: "/perfil",
@@ -100,7 +136,7 @@ function TutorialView() {
       {showMobileNote && (
         <aside className="tutorial-mobile-note" aria-label="Navegación desde el móvil" data-testid="tutorial-mobile-note">
           <Smartphone size={18} aria-hidden="true" />
-          <p><strong>En móvil:</strong> usa el avatar junto a la barra superior para abrir Mi perfil y editarlo. La barra inferior da acceso a Inicio, Dudas, Asignaturas, Asesorías, Chat y esta Guía.</p>
+          <p><strong>En móvil:</strong> desliza la barra inferior para recorrer Inicio, Dudas, Asignaturas, Asesorías, Chat, IA, Reconocimientos, Vida UAO, Guía y Configuración. Usa el avatar superior para abrir Mi perfil.</p>
           <button type="button" className="tutorial-note-close" aria-label="Cerrar aviso de navegación móvil" onClick={() => setShowMobileNote(false)} data-testid="close-tutorial-mobile-note">
             <X size={16} aria-hidden="true" />
           </button>

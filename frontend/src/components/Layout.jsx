@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Search, Bell, LogOut, CheckCheck, PlayCircle, X, BookOpen, CircleHelp, CalendarDays, MessageCircle, Bot, ArrowRight } from "lucide-react";
+import { Search, Bell, LogOut, CheckCheck, PlayCircle, X, Home, BookOpen, CircleHelp, CalendarDays, MessageCircle, Bot, ArrowRight, Trophy, Newspaper, Compass, UserRound } from "lucide-react";
 import { AccessibilityMark, navForRole } from "@/lib/nav";
 import { useChatUnread } from "@/lib/chatUnread";
 import { useNotifications } from "@/lib/notifications";
@@ -15,20 +15,27 @@ import { getUiLabel, playUiSound, speakUiContent, speakUiLabel } from "@/lib/aud
 import { matchesSearch } from "@/lib/searchText";
 
 const SEARCH_DESTINATIONS = [
+  { label: "Inicio", path: "/inicio", description: "Resumen, herramientas y actividad reciente", aliases: ["inicio", "principal", "home"], icon: Home },
   { label: "Dudas", path: "/dudas", description: "Preguntas y respuestas de la comunidad", aliases: ["duda", "dudas", "pregunta", "preguntas"], icon: CircleHelp },
   { label: "Asignaturas", path: "/asignaturas", description: "Tus espacios y el catálogo UAO", aliases: ["asignatura", "asignaturas", "materia", "materias", "curso", "cursos"], icon: BookOpen },
   { label: "Asesorías", path: "/asesorias", description: "Explora horarios, cupos y reservas", aliases: ["asesoria", "asesorias", "tutoria", "tutorias"], icon: CalendarDays },
   { label: "Chat", path: "/chat", description: "Conversaciones de campus y asignaturas", aliases: ["chat", "chats", "mensajes", "conversacion", "conversaciones"], icon: MessageCircle },
   { label: "Asistente IA", path: "/asistente-ia", description: "Haz una pregunta al asistente académico", aliases: ["asistente", "asistente ia", "ia", "inteligencia artificial"], icon: Bot },
+  { label: "Reconocimientos", path: "/ranking", description: "Podio y participación de la comunidad", aliases: ["reconocimiento", "reconocimientos", "ranking", "podio", "podios", "mejores monitores"], icon: Trophy },
+  { label: "Vida UAO", path: "/vida-uao", description: "Noticias, eventos, biblioteca y soporte", aliases: ["vida uao", "vida", "eventos", "noticias", "biblioteca", "soporte", "reportar", "reportes", "ayuda"], icon: Newspaper },
+  { label: "Tutorial de navegación", path: "/evidencias-dcu", description: "Guía para conocer las secciones de UAO Conecta", aliases: ["tutorial", "guia", "guia de navegacion", "manual"], icon: Compass },
+  { label: "Mi perfil", path: "/perfil", description: "Consulta y edita tu perfil", aliases: ["perfil", "mi perfil", "cuenta"], icon: UserRound },
+  { label: "Configuración", path: "/configuracion", description: "Accesibilidad, sonido y preferencias", aliases: ["configuracion", "configuraciones", "ajustes", "accesibilidad", "preferencias", "sonido", "animaciones", "contraste"] , icon: AccessibilityMark },
+  { label: "Revisiones", path: "/revisiones", description: "Revisa entregas y actividad de tus asignaturas", aliases: ["revision", "revisiones", "entregas", "calificar"], icon: BookOpen, roles: ["professor", "monitor"] },
 ];
 
 function normalizeQuery(value) {
   return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es").trim();
 }
 
-function destinationForQuery(value) {
+function destinationForQuery(value, destinations = SEARCH_DESTINATIONS) {
   const query = normalizeQuery(value);
-  return SEARCH_DESTINATIONS.find((destination) => destination.aliases.includes(query));
+  return destinations.find((destination) => destination.aliases.some((alias) => normalizeQuery(alias) === query));
 }
 
 function readRecentSearches(key) {
@@ -45,13 +52,14 @@ export default function Layout({ user, onLogout, children }) {
   const navg = useNavigate();
   const { viewRole } = useViewMode();
   const NAV = navForRole(viewRole).filter((item) => !(user?.role === "student" && item.path === "/revisiones"));
+  const availableDestinations = SEARCH_DESTINATIONS.filter((destination) => !destination.roles || destination.roles.includes(user?.role));
   const recentSearchesKey = `uao_recent_searches_${user?.id || user?.email || "session"}`;
   const [search, setSearch] = useState("");
   const [recentSearches, setRecentSearches] = useState(() => readRecentSearches(recentSearchesKey));
   const [searchHistoryOpen, setSearchHistoryOpen] = useState(false);
   const matchingDestinations = search.trim()
-    ? SEARCH_DESTINATIONS.filter((destination) => matchesSearch(search, `${destination.label} ${destination.description} ${destination.aliases.join(" ")}`))
-    : SEARCH_DESTINATIONS;
+    ? availableDestinations.filter((destination) => matchesSearch(search, `${destination.label} ${destination.description} ${destination.aliases.join(" ")}`))
+    : availableDestinations;
   const unread = useChatUnread();
   const notif = useNotifications();
   const totalUnread = unread.total || 0;
@@ -161,7 +169,7 @@ export default function Layout({ user, onLogout, children }) {
   const executeSearch = () => {
     const q = search.trim();
     if (!q) return;
-    const destination = destinationForQuery(q);
+    const destination = destinationForQuery(q, availableDestinations);
     if (destination) {
       setSearchHistoryOpen(false);
       setSearch("");
@@ -266,7 +274,7 @@ export default function Layout({ user, onLogout, children }) {
                     );
                   }) : <p className="search-no-shortcut">Presiona Enter para buscar “{search.trim()}” en personas, asignaturas, dudas y recursos.</p>}
                 </div>
-                {search.trim() && !destinationForQuery(search) && (
+                {search.trim() && !destinationForQuery(search, availableDestinations) && (
                   <button type="button" className="search-results-action" onClick={executeSearch}>
                     <Search size={14} aria-hidden="true" /> Buscar “{search.trim()}” en resultados
                   </button>
@@ -282,7 +290,7 @@ export default function Layout({ user, onLogout, children }) {
                         type="button"
                         className="recent-search-item"
                         key={query}
-                        onClick={() => { const target = destinationForQuery(query); setSearch(query); setSearchHistoryOpen(false); navg(target?.path || `/buscar?q=${encodeURIComponent(query)}`); }}
+                        onClick={() => { const target = destinationForQuery(query, availableDestinations); setSearch(query); setSearchHistoryOpen(false); navg(target?.path || `/buscar?q=${encodeURIComponent(query)}`); }}
                       >
                         <Search size={14} aria-hidden="true" /> <span>{query}</span>
                       </button>
