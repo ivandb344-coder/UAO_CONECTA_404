@@ -44,6 +44,12 @@ html[data-text-size="xlarge"] body { zoom: 1.25; }
 .a11y-high-contrast .subject-card .card-link { color:#000 !important; background:#fff; border:2px solid #fff; }
 .a11y-high-contrast .subject-card .card-link:hover,
 .a11y-high-contrast .subject-card .card-link:focus-visible { color:#000 !important; background:#e5e7eb; outline:3px solid #fff; outline-offset:2px; }
+.a11y-high-contrast .eco-cta,
+.a11y-high-contrast .sys-cta { color:#fff !important; background:#000; border:2px solid #000; text-decoration:none; }
+.a11y-high-contrast .eco-cta:hover,
+.a11y-high-contrast .eco-cta:focus-visible,
+.a11y-high-contrast .sys-cta:hover,
+.a11y-high-contrast .sys-cta:focus-visible { color:#fff !important; background:#8A1428; border-color:#8A1428; outline:3px solid #000; outline-offset:2px; }
 .a11y-high-contrast .stat, .a11y-high-contrast .question, .a11y-high-contrast .task-card, .a11y-high-contrast .review-card, .a11y-high-contrast .resource-item, .a11y-high-contrast .advisory, .a11y-high-contrast .answer-card, .a11y-high-contrast .chat-box, .a11y-high-contrast .modal, .a11y-high-contrast .composer { border:2px solid #000; }
 .a11y-high-contrast .ai-callout, .a11y-high-contrast .ai-hero, .a11y-high-contrast .auth-visual { background:#000; }
 .a11y-high-contrast .ai-callout h1, .a11y-high-contrast .ai-callout h2, .a11y-high-contrast .ai-callout h3, .a11y-high-contrast .ai-hero h1, .a11y-high-contrast .auth-visual h1, .a11y-high-contrast .ai-callout p, .a11y-high-contrast .ai-hero p, .a11y-high-contrast .auth-visual p { color:#fff; }
