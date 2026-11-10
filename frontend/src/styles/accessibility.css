@@ -92,6 +92,11 @@ html[data-text-size="xlarge"] body { zoom: 1.25; }
 .a11y-high-contrast .switch-btn[aria-checked="true"]::after { background:#fff; }
 .a11y-high-contrast .recent-searches, .a11y-high-contrast .not-found-search-hint { color:#000; background:#fff; border:2px solid #000; }
 .a11y-high-contrast .recent-search-item { color:#000; }
+.a11y-high-contrast .search-panel-intro, .a11y-high-contrast .search-destinations, .a11y-high-contrast .recent-search-list { border-color:#000; }
+.a11y-high-contrast .search-destination-item, .a11y-high-contrast .search-results-action { color:#000; }
+.a11y-high-contrast .search-destination-item:hover, .a11y-high-contrast .search-destination-item:focus-visible, .a11y-high-contrast .search-results-action:hover { color:#000; background:#e5e7eb; outline:2px solid #000; }
+.a11y-high-contrast .chat-write-icon { color:#000; background:#fff; border:2px solid #000; }
+.a11y-high-contrast .chat-write-confirm .muted, .a11y-high-contrast .search-panel-intro p, .a11y-high-contrast .search-destination-item small { color:#000; }
 .pref-status { font-size:11px; color: var(--muted); margin-top:10px; min-height:16px; }
 .a11y-footer { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; }
 .a11y-footer .pref-status { margin:0; }

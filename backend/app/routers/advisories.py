@@ -12,6 +12,10 @@ from app.services.notifications import _create_notification
 router = APIRouter()
 
 
+def _can_publish_advisories(user):
+    return user.get("role") in {"monitor", "professor"} or bool(user.get("peer_monitor_enabled"))
+
+
 def _time_minutes(value: str):
     match = re.fullmatch(r"\s*(\d{1,2}):(\d{2})(?:\s*([ap])\s*\.?\s*m\.?)?\s*", value or "", re.IGNORECASE)
     if not match:
@@ -72,13 +76,13 @@ async def advisories(mine: bool = False, user=Depends(current_user)):
 
 @router.post("/advisories")
 async def create_advisory(data: AdvisoryCreate, user=Depends(current_user)):
-    if user["role"] == "student":
-        raise HTTPException(403, "Solo monitores y profesores pueden publicar disponibilidad")
+    if not _can_publish_advisories(user):
+        raise HTTPException(403, "Activa el modo Monitor para publicar un espacio de apoyo entre compañeros")
     payload = data.model_dump()
     _validate_advisory(payload)
     payload["subject"] = payload["subject"].strip()
     payload["topic"] = payload["topic"].strip()
-    doc = {"id": str(uuid.uuid4()), **payload, "advisor": user["name"], "advisor_id": user["id"], "role": "Monitor" if user["role"] == "monitor" else "Profesor", "created_at": datetime.now(timezone.utc).isoformat()}
+    doc = {"id": str(uuid.uuid4()), **payload, "advisor": user["name"], "advisor_id": user["id"], "role": "Profesor" if user["role"] == "professor" else "Monitor", "created_at": datetime.now(timezone.utc).isoformat()}
     await db.advisories.insert_one(doc)
     return clean(doc)
 
@@ -156,7 +160,7 @@ async def bookings(user=Depends(current_user)):
 
 @router.get("/bookings/incoming")
 async def incoming_bookings(user=Depends(current_user)):
-    if user["role"] == "student":
+    if not _can_publish_advisories(user):
         return []
     return await db.bookings.find({"advisor_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
 

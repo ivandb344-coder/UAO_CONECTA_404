@@ -104,10 +104,12 @@ export default function Ranking() {
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") loadRanking();
     };
+    window.addEventListener("uao:ranking-updated", loadRanking);
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       active = false;
       window.clearInterval(interval);
+      window.removeEventListener("uao:ranking-updated", loadRanking);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [retry]);

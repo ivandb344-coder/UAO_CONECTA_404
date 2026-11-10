@@ -33,6 +33,7 @@ import Settings from "@/pages/Settings";
 import EvidenciasDCU from "@/pages/EvidenciasDCU";
 import NotFound from "@/pages/NotFound";
 import Ranking from "@/pages/Ranking";
+import Campus from "@/pages/Campus";
 
 import { ChatUnreadProvider } from "@/lib/chatUnread";
 import { NotificationsProvider } from "@/lib/notifications";
@@ -118,11 +119,12 @@ function AuthenticatedShell({ user, setUser, onLogout }) {
         <Route path="/dudas/:id" element={<QuestionDetail />} />
         <Route path="/asignaturas" element={<Subjects user={user} />} />
         <Route path="/asignaturas/:id" element={<SubjectDetail user={user} />} />
-        <Route path="/asesorias" element={<Advisories user={user} />} />
+        <Route path="/asesorias" element={<Advisories user={user} viewRole={viewRole} />} />
         <Route path="/chat" element={<Chat user={user} />} />
         <Route path="/chat/:room" element={<Chat user={user} />} />
         <Route path="/asistente-ia" element={<AI />} />
         <Route path="/ranking" element={<Ranking />} />
+        <Route path="/vida-uao" element={<Campus />} />
         <Route path="/evidencias-dcu" element={<EvidenciasDCU user={user} />} />
         <Route path="/perfil" element={<Profile me={user} />} />
         <Route
@@ -132,7 +134,7 @@ function AuthenticatedShell({ user, setUser, onLogout }) {
         <Route path="/perfil/:uid" element={<Profile me={user} />} />
         <Route path="/notificaciones" element={<Notifications />} />
         <Route path="/buscar" element={<SearchResults />} />
-        {viewRole !== "student" && (
+        {user.role !== "student" && (
           <Route path="/revisiones" element={<Reviews />} />
         )}
         <Route path="/configuracion" element={<Settings user={user} />} />

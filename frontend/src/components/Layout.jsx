@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Settings2, Search, Bell, LogOut, CheckCheck, PlayCircle } from "lucide-react";
-import { navForRole } from "@/lib/nav";
+import { Search, Bell, LogOut, CheckCheck, PlayCircle, X, BookOpen, CircleHelp, CalendarDays, MessageCircle, Bot, ArrowRight } from "lucide-react";
+import { AccessibilityMark, navForRole } from "@/lib/nav";
 import { useChatUnread } from "@/lib/chatUnread";
 import { useNotifications } from "@/lib/notifications";
 import { useViewMode } from "@/lib/viewMode";
@@ -12,6 +12,24 @@ import RoleBadge from "@/components/hub/RoleBadge";
 import MonitorToggle from "@/components/hub/MonitorToggle";
 import PresentationMode from "@/components/PresentationMode";
 import { getUiLabel, playUiSound, speakUiContent, speakUiLabel } from "@/lib/audioFeedback";
+import { matchesSearch } from "@/lib/searchText";
+
+const SEARCH_DESTINATIONS = [
+  { label: "Dudas", path: "/dudas", description: "Preguntas y respuestas de la comunidad", aliases: ["duda", "dudas", "pregunta", "preguntas"], icon: CircleHelp },
+  { label: "Asignaturas", path: "/asignaturas", description: "Tus espacios y el catálogo UAO", aliases: ["asignatura", "asignaturas", "materia", "materias", "curso", "cursos"], icon: BookOpen },
+  { label: "Asesorías", path: "/asesorias", description: "Explora horarios, cupos y reservas", aliases: ["asesoria", "asesorias", "tutoria", "tutorias"], icon: CalendarDays },
+  { label: "Chat", path: "/chat", description: "Conversaciones de campus y asignaturas", aliases: ["chat", "chats", "mensajes", "conversacion", "conversaciones"], icon: MessageCircle },
+  { label: "Asistente IA", path: "/asistente-ia", description: "Haz una pregunta al asistente académico", aliases: ["asistente", "asistente ia", "ia", "inteligencia artificial"], icon: Bot },
+];
+
+function normalizeQuery(value) {
+  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es").trim();
+}
+
+function destinationForQuery(value) {
+  const query = normalizeQuery(value);
+  return SEARCH_DESTINATIONS.find((destination) => destination.aliases.includes(query));
+}
 
 function readRecentSearches(key) {
   try {
@@ -26,20 +44,36 @@ export default function Layout({ user, onLogout, children }) {
   const loc = useLocation();
   const navg = useNavigate();
   const { viewRole } = useViewMode();
-  const NAV = navForRole(viewRole);
+  const NAV = navForRole(viewRole).filter((item) => !(user?.role === "student" && item.path === "/revisiones"));
   const recentSearchesKey = `uao_recent_searches_${user?.id || user?.email || "session"}`;
   const [search, setSearch] = useState("");
   const [recentSearches, setRecentSearches] = useState(() => readRecentSearches(recentSearchesKey));
   const [searchHistoryOpen, setSearchHistoryOpen] = useState(false);
+  const matchingDestinations = search.trim()
+    ? SEARCH_DESTINATIONS.filter((destination) => matchesSearch(search, `${destination.label} ${destination.description} ${destination.aliases.join(" ")}`))
+    : SEARCH_DESTINATIONS;
   const unread = useChatUnread();
   const notif = useNotifications();
   const totalUnread = unread.total || 0;
   const [notifOpen, setNotifOpen] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
+  const tourPromptKey = `uao_tour_prompt_seen_v2_${user?.id || user?.email || "session"}`;
+  const [tourPromptOpen, setTourPromptOpen] = useState(() => {
+    try { return !localStorage.getItem(`uao_tour_prompt_seen_v2_${user?.id || user?.email || "session"}`); } catch { return true; }
+  });
   const dropdownRef = useRef(null);
   const searchRef = useRef(null);
   const searchWrapRef = useRef(null);
+
+  useEffect(() => {
+    try { setTourPromptOpen(!localStorage.getItem(tourPromptKey)); } catch { setTourPromptOpen(true); }
+  }, [tourPromptKey]);
+
+  const dismissTourPrompt = () => {
+    setTourPromptOpen(false);
+    try { localStorage.setItem(tourPromptKey, "1"); } catch { /* El tutorial sigue disponible desde la barra superior. */ }
+  };
 
   useEffect(() => {
     if (!notifOpen) return;
@@ -120,8 +154,19 @@ export default function Layout({ user, onLogout, children }) {
 
   const runSearch = (e) => {
     e.preventDefault();
+    executeSearch();
+  };
+
+  const executeSearch = () => {
     const q = search.trim();
     if (!q) return;
+    const destination = destinationForQuery(q);
+    if (destination) {
+      setSearchHistoryOpen(false);
+      setSearch("");
+      navg(destination.path);
+      return;
+    }
     const nextRecent = [q, ...recentSearches.filter((item) => item.toLocaleLowerCase() !== q.toLocaleLowerCase())].slice(0, 5);
     setRecentSearches(nextRecent);
     try { localStorage.setItem(recentSearchesKey, JSON.stringify(nextRecent)); } catch { /* Search still works when storage is unavailable. */ }
@@ -178,32 +223,60 @@ export default function Layout({ user, onLogout, children }) {
               <input
                 ref={searchRef}
                 data-testid="global-search-input"
-                aria-label="Buscar en UAO Conecta"
+                aria-label="Buscar personas, asignaturas, dudas o recursos; o ir a una sección"
                 aria-keyshortcuts="Control+K Meta+K"
-                aria-expanded={searchHistoryOpen && recentSearches.length > 0}
-                placeholder="Buscar asignatura, duda, persona o recurso…"
+                aria-expanded={searchHistoryOpen}
+                aria-controls="global-search-panel"
+                aria-describedby={searchHistoryOpen ? "global-search-help" : undefined}
+                placeholder="Buscar o ir a una sección…"
                 value={search}
-                onFocus={() => { if (!search.trim() && recentSearches.length) setSearchHistoryOpen(true); }}
-                onChange={(e) => { setSearch(e.target.value); if (e.target.value) setSearchHistoryOpen(false); }}
+                onFocus={() => setSearchHistoryOpen(true)}
+                onChange={(e) => { setSearch(e.target.value); setSearchHistoryOpen(true); }}
               />
               <kbd className="search-shortcut" aria-hidden="true">Ctrl K</kbd>
             </form>
-            {searchHistoryOpen && recentSearches.length > 0 && (
-              <div className="recent-searches" role="region" aria-label="Búsquedas recientes" data-testid="recent-searches">
-                <div className="recent-searches-head">
-                  <span>Búsquedas recientes en este dispositivo</span>
-                  <button type="button" className="link" onClick={() => { setRecentSearches([]); try { localStorage.removeItem(recentSearchesKey); } catch { /* Search history is optional. */ } }} data-testid="clear-recent-searches">Borrar</button>
+            {searchHistoryOpen && (
+              <div className="recent-searches global-search-panel" id="global-search-panel" role="region" aria-label="Ayuda y atajos de búsqueda" data-testid="recent-searches">
+                <div className="search-panel-intro">
+                  <strong>Busca o ve directo a una sección</strong>
+                  <p id="global-search-help">La búsqueda encuentra personas, asignaturas, dudas y recursos. También puedes abrir Asesorías, Chat o el Asistente IA.</p>
                 </div>
-                {recentSearches.map((query) => (
-                  <button
-                    type="button"
-                    className="recent-search-item"
-                    key={query}
-                    onClick={() => { setSearch(query); setSearchHistoryOpen(false); navg(`/buscar?q=${encodeURIComponent(query)}`); }}
-                  >
-                    <Search size={14} aria-hidden="true" /> <span>{query}</span>
+                <div className="search-destinations">
+                  <span className="search-panel-label">Atajos a secciones</span>
+                  {matchingDestinations.length ? matchingDestinations.map((destination) => {
+                    const Icon = destination.icon;
+                    return (
+                      <button type="button" className="search-destination-item" key={destination.path} onClick={() => { setSearchHistoryOpen(false); setSearch(""); navg(destination.path); }}>
+                        <Icon size={16} aria-hidden="true" />
+                        <span><strong>{destination.label}</strong><small>{destination.description}</small></span>
+                        <ArrowRight size={14} aria-hidden="true" />
+                      </button>
+                    );
+                  }) : <p className="search-no-shortcut">Presiona Enter para buscar “{search.trim()}” en personas, asignaturas, dudas y recursos.</p>}
+                </div>
+                {search.trim() && !destinationForQuery(search) && (
+                  <button type="button" className="search-results-action" onClick={executeSearch}>
+                    <Search size={14} aria-hidden="true" /> Buscar “{search.trim()}” en resultados
                   </button>
-                ))}
+                )}
+                {recentSearches.length > 0 && (
+                  <div className="recent-search-list">
+                    <div className="recent-searches-head">
+                      <span>Búsquedas recientes en este dispositivo</span>
+                      <button type="button" className="link" onClick={() => { setRecentSearches([]); try { localStorage.removeItem(recentSearchesKey); } catch { /* Search history is optional. */ } }} data-testid="clear-recent-searches">Borrar</button>
+                    </div>
+                    {recentSearches.map((query) => (
+                      <button
+                        type="button"
+                        className="recent-search-item"
+                        key={query}
+                        onClick={() => { const target = destinationForQuery(query); setSearch(query); setSearchHistoryOpen(false); navg(target?.path || `/buscar?q=${encodeURIComponent(query)}`); }}
+                      >
+                        <Search size={14} aria-hidden="true" /> <span>{query}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -211,7 +284,7 @@ export default function Layout({ user, onLogout, children }) {
             <PlayCircle size={17} aria-hidden="true" /> <span>Tutorial guiado</span>
           </button>
           <button className="icon-btn mobile-only" aria-label="Configuración" onClick={() => navg("/configuracion")} data-testid="header-settings-button">
-            <Settings2 size={19} aria-hidden="true" />
+            <AccessibilityMark size={19} />
           </button>
           <div className="bell-wrap" ref={dropdownRef}>
             <button className="icon-btn" data-testid="notifications-button" onClick={() => setNotifOpen((o) => !o)} aria-label={bellCount ? `Notificaciones, ${bellCount} sin leer` : "Notificaciones"} aria-expanded={notifOpen}>
@@ -262,6 +335,7 @@ export default function Layout({ user, onLogout, children }) {
         </header>
         {children}
       </main>
+      {tourPromptOpen && <section className="tour-first-prompt" role="region" aria-label="Tutorial de bienvenida" data-testid="tour-first-prompt"><div><b>¿Quieres conocer UAO Conecta?</b><p>Haz un recorrido breve por asignaturas, dudas, asesorías y chat. Puedes empezar ahora o explorar por tu cuenta.</p></div><button type="button" className="primary small" onClick={() => { setTourOpen(true); dismissTourPrompt(); }}>Iniciar tutorial</button><button type="button" className="ghost small" onClick={dismissTourPrompt}>Omitir</button><button type="button" className="icon-btn" aria-label="Cerrar aviso del tutorial" onClick={dismissTourPrompt}><X size={17} /></button></section>}
       <LogoutDialog open={confirmLogout} onCancel={() => setConfirmLogout(false)} onConfirm={() => { setConfirmLogout(false); onLogout(); }} />
       <PresentationMode open={tourOpen} onClose={() => setTourOpen(false)} />
       <nav className="bottom-nav" aria-label="Navegación móvil">

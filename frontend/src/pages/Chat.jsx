@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Paperclip, Send, Users, Wifi, WifiOff, FileText, X as XIcon, UserRoundPlus, Search, MessageCircle, Pencil, Trash2, Check } from "lucide-react";
+import { Paperclip, Send, Users, Wifi, WifiOff, FileText, X as XIcon, UserRoundPlus, Search, MessageCircle, Pencil, Trash2, Check, ShieldCheck } from "lucide-react";
 import { api, API } from "@/lib/api";
 import { openProtectedFile } from "@/services/fileService";
 import { useProtectedFileUrl } from "@/hooks/useProtectedFile";
@@ -75,11 +75,17 @@ export default function Chat({ user }) {
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editText, setEditText] = useState("");
   const [messageBusy, setMessageBusy] = useState(false);
+  const writeNoticeKey = `uao_chat_write_notice_${user?.id || user?.email || "session"}_${room}`;
+  const [writeAcknowledgedFor, setWriteAcknowledgedFor] = useState(() => {
+    try { return sessionStorage.getItem(writeNoticeKey) === "1" ? writeNoticeKey : ""; } catch { return ""; }
+  });
+  const [confirmWriteOpen, setConfirmWriteOpen] = useState(false);
   const [roomClosedEvent, setRoomClosedEvent] = useState(false);
   const [clockNow, setClockNow] = useState(Date.now());
   const wsRef = useRef(null);
   const messagesRef = useRef(null);
   const fileInputRef = useRef(null);
+  const messageInputRef = useRef(null);
   const retryRef = useRef(0);
   const retryTimerRef = useRef(null);
   const pollTimerRef = useRef(null);
@@ -89,6 +95,7 @@ export default function Chat({ user }) {
   const isDirectRoom = room.startsWith("dm-");
   const roomSubject = subjects.find((item) => item.id === room);
   const roomClosed = roomClosedEvent || ["closed", "deleted"].includes(roomSubject?.status);
+  const canWrite = writeAcknowledgedFor === writeNoticeKey;
 
   const roomLabel = useMemo(() => {
     if (room === "general") return "Comunidad UAO";
@@ -114,9 +121,20 @@ export default function Chat({ user }) {
   useEffect(() => {
     setRoomClosedEvent(false);
     setEditingMessageId(null);
+    setBody("");
+    setAttachment(null);
+    setConfirmWriteOpen(false);
+    try { setWriteAcknowledgedFor(sessionStorage.getItem(writeNoticeKey) === "1" ? writeNoticeKey : ""); } catch { setWriteAcknowledgedFor(""); }
     const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
-  }, [room]);
+  }, [room, writeNoticeKey]);
+
+  const startWriting = () => {
+    try { sessionStorage.setItem(writeNoticeKey, "1"); } catch { /* La confirmación sigue activa en memoria. */ }
+    setWriteAcknowledgedFor(writeNoticeKey);
+    setConfirmWriteOpen(false);
+    window.setTimeout(() => messageInputRef.current?.focus(), 0);
+  };
 
   const startDirectConversation = async (professor) => {
     setDirectLoading(true);
@@ -319,6 +337,7 @@ export default function Chat({ user }) {
     e.preventDefault();
     const text = body.trim();
     if (!text && !attachment) return;
+    if (!canWrite) { setConfirmWriteOpen(true); return; }
     const payload = { body: text, file: attachment };
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
@@ -573,24 +592,43 @@ export default function Chat({ user }) {
           <button
             type="button"
             onClick={openFilePicker}
-            disabled={uploading || roomClosed}
+            disabled={uploading || roomClosed || !canWrite}
             data-testid="attach-chat-file"
             aria-label="Adjuntar archivo"
           >
             <Paperclip size={18} />
           </button>
           <input
+            ref={messageInputRef}
             data-testid="chat-message-input"
-            placeholder={roomClosed ? "Asignatura cerrada · solo lectura" : uploading ? "Subiendo archivo…" : "Escribe un mensaje…"}
+            placeholder={roomClosed ? "Asignatura cerrada · solo lectura" : !canWrite ? "Confirma el recordatorio antes de escribir…" : uploading ? "Subiendo archivo…" : "Escribe un mensaje…"}
             value={body}
+            readOnly={!canWrite}
             disabled={uploading || roomClosed}
+            onFocus={() => { if (!canWrite && !roomClosed) setConfirmWriteOpen(true); }}
+            onClick={() => { if (!canWrite && !roomClosed) setConfirmWriteOpen(true); }}
             onChange={(e) => setBody(e.target.value)}
           />
-          <button className="send" data-testid="send-chat-message" aria-label="Enviar mensaje" disabled={uploading || roomClosed || (!body.trim() && !attachment)}>
+          <button className="send" data-testid="send-chat-message" aria-label="Enviar mensaje" disabled={!canWrite || uploading || roomClosed || (!body.trim() && !attachment)}>
             <Send size={17} />
           </button>
         </form>
       </div>
+      {confirmWriteOpen && !roomClosed && (
+        <div className="modal-backdrop chat-write-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) { setConfirmWriteOpen(false); messageInputRef.current?.blur(); } }}>
+          <section className="modal chat-write-confirm" role="dialog" aria-modal="true" aria-labelledby="chat-write-confirm-title" data-testid="chat-write-confirmation">
+            <button type="button" className="close" aria-label="Cerrar recordatorio" onClick={() => { setConfirmWriteOpen(false); messageInputRef.current?.blur(); }}>×</button>
+            <span className="chat-write-icon" aria-hidden="true"><ShieldCheck size={22} /></span>
+            <p className="eyebrow">CONVIVENCIA EN EL CHAT</p>
+            <h2 id="chat-write-confirm-title">Antes de escribir</h2>
+            <p className="muted">Quienes participan en esta conversación podrán leer tu mensaje. No compartas contraseñas ni datos personales y mantén un tono respetuoso.</p>
+            <div className="form-actions">
+              <button type="button" className="ghost" onClick={() => { setConfirmWriteOpen(false); messageInputRef.current?.blur(); }}>Ahora no</button>
+              <button type="button" className="primary" onClick={startWriting} autoFocus data-testid="confirm-chat-writing">Entendido, continuar</button>
+            </div>
+          </section>
+        </div>
+      )}
     </section>
   );
 }

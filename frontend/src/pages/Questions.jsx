@@ -135,8 +135,12 @@ export default function Questions({ user }) {
             <ShieldCheck size={18} aria-hidden="true" />
             <p><strong>Antes de publicar:</strong> evita incluir datos personales tuyos o de otras personas y plantea tu duda con respeto.</p>
           </div>
+          <div className="anonymous-guidance" role="note" data-testid="anonymous-publishing-guidance">
+            <ShieldCheck size={17} aria-hidden="true" />
+            <span><strong>Tu eliges cómo aparecer.</strong> Si marcas publicación anónima, tu nombre no se mostrará junto a la duda.</span>
+          </div>
           <div className="form-actions">
-            <label className="check">
+            <label className={`check anonymous-toggle ${form.anonymous ? "selected" : ""}`}>
               <input
                 type="checkbox"
                 checked={form.anonymous}

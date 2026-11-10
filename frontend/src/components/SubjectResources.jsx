@@ -220,7 +220,7 @@ export default function SubjectResources({ subjectId, user, readOnly = false }) 
           })}
         </ul>
       ) : (
-        <Empty text="Aún no hay recursos publicados." />
+        <Empty text={canPublish ? "Todavía no has publicado materiales para esta asignatura. Cuando agregues un recurso, aparecerá aquí." : "Tu profesor todavía no ha publicado materiales para esta asignatura. Cuando estén disponibles, aparecerán aquí."} />
       )}
       {preview && <FilePreviewModal file={preview} onClose={() => setPreview(null)} />}
     </div>

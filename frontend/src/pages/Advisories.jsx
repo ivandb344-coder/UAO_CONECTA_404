@@ -453,8 +453,8 @@ function IncomingBookings({ items, onStatus }) {
   ) : <Empty text="Sin solicitudes por ahora" />;
 }
 
-export default function Advisories({ user }) {
-  const isAdvisor = user.role !== "student";
+export default function Advisories({ user, viewRole = user.role }) {
+  const isAdvisor = viewRole !== "student";
   const [tab, setTab] = useState(isAdvisor ? "agenda" : "browse");
   // La lista es el punto de partida: conserva el contexto de asignatura, tema y cupos.
   // El calendario queda como una segunda forma explícita de explorar por fecha.
@@ -471,6 +471,12 @@ export default function Advisories({ user }) {
   const [note, setNote] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+
+  useEffect(() => {
+    setTab(isAdvisor ? "agenda" : "browse");
+    setFormOpen(false);
+    setEditing(null);
+  }, [isAdvisor]);
 
   const load = useCallback(async () => {
     try {
@@ -600,7 +606,9 @@ export default function Advisories({ user }) {
           <h1>Asesorías</h1>
           <p className="lede">
             {isAdvisor
-              ? "Gestiona tu agenda, revisa solicitudes y acompaña a tus estudiantes."
+              ? user.role === "student"
+                ? "Publica espacios de apoyo entre compañeros, revisa solicitudes y acompaña a quienes necesitan ayuda."
+                : "Gestiona tu agenda, revisa solicitudes y acompaña a tus estudiantes."
               : "Encuentra un espacio y a alguien que pueda ayudarte."}
           </p>
         </div>

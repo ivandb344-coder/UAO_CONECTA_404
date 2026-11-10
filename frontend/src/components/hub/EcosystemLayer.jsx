@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Mail, Video, MessagesSquare, BookOpen, MessageCircle, GraduationCap, ExternalLink, Pencil } from "lucide-react";
+import { Mail, Video, MessagesSquare, BookOpen, MessageCircle, GraduationCap, ExternalLink, Pencil, LifeBuoy } from "lucide-react";
 import { useViewMode } from "@/lib/viewMode";
 import { TOOLS, CATEGORIES, loadLinks, saveLinks } from "@/lib/integrationLinks";
 import EditLinksModal from "@/components/hub/EditLinksModal";
@@ -12,9 +12,10 @@ const ICONS = {
   moodle: BookOpen,
   whatsapp: MessageCircle,
   banner: GraduationCap,
+  support: LifeBuoy,
 };
 
-/* Ecosistema de herramientas: 6 plataformas en 3 categorías, con URLs por defecto oficiales
+/* Ecosistema de herramientas institucionales y enlaces de apoyo
    (editables por docentes/monitores y persistidas en localStorage). */
 export default function EcosystemLayer() {
   const { viewRole } = useViewMode();
@@ -43,7 +44,7 @@ export default function EcosystemLayer() {
       </div>
 
       {CATEGORIES.map((cat) => {
-        const tools = TOOLS.filter((t) => t.category === cat.id);
+        const tools = TOOLS.filter((t) => t.category === cat.id).sort((a,b) => a.key === "whatsapp" ? -1 : b.key === "whatsapp" ? 1 : 0);
         return (
           <div className="eco-category" key={cat.id} data-testid={`eco-group-${cat.id}`}>
             <h4 className="eco-cat-head">{cat.label}</h4>

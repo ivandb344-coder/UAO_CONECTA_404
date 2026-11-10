@@ -10,12 +10,16 @@ export const DEFAULT_LINKS = {
   moodle: "https://moodle.uao.edu.co",
   whatsapp: "https://web.whatsapp.com",
   banner: "https://sinu.uao.edu.co",
+  events: "https://www.uao.edu.co/evento/",
+  news: "https://www.uao.edu.co/noticias/",
+  library: "https://www.uao.edu.co/biblioteca/",
+  support: "https://docs.google.com/forms/d/e/1FAIpQLSfiGvm7tFuTxLrOAXClVN09QRfFFWeucOoDbH09JB12bp9SWA/viewform",
 };
 
 export const CATEGORIES = [
+  { id: "soporte", label: "Soporte y ayuda" },
   { id: "comunicacion", label: "Comunicación oficial" },
   { id: "foros", label: "Foros académicos" },
-  { id: "soporte", label: "Soporte & contacto directo" },
 ];
 
 export const TOOLS = [
@@ -25,13 +29,21 @@ export const TOOLS = [
   { key: "moodle", name: "Moodle UAO", category: "foros", category_label: "Foros académicos", description: "Aulas virtuales, foros del curso, entregas y recursos.", color: "#F98012" },
   { key: "whatsapp", name: "WhatsApp UAO", category: "soporte", category_label: "Soporte & contacto directo", description: "Atención inmediata, canal de avisos y grupos de estudio.", color: "#25D366" },
   { key: "banner", name: "Banner / SINU", category: "soporte", category_label: "Soporte & contacto directo", description: "Sistema de información académica: matrícula, notas y promedio.", color: "#1E293B" },
+  { key: "support", name: "Soporte UAO Conecta", category: "soporte", category_label: "Soporte y ayuda", description: "Solicita ayuda o reporta un problema relacionado con UAO Conecta.", color: "#B10E3D" },
 ];
 
 export function loadLinks() {
   try {
     const raw = localStorage.getItem(LINKS_KEY);
     const saved = raw ? JSON.parse(raw) : null;
-    if (saved && typeof saved === "object") return { ...DEFAULT_LINKS, ...saved };
+    if (saved && typeof saved === "object") {
+      const savedSupport = typeof saved.support === "string" ? saved.support.trim() : "";
+      // Upgrade the old empty-recipient mailto link saved in existing browsers.
+      const support = !savedSupport || /^mailto:/i.test(savedSupport)
+        ? DEFAULT_LINKS.support
+        : savedSupport;
+      return { ...DEFAULT_LINKS, ...saved, support };
+    }
   } catch {
     /* json inválido: usar defaults */
   }

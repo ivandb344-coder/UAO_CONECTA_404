@@ -205,6 +205,10 @@
 .booking-schedule-summary { display:flex; align-items:flex-start; gap:8px; margin-top:14px; padding:12px; border:1px solid var(--line); border-radius:7px; background:#f8fafc; color:var(--navy); font-size:11px; line-height:1.5; }
 .booking-schedule-summary svg { flex:none; margin-top:1px; color:var(--primary); }
 .tutorial-mobile-note { position:relative; padding-right:42px; }
+.anonymous-guidance { display:flex; align-items:flex-start; gap:9px; padding:12px 14px; margin:12px 0; border:1px solid var(--primary-line); border-radius:var(--radius-sm); color:var(--navy); background:#fff; font-size:12px; line-height:1.5; }
+.anonymous-guidance svg { flex:none; color:var(--primary); }
+.anonymous-toggle { display:flex; align-items:center; gap:8px; padding:10px 12px; border:1px solid var(--line); border-radius:var(--radius-sm); color:var(--navy); background:#fff; }
+.anonymous-toggle.selected { border-color:var(--primary); background:var(--primary-soft); color:var(--primary-dark); font-weight:700; }
 .tutorial-mobile-note .tutorial-note-close { position:absolute; top:8px; right:8px; display:grid; place-items:center; width:28px; height:28px; border:1px solid rgba(172,11,50,.18); border-radius:6px; color:var(--primary); background:#fff; }
 .tutorial-note-close:hover { background:#FBF5EC; }
 
@@ -382,6 +386,10 @@
 .uao-catalog-count { flex:none; padding:7px 10px; border:1px solid var(--line); border-radius:999px; color:var(--muted); background:#fff; font-size:11px; }
 .uao-catalog-filters { display:grid; grid-template-columns:minmax(180px,1fr) minmax(210px,.8fr) minmax(170px,.55fr); gap:10px; padding:14px; border:1px solid var(--line); border-radius:var(--radius); background:#fff; }
 .uao-catalog-search { display:flex; align-items:center; gap:9px; min-width:0; padding:0 11px; border:1px solid var(--line); border-radius:var(--radius-sm); color:var(--muted); }
+.uao-catalog-guidance { display:flex; align-items:flex-start; gap:10px; margin:14px 0; padding:13px 15px; border:1px solid var(--primary-line); border-left:4px solid var(--primary); border-radius:var(--radius-sm); background:#fff; color:var(--navy); font-size:12px; line-height:1.55; }
+.uao-catalog-guidance svg { flex:none; margin-top:1px; color:var(--primary); }
+.inline-link { display:inline; padding:0; color:var(--primary-dark); font-weight:700; text-decoration:underline; text-underline-offset:2px; }
+.inline-link:hover { color:var(--primary); }
 .uao-catalog-search:focus-within { border-color:var(--primary-line); }
 .uao-catalog-search input { width:100%; min-width:0; height:40px; border:0; outline:0; color:var(--ink); background:transparent; font-size:12px; }
 .uao-catalog-select { display:grid; gap:5px; min-width:0; color:var(--muted); font-size:10px; }

@@ -10,7 +10,8 @@ router = APIRouter()
 @router.get("/ranking/monitors")
 async def monitor_ranking(user=Depends(current_user)):
     monitors = await db.users.find(
-        {"role": "monitor"}, {"_id": 0, "id": 1, "name": 1, "picture": 1, "program": 1}
+        {"$or": [{"role": "monitor"}, {"peer_monitor_enabled": True}]},
+        {"_id": 0, "id": 1, "name": 1, "picture": 1, "program": 1}
     ).to_list(1000)
     monitor_map = {monitor["id"]: monitor for monitor in monitors}
     stats = {

@@ -2,7 +2,7 @@ from urllib.parse import urlparse
 from app.core.config import ROLES, PROGRAM_NAMES, DEFAULT_ACCESSIBILITY
 
 def public_user(u):
-    keys = ["id", "name", "username", "email", "role", "program", "semester", "bio", "picture",
+    keys = ["id", "name", "username", "email", "role", "peer_monitor_enabled", "program", "semester", "bio", "picture",
             "phone", "contact_info", "academic_info", "links", "rating", "rating_count", "profile_completed", "auth_provider"]
     out = {k: u.get(k) for k in keys}
     out["has_password"] = u.get("auth_provider") != "google" or bool(u.get("password_setup_at"))

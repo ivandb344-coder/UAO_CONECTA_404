@@ -1,4 +1,9 @@
-import { Home, BookOpen, MessageCircle, CalendarDays, Bot, CircleHelp, ClipboardCheck, Settings, Compass, Trophy } from "lucide-react";
+import { Home, BookOpen, MessageCircle, CalendarDays, Bot, CircleHelp, ClipboardCheck, Compass, Trophy, Newspaper } from "lucide-react";
+import accessibilitySymbol from "@/assets/accessibility-symbol.png";
+
+export function AccessibilityMark({ size = 18 }) {
+  return <img src={accessibilitySymbol} width={size} height={size} className="accessibility-symbol" alt="" aria-hidden="true" />;
+}
 
 export const NAV = [
   { path: "/inicio", label: "Inicio", icon: Home },
@@ -9,8 +14,9 @@ export const NAV = [
   { path: "/revisiones", label: "Revisiones", icon: ClipboardCheck, roles: ["professor", "monitor"] },
   { path: "/asistente-ia", label: "Asistente IA", icon: Bot },
   { path: "/ranking", label: "Reconocimientos", mobileLabel: "Ranking", icon: Trophy },
+  { path: "/vida-uao", label: "Vida UAO", icon: Newspaper },
   { path: "/evidencias-dcu", label: "Tutorial de navegación", mobileLabel: "Guía", icon: Compass, testId: "nav-evidencias-dcu" },
-  { path: "/configuracion", label: "Configuración", icon: Settings },
+  { path: "/configuracion", label: "Configuración", icon: AccessibilityMark },
 ];
 
 export const navForRole = (role) => NAV.filter((n) => !n.roles || n.roles.includes(role));

@@ -34,6 +34,7 @@ export default function QuestionDetail() {
       await api.post(`/questions/${id}/answers`, { body });
       setBody("");
       await load();
+      window.dispatchEvent(new Event("uao:ranking-updated"));
     } catch {
       setError("No pudimos publicar la respuesta.");
     }

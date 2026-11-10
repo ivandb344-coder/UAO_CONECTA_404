@@ -78,6 +78,10 @@ class SetPasswordRequest(BaseModel):
     current_password: Optional[str] = None
 
 
+class PeerMonitorModeRequest(BaseModel):
+    enabled: bool
+
+
 # ============================================================
 # UTILIDADES
 # ============================================================
@@ -411,6 +415,14 @@ async def me(user=Depends(current_user)):
     result = public_user(user)
     result["can_set_password_without_current"] = _google_recently_authenticated(user)
     return result
+
+
+@router.patch("/peer-monitor-mode")
+async def peer_monitor_mode(data: PeerMonitorModeRequest, user=Depends(current_user)):
+    if user.get("role") != "student":
+        raise HTTPException(403, "Este ajuste solo está disponible para estudiantes")
+    await db.users.update_one({"id": user["id"]}, {"$set": {"peer_monitor_enabled": data.enabled}})
+    return {"enabled": data.enabled}
 
 
 @router.post("/logout")

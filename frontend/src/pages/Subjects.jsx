@@ -4,9 +4,9 @@ import { ArrowRight, Plus, Link2, Search, BookOpen, ExternalLink } from "lucide-
 import { api } from "@/lib/api";
 import CreateSubjectForm from "@/components/CreateSubjectForm";
 import { COURSE_KIND_LABELS, UAO_CURRICULA } from "@/data/uaoCurricula";
+import { matchesSearch } from "@/lib/searchText";
 
 const roleLabel = (role) => (role === "professor" ? "Profesor" : role === "monitor" ? "Monitor" : "Estudiante");
-const normalize = (value) => (value || "").toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const OFFICIAL_COURSES = UAO_CURRICULA.flatMap((curriculum) => [
   ...curriculum.courses,
   ...curriculum.electives,
@@ -24,6 +24,7 @@ export default function Subjects({ user }) {
   const [catalogQuery, setCatalogQuery] = useState("");
   const [catalogProgram, setCatalogProgram] = useState("");
   const [catalogKind, setCatalogKind] = useState("all");
+  const [semesterFilter, setSemesterFilter] = useState("");
   const nav = useNavigate();
 
   const changeView = (nextView) => {
@@ -48,8 +49,10 @@ export default function Subjects({ user }) {
   };
 
   const selectedCurriculum = UAO_CURRICULA.find((curriculum) => curriculum.program === catalogProgram);
+  const semesters = [...new Set(items.map((item) => String(item.semester || "")).filter(Boolean))].sort((a, b) => Number(a) - Number(b));
+  const visibleItems = items.filter((item) => !semesterFilter || String(item.semester) === semesterFilter);
   const catalogItems = OFFICIAL_COURSES.filter((course) => {
-    const matchesQuery = !catalogQuery || normalize(`${course.name} ${course.program}`).includes(normalize(catalogQuery));
+    const matchesQuery = matchesSearch(catalogQuery, `${course.name} ${course.program}`);
     const matchesProgram = !catalogProgram || course.program === catalogProgram;
     const matchesKind = catalogKind === "all"
       || (catalogKind === "electives" ? course.kind !== "core" : course.kind === "core");
@@ -64,6 +67,7 @@ export default function Subjects({ user }) {
           <h1>Asignaturas</h1>
           <p className="lede">Encuentra tus espacios y consulta materias de los programas de ingeniería UAO.</p>
         </div>
+        {view === "spaces" && items.length > 0 && <label className="uao-catalog-select semester-filter"><span>Filtrar por semestre</span><select value={semesterFilter} onChange={(event) => setSemesterFilter(event.target.value)} aria-label="Filtrar asignaturas por semestre"><option value="">Todos los semestres</option>{semesters.map((semester) => <option value={semester} key={semester}>Semestre {semester}</option>)}</select></label>}
         {view === "spaces" && <div className="head-actions">
           <button className="ghost" onClick={() => setShowJoin(!showJoin)} data-testid="join-subject-button"><Link2 size={15} /> Unirme con código</button>
           {user && ["professor", "monitor"].includes(user.role) && <button className="primary" onClick={() => setShowCreate(!showCreate)} data-testid="create-subject-button"><Plus size={15} /> Crear asignatura</button>}
@@ -88,16 +92,17 @@ export default function Subjects({ user }) {
             </form>
           )}
           <div className="subject-grid large" data-testid="subject-spaces-list">
-            {items.map((s) => (
-              <div className={`subject-card ${s.color || "teal"}`} key={s.id} data-testid={`catalog-subject-${s.code}`}>
+            {visibleItems.map((s) => (
+              <div className={`subject-card ${s.color || "teal"}`} key={s.id} data-testid={`catalog-subject-${s.code}`} onClick={() => nav(`/asignaturas/${s.id}`)} role="link" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); nav(`/asignaturas/${s.id}`); } }} aria-label={`Abrir asignatura ${s.name}`}>
                 <div className="subject-top"><span>{s.code}</span><span className="semester">Semestre {s.semester}</span></div>
                 <h3>{s.name}</h3>
                 <p>{s.creator_name ? `Creada por ${s.creator_name} · ${roleLabel(s.creator_role)}` : s.professor}</p>
                 <small>{s.program}</small>
-                <button className="card-link" onClick={() => nav(`/asignaturas/${s.id}`)} data-testid={`open-subject-${s.code}`}>Ver asignatura <ArrowRight size={15} /></button>
+                <span className="card-link" data-testid={`open-subject-${s.code}`}>Ver asignatura <ArrowRight size={15} /></span>
               </div>
             ))}
           </div>
+          {!visibleItems.length && <div className="empty">No tienes asignaturas para ese semestre.</div>}
         </>
       ) : (
         <section className="uao-catalog" aria-labelledby="uao-catalog-title" data-testid="uao-course-catalog">
@@ -108,6 +113,11 @@ export default function Subjects({ user }) {
               <p>Consulta asignaturas obligatorias, componentes electivos y opciones publicadas en planes oficiales. Elige un programa para abrir su fuente UAO.</p>
             </div>
             <span className="uao-catalog-count">{catalogItems.length} resultados</span>
+          </div>
+
+          <div className="uao-catalog-guidance" role="note" data-testid="catalog-purpose-note">
+            <BookOpen size={18} aria-hidden="true" />
+            <p><strong>Este catálogo es solo de consulta.</strong> Aquí puedes conocer las asignaturas oficiales por programa; no crea espacios ni te inscribe en una materia. Para crear o gestionar un espacio colaborativo, ve a <button type="button" className="inline-link" onClick={() => changeView("spaces")}>Mis espacios</button>. Para ampliar la información, usa los enlaces al plan oficial y a las electivas publicados en cada programa.</p>
           </div>
 
           <div className="uao-catalog-filters">

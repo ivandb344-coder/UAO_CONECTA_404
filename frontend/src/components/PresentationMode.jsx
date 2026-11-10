@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, X, PlayCircle } from "lucide-react";
 const STEPS = [
   {
     title: "Inicio y herramientas",
-    desc: "Encuentra tus accesos institucionales y el resumen de actividad del Hub.",
+    desc: "Encuentra tus accesos institucionales y el resumen de actividad. El modo monitor ayuda a compañeros con temas que ya dominas; no cambia tu rol institucional.",
     time: "30 s",
     route: "/inicio",
     selector: "[data-testid='integration-layer']",
