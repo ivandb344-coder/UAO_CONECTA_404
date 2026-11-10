@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowRight, Plus, X, CheckCircle2, MessageCircle, Upload, FileText, ClipboardCheck, LockKeyhole, Trash2, LogOut } from "lucide-react";
 import { api } from "@/lib/api";
-import { Empty } from "@/components/ui/states";
 import SubjectResources from "@/components/SubjectResources";
 import FileActions from "@/components/files/FileActions";
 import FilePreviewModal from "@/components/files/FilePreviewModal";
@@ -148,51 +147,46 @@ export default function SubjectDetail({ user }) {
     );
 
   return (
-    <section className="page">
-      <button className="back-link" onClick={() => nav("/asignaturas")} data-testid="back-to-subjects">
+    <section className="page subject-detail-page">
+      <button type="button" className="back-link" onClick={() => nav("/asignaturas")} data-testid="back-to-subjects">
         <ArrowRight size={15} className="back-icon" /> Asignaturas
       </button>
       <div className="subject-detail-head">
-        <div>
-          <p className="eyebrow">
-            {subject.code} · SEMESTRE {subject.semester}
-          </p>
+        <div className="subject-detail-identity">
+          <div className="subject-detail-labels">
+            <span className="subject-code">{subject.code}</span>
+            <span className="subject-semester">Semestre {subject.semester}</span>
+            {subject.status === "closed" && <span className="subject-state-closed">Cerrada</span>}
+          </div>
           <h1>{subject.name}</h1>
-          <p className="lede">
-            {subject.professor} · {subject.program}
-          </p>
+          <p className="lede">{subject.professor}</p>
+          <p className="subject-program">{subject.program}</p>
         </div>
-          {user.role !== "student" && subject.status !== "closed" && (
-          <div className="head-actions">
+        <div className="subject-detail-actions">
+          <div className="subject-primary-actions">
             <button
-              className="ghost"
+              type="button"
+              className={user.role !== "student" && subject.status !== "closed" ? "ghost" : "primary"}
               onClick={() => nav(`/chat/${subject.id}`)}
               data-testid="open-subject-chat"
             >
-              <MessageCircle size={15} /> Abrir chat
+              <MessageCircle size={17} /> Abrir chat
             </button>
-            <button className="primary" onClick={() => setShowCreate(!showCreate)} data-testid="new-task-button">
-              <Plus size={17} /> Nueva tarea
-            </button>
+            {user.role !== "student" && subject.status !== "closed" && (
+              <button type="button" className="primary" onClick={() => setShowCreate(!showCreate)} data-testid="new-task-button">
+                <Plus size={17} /> Nueva tarea
+              </button>
+            )}
           </div>
-        )}
-          {user.role === "student" && (
-          <button
-            className="ghost"
-            onClick={() => nav(`/chat/${subject.id}`)}
-            data-testid="open-subject-chat"
-          >
-            <MessageCircle size={15} /> Abrir chat
-          </button>
-        )}
-        {subject.owner_id === user.id ? (
-          <div className="subject-owner-actions">
-            {subject.status !== "closed" && <button type="button" className="ghost small" onClick={closeSubject} disabled={subjectActionBusy} data-testid="close-subject-button"><LockKeyhole size={14} /> Cerrar asignatura</button>}
-            <button type="button" className="ghost small danger" onClick={deleteSubject} disabled={subjectActionBusy} data-testid="delete-subject-button"><Trash2 size={14} /> Eliminar asignatura</button>
-          </div>
-        ) : (
-          <button type="button" className="ghost small subject-leave-button" onClick={leaveSubject} disabled={subjectActionBusy} data-testid="leave-subject-button"><LogOut size={14} /> Salir de la asignatura</button>
-        )}
+          {subject.owner_id === user.id ? (
+            <div className="subject-owner-actions">
+              {subject.status !== "closed" && <button type="button" className="ghost small" onClick={closeSubject} disabled={subjectActionBusy} data-testid="close-subject-button"><LockKeyhole size={14} /> Cerrar asignatura</button>}
+              <button type="button" className="ghost small danger" onClick={deleteSubject} disabled={subjectActionBusy} data-testid="delete-subject-button"><Trash2 size={14} /> Eliminar asignatura</button>
+            </div>
+          ) : (
+            <button type="button" className="ghost small subject-leave-button" onClick={leaveSubject} disabled={subjectActionBusy} data-testid="leave-subject-button"><LogOut size={14} /> Salir de la asignatura</button>
+          )}
+        </div>
       </div>
       {subject.status === "closed" && <div className="chat-room-closed subject-closed-banner" role="status" data-testid="subject-closed-banner">Asignatura cerrada. Puedes consultar el material y el historial del chat, pero ya no se pueden publicar tareas, recursos ni mensajes.</div>}
       {error && (
@@ -244,14 +238,12 @@ export default function SubjectDetail({ user }) {
           </button>
         </form>
       )}
-      <div className="section-title tasks-title">
+      <div className="section-title tasks-title subject-tasks-heading">
         <div>
           <p className="eyebrow">TRABAJO ACADÉMICO</p>
           <h2>Tareas y entregas</h2>
         </div>
-        <span className="task-count" data-testid="task-count">
-          {tasks.length} tareas
-        </span>
+        <span className="task-count" data-testid="task-count">{tasks.length} {tasks.length === 1 ? "tarea" : "tareas"}</span>
       </div>
       <div className="tasks-list">
         {tasks.length ? (
@@ -307,7 +299,16 @@ export default function SubjectDetail({ user }) {
             </div>
           ))
         ) : (
-          <Empty text="Aún no hay tareas publicadas en esta asignatura" />
+          <div className="subject-empty-state" data-testid="subject-tasks-empty">
+            <span className="subject-empty-icon"><ClipboardCheck size={22} aria-hidden="true" /></span>
+            <div>
+              <h3>{user.role === "student" ? "Aún no hay tareas publicadas" : "Todavía no has publicado tareas"}</h3>
+              <p>{user.role === "student"
+                ? "Cuando tu docente publique una actividad, aparecerá aquí con sus instrucciones y fecha de entrega."
+                : "Publica una actividad para que el grupo pueda revisar las instrucciones y entregar su trabajo desde aquí."}</p>
+            </div>
+            {user.role !== "student" && subject.status !== "closed" && <button type="button" className="primary small" onClick={() => setShowCreate(true)} data-testid="create-first-task-button"><Plus size={15} /> Publicar primera tarea</button>}
+          </div>
         )}
       </div>
       {selected && (

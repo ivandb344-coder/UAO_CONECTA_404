@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, ArrowRight, Search, ShieldCheck, X } from "lucide-react";
+import { Plus, ArrowRight, Search, ShieldCheck, X, EyeOff } from "lucide-react";
 import { api } from "@/lib/api";
 import { matchesSearch } from "@/lib/searchText";
 import { Empty } from "@/components/ui/states";
@@ -137,16 +137,18 @@ export default function Questions({ user }) {
           </div>
           <div className="anonymous-guidance" role="note" data-testid="anonymous-publishing-guidance">
             <ShieldCheck size={17} aria-hidden="true" />
-            <span><strong>Tu eliges cómo aparecer.</strong> Si marcas publicación anónima, tu nombre no se mostrará junto a la duda.</span>
+            <span><strong>Tú eliges cómo aparecer.</strong> Si marcas publicación anónima, tu nombre no se mostrará junto a la duda.</span>
           </div>
           <div className="form-actions">
-            <label className={`check anonymous-toggle ${form.anonymous ? "selected" : ""}`}>
+            <label className={`check anonymous-toggle ${form.anonymous ? "selected" : ""}`} data-testid="anonymous-toggle">
+              <span className="anonymous-toggle-icon"><EyeOff size={19} aria-hidden="true" /></span>
+              <span className="anonymous-toggle-copy"><strong>Publicar anónimamente</strong><small>Tu nombre no aparecerá junto a la duda</small></span>
               <input
                 type="checkbox"
+                aria-label="Publicar duda anónimamente"
                 checked={form.anonymous}
                 onChange={(e) => setForm({ ...form, anonymous: e.target.checked })}
-              />{" "}
-              Publicar anónimamente
+              />
             </label>
             <button className="primary" data-testid="submit-question-button">
               Enviar duda <ArrowRight size={15} />

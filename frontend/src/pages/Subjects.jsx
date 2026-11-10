@@ -13,6 +13,38 @@ const OFFICIAL_COURSES = UAO_CURRICULA.flatMap((curriculum) => [
   ...(curriculum.electiveOptions || []),
 ].map((course) => ({ ...course, program: curriculum.program })));
 
+const SEARCH_STOPWORDS = new Set(["a", "al", "de", "del", "el", "en", "la", "las", "los", "y"]);
+const COURSE_SEARCH_ALIASES = {
+  "programacion orientada a objetos": ["poo", "oop", "programacion de objetos", "prog orientada objetos"],
+  "interaccion humano computador": ["ihc", "hci", "interaccion humano computadora", "human computer interaction"],
+  "estructura de datos y algoritmos 1": ["eda1", "tda1", "estructuras de datos 1"],
+  "estructura de datos y algoritmos 2": ["eda2", "tda2", "estructuras de datos 2"],
+  "base de datos 1": ["bd1", "bdd1", "bases de datos 1"],
+  "base de datos 2": ["bd2", "bdd2", "bases de datos 2"],
+  "algoritmia y programacion": ["ayp", "algoritmia", "algoritmos y programacion"],
+  "ingenieria de software 1": ["is1", "ing software 1"],
+  "ingenieria de software 2": ["is2", "ing software 2"],
+  "calculo 1": ["cal1", "calc1", "calculo diferencial"],
+  "calculo 2": ["cal2", "calc2", "calculo integral"],
+  "matematica discreta": ["md", "logica discreta"],
+  "inteligencia artificial": ["ia", "ai", "artificial intelligence"],
+  "ciencia de datos": ["cd", "data science"],
+};
+
+const normalizeCourseText = (value) => String(value || "")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .toLocaleLowerCase("es")
+  .replace(/[^a-z0-9]+/g, " ")
+  .trim();
+
+function searchableCourseText(course) {
+  const normalizedName = normalizeCourseText(course.name);
+  const initials = normalizedName.split(" ").filter((word) => word && !SEARCH_STOPWORDS.has(word)).map((word) => word[0]).join("");
+  const aliases = COURSE_SEARCH_ALIASES[normalizedName] || [];
+  return [course.name, course.program, initials, ...aliases].join(" ");
+}
+
 export default function Subjects({ user }) {
   const [items, setItems] = useState([]);
   const [error, setError] = useState("");
@@ -52,7 +84,7 @@ export default function Subjects({ user }) {
   const semesters = [...new Set(items.map((item) => String(item.semester || "")).filter(Boolean))].sort((a, b) => Number(a) - Number(b));
   const visibleItems = items.filter((item) => !semesterFilter || String(item.semester) === semesterFilter);
   const catalogItems = OFFICIAL_COURSES.filter((course) => {
-    const matchesQuery = matchesSearch(catalogQuery, `${course.name} ${course.program}`);
+    const matchesQuery = matchesSearch(catalogQuery, searchableCourseText(course));
     const matchesProgram = !catalogProgram || course.program === catalogProgram;
     const matchesKind = catalogKind === "all"
       || (catalogKind === "electives" ? course.kind !== "core" : course.kind === "core");
@@ -123,7 +155,7 @@ export default function Subjects({ user }) {
           <div className="uao-catalog-filters">
             <label className="uao-catalog-search">
               <Search size={17} aria-hidden="true" />
-              <input aria-label="Buscar materia o programa" placeholder="Buscar materia o programa…" value={catalogQuery} onChange={(event) => setCatalogQuery(event.target.value)} data-testid="official-course-search" />
+              <input aria-label="Buscar materia o programa" placeholder="Nombre, sigla o programa…" value={catalogQuery} onChange={(event) => setCatalogQuery(event.target.value)} data-testid="official-course-search" />
             </label>
             <label className="uao-catalog-select"><span>Programa</span>
               <select value={catalogProgram} onChange={(event) => setCatalogProgram(event.target.value)} aria-label="Filtrar por programa" data-testid="official-course-program-filter">
@@ -139,6 +171,7 @@ export default function Subjects({ user }) {
               </select>
             </label>
           </div>
+          <p className="uao-catalog-search-hint">También reconoce siglas y variaciones, por ejemplo: <strong>POO</strong>, <strong>HCI</strong> o <strong>IHC</strong>.</p>
 
           {selectedCurriculum && <div className="uao-catalog-source" data-testid="official-curriculum-source">
             <div><strong>{selectedCurriculum.program}</strong><span>{selectedCurriculum.plan}</span></div>
