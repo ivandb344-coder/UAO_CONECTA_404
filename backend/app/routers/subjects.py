@@ -3,7 +3,7 @@ from datetime import date, datetime, timezone
 import re
 import uuid
 
-from app.core.config import db, PROGRAM_NAMES
+from app.core.config import db, PROGRAM_NAMES, is_valid_subject_doc, is_valid_subject_name
 from app.core.security import current_user
 from app.models.schemas import TaskCreate, SubmissionCreate, FeedbackCreate, SubjectCreate, SubjectJoin, ResourceCreate
 from app.services.users import clean, _url_ok
@@ -16,7 +16,7 @@ router = APIRouter()
 @router.get("/subjects")
 async def subjects(user=Depends(current_user)):
     docs = await db.subjects.find({"status": {"$ne": "deleted"}, "deleted_at": {"$exists": False}}, {"_id": 0}).to_list(100)
-    return [doc for doc in docs if user["id"] not in (doc.get("left_members") or [])]
+    return [doc for doc in docs if user["id"] not in (doc.get("left_members") or []) and is_valid_subject_doc(doc)]
 
 
 async def _announce_subject(subject: dict, text: str, event_type: str = "message"):
@@ -48,10 +48,14 @@ async def create_subject(data: SubjectCreate, user=Depends(current_user)):
     code = data.code.strip().upper()
     if len(name) < 2:
         errors["name"] = "Escribe un nombre válido para la asignatura."
+    elif not is_valid_subject_name(name):
+        errors["name"] = "Selecciona o escribe el nombre de una asignatura académica real."
     if len(code) < 2:
         errors["code"] = "El código debe tener al menos 2 caracteres."
     elif not re.fullmatch(r"[A-Z0-9-]{2,20}", code):
         errors["code"] = "Usa de 2 a 20 letras, números o guiones, sin espacios."
+    elif not is_valid_subject_name(name, code):
+        errors["code"] = "Usa un código académico válido (ej. INF301)."
     if data.program not in PROGRAM_NAMES:
         errors["program"] = "Selecciona un programa académico válido."
     if data.semester < 1 or data.semester > 12:

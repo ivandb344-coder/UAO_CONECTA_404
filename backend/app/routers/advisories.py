@@ -194,5 +194,5 @@ async def update_booking_status(bid: str, data: BookingStatus, user=Depends(curr
     }
     n = notif_map.get(data.status)
     if n and n["target"]:
-        await _create_notification(n["target"], data.status.lower().replace(" ", "_"), n["title"], n["body"], "/mis-asesorias" if n["target"] == booking["user_id"] else "/asesorias")
+        await _create_notification(n["target"], data.status.lower().replace(" ", "_"), n["title"], n["body"], "/asesorias?tab=mine" if n["target"] == booking["user_id"] else "/asesorias")
     return {"ok": True, "status": data.status}

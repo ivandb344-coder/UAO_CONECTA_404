@@ -1,13 +1,16 @@
 import { useNavigate } from "react-router-dom";
-import { CalendarPlus, MessageSquareText, ClipboardCheck, ArrowRight } from "lucide-react";
+import { CalendarPlus, MessageSquareText, ClipboardCheck, Trophy, ArrowRight } from "lucide-react";
 
 /* Panel que aparece cuando el estudiante activa el Modo Monitor: acciones de acompañamiento. */
-export default function MonitorPanel() {
+export default function MonitorPanel({ user }) {
   const nav = useNavigate();
+  const isStudent = !user || user.role === "student";
   const actions = [
     { icon: CalendarPlus, label: "Publicar asesoría", hint: "Define día, hora, modalidad y cupos.", to: "/asesorias", id: "advisory" },
     { icon: MessageSquareText, label: "Responder dudas", hint: "Dudas abiertas en tus asignaturas.", to: "/dudas", id: "questions" },
-    { icon: ClipboardCheck, label: "Revisar entregas", hint: "Bandeja de revisión con retroalimentación.", to: "/revisiones", id: "reviews" },
+    isStudent
+      ? { icon: Trophy, label: "Ver reconocimientos", hint: "Consulta el podio y tus aportes a la comunidad.", to: "/ranking", id: "ranking" }
+      : { icon: ClipboardCheck, label: "Revisar entregas", hint: "Bandeja de revisión con retroalimentación.", to: "/revisiones", id: "reviews" },
   ];
   return (
     <section className="monitor-panel reveal" aria-labelledby="monitor-panel-title" data-testid="monitor-panel">

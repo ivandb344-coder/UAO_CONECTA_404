@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from app.core.config import db
+from app.core.config import db, is_valid_subject_doc
 
 
 async def visible_chat_rooms(user_id: str):
@@ -8,10 +8,10 @@ async def visible_chat_rooms(user_id: str):
     rooms = {"general": "Comunidad UAO"}
     subjects = await db.subjects.find(
         {"status": {"$ne": "deleted"}, "deleted_at": {"$exists": False}},
-        {"_id": 0, "id": 1, "name": 1, "left_members": 1},
+        {"_id": 0, "id": 1, "name": 1, "code": 1, "status": 1, "left_members": 1},
     ).to_list(500)
     for subject in subjects:
-        if user_id not in (subject.get("left_members") or []):
+        if user_id not in (subject.get("left_members") or []) and is_valid_subject_doc(subject):
             rooms[subject["id"]] = subject.get("name") or "Chat de asignatura"
 
     conversations = await db.chat_conversations.find(

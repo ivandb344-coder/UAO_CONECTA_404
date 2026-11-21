@@ -1,4 +1,7 @@
 import axios from "axios";
+import { cleanTestSubjectStorage, filterCoherentSubjects, isCoherentSubjectName, isGarbageText } from "@/lib/validSubjects";
+
+cleanTestSubjectStorage();
 
 /* ============================================================
    URL DEL BACKEND
@@ -50,8 +53,48 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+function sanitizeApiPayload(response) {
+  const method = (response?.config?.method || "get").toLowerCase();
+  if (method !== "get" || !response?.data) return response;
+
+  const rawUrl = String(response.config?.url || "");
+  const path = rawUrl
+    .split("?")[0]
+    .replace(/^https?:\/\/[^/]+/, "")
+    .replace(/^\/?api\//, "")
+    .replace(/^\/+/, "");
+
+  if (path === "subjects" && Array.isArray(response.data)) {
+    response.data = filterCoherentSubjects(response.data);
+  } else if (path === "dashboard" && typeof response.data === "object") {
+    const subjects = filterCoherentSubjects(response.data.subjects);
+    const questions = Array.isArray(response.data.questions)
+      ? response.data.questions.filter((q) => isCoherentSubjectName(q?.subject) && !isGarbageText(q?.title))
+      : [];
+    response.data = {
+      ...response.data,
+      subjects,
+      questions,
+      stats: response.data.stats ? { ...response.data.stats, subjects: subjects.length } : response.data.stats,
+    };
+  } else if (path === "search" && typeof response.data === "object") {
+    response.data = {
+      ...response.data,
+      subjects: filterCoherentSubjects(response.data.subjects),
+      questions: Array.isArray(response.data.questions)
+        ? response.data.questions.filter((q) => isCoherentSubjectName(q?.subject) && !isGarbageText(q?.title))
+        : [],
+    };
+  } else if (path === "questions" && Array.isArray(response.data)) {
+    response.data = response.data.filter((q) => isCoherentSubjectName(q?.subject) && !isGarbageText(q?.title));
+  } else if (path === "advisories" && Array.isArray(response.data)) {
+    response.data = response.data.filter((a) => isCoherentSubjectName(a?.subject) && !isGarbageText(a?.topic));
+  }
+  return response;
+}
+
 api.interceptors.response.use(
-  (response) => response,
+  (response) => sanitizeApiPayload(response),
   (error) => {
     const url = error.config?.url || "";
     if (error.response?.status === 401 && !url.includes("/auth/") && localStorage.getItem(TOKEN_KEY)) {

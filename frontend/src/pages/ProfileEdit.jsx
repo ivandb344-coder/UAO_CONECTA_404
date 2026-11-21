@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Camera, Trash2, Eye, EyeOff, Plus, Save, Check } from "lucide-react";
 import { api } from "@/lib/api";
-import { SEMESTERS } from "@/lib/programs";
+import { SEMESTERS, DEFAULT_PROGRAMS } from "@/lib/programs";
 import { PLATFORMS, platformMeta } from "@/lib/platforms";
 import { Loading } from "@/components/ui/states";
 import { useProtectedFileUrl } from "@/hooks/useProtectedFile";
@@ -23,7 +23,7 @@ export default function ProfileEdit({ me, onUpdate }) {
   const nav = useNavigate();
   const fileRef = useRef(null);
   const savedTimer = useRef(null);
-  const [programs, setPrograms] = useState([]);
+  const [programs, setPrograms] = useState(DEFAULT_PROGRAMS);
   const [form, setForm] = useState({
     name: me.name || "",
     username: me.username || "",
@@ -50,7 +50,11 @@ export default function ProfileEdit({ me, onUpdate }) {
   useEffect(() => () => window.clearTimeout(savedTimer.current), []);
 
   useEffect(() => {
-    api.get("/programs").then((r) => setPrograms(r.data));
+    api.get("/programs")
+      .then((r) => {
+        if (Array.isArray(r.data) && r.data.length) setPrograms(r.data);
+      })
+      .catch(() => {});
   }, []);
 
   const grouped = useMemo(() => {

@@ -12,6 +12,8 @@ const KIND_LABEL = {
   completada: "Asesoría completada",
   no_asistió: "No asistió",
   chat_message: "Mensaje de chat",
+  asignatura_actualizada: "Actualización de asignatura",
+  entrega_revisada: "Entrega revisada",
 };
 
 export default function Notifications() {

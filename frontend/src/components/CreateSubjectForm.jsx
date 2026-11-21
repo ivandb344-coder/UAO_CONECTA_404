@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { X, Save } from "lucide-react";
 import { api } from "@/lib/api";
-import { SEMESTERS } from "@/lib/programs";
+import { SEMESTERS, DEFAULT_PROGRAMS } from "@/lib/programs";
 import { UAO_CURRICULA } from "@/data/uaoCurricula";
 
 function fieldError(errors, key) {
@@ -9,7 +9,7 @@ function fieldError(errors, key) {
 }
 
 export default function CreateSubjectForm({ onCreated, onCancel }) {
-  const [programs, setPrograms] = useState([]);
+  const [programs, setPrograms] = useState(DEFAULT_PROGRAMS);
   const [form, setForm] = useState({
     name: "",
     code: "",
@@ -24,7 +24,13 @@ export default function CreateSubjectForm({ onCreated, onCancel }) {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    api.get("/programs").then((response) => setPrograms(response.data)).catch(() => setMessage("No pudimos cargar los programas académicos."));
+    api.get("/programs")
+      .then((response) => {
+        if (Array.isArray(response.data) && response.data.length) setPrograms(response.data);
+      })
+      .catch(() => {
+        // Fallback local DEFAULT_PROGRAMS already loaded
+      });
   }, []);
 
   const grouped = useMemo(() => programs.reduce((groups, item) => {

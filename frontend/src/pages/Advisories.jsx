@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Plus, Clock3, X, CheckCircle2, Edit3, Trash2, Power, MapPin, Video, CircleAlert, ChevronDown, ChevronUp, CalendarDays, List, Inbox, Search } from "lucide-react";
 import { api } from "@/lib/api";
 import { Empty } from "@/components/ui/states";
@@ -457,7 +458,9 @@ function IncomingBookings({ items, onStatus }) {
 
 export default function Advisories({ user, viewRole = user.role }) {
   const isAdvisor = viewRole !== "student";
-  const [tab, setTab] = useState(isAdvisor ? "agenda" : "browse");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const [tab, setTab] = useState(() => (!isAdvisor && requestedTab === "mine" ? "mine" : isAdvisor ? "agenda" : "browse"));
   // La lista es el punto de partida: conserva el contexto de asignatura, tema y cupos.
   // El calendario queda como una segunda forma explícita de explorar por fecha.
   const [scheduleView, setScheduleView] = useState("list");
@@ -476,10 +479,24 @@ export default function Advisories({ user, viewRole = user.role }) {
   const [editing, setEditing] = useState(null);
 
   useEffect(() => {
-    setTab(isAdvisor ? "agenda" : "browse");
+    setTab(!isAdvisor && requestedTab === "mine" ? "mine" : isAdvisor ? "agenda" : "browse");
     setFormOpen(false);
     setEditing(null);
-  }, [isAdvisor]);
+  }, [isAdvisor, requestedTab]);
+
+  useEffect(() => {
+    if (!selected) return;
+    const onKeyDown = (event) => {
+      if (event.key === "Escape" && !bookingSaving) setSelected(null);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [selected, bookingSaving]);
+
+  const selectTab = (nextTab) => {
+    setTab(nextTab);
+    if (searchParams.has("tab")) setSearchParams({}, { replace: true });
+  };
 
   useEffect(() => {
     if (!formOpen || !window.matchMedia("(max-width: 850px)").matches) return;
@@ -653,7 +670,7 @@ export default function Advisories({ user, viewRole = user.role }) {
           <button
             key={t.key}
             className={`tab ${tab === t.key ? "active" : ""}`}
-            onClick={() => setTab(t.key)}
+            onClick={() => selectTab(t.key)}
             role="tab"
             aria-selected={tab === t.key}
             data-testid={`tab-${t.key}`}
@@ -779,9 +796,9 @@ export default function Advisories({ user, viewRole = user.role }) {
       )}
 
       {selected && (
-        <div className="modal-backdrop">
-          <div className="modal" role="dialog" aria-modal="true" aria-labelledby="booking-modal-title" data-testid="booking-modal">
-            <button className="close" aria-label="Cerrar solicitud de asesoría" onClick={() => setSelected(null)} data-testid="close-booking-modal">
+        <div className="modal-backdrop" onClick={() => !bookingSaving && setSelected(null)}>
+          <div className="modal" role="dialog" aria-modal="true" aria-labelledby="booking-modal-title" data-testid="booking-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="close" aria-label="Cerrar solicitud de asesoría" onClick={() => !bookingSaving && setSelected(null)} data-testid="close-booking-modal">
               <X />
             </button>
             <p className="eyebrow">SOLICITUD DE ASESORÍA</p>

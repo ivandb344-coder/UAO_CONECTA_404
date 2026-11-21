@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { X, Download, ExternalLink, FileText } from "lucide-react";
 import { useProtectedFile } from "@/hooks/useProtectedFile";
 import { openProtectedFile, previewKind } from "@/services/fileService";
@@ -17,6 +18,14 @@ function PreviewBody({ kind, url, name }) {
 export default function FilePreviewModal({ file, onClose }) {
   const kind = previewKind(file);
   const { url, loading, error } = useProtectedFile(file?.storage_path);
+  useEffect(() => {
+    if (!file) return;
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") onClose?.();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [file, onClose]);
   if (!file) return null;
   const name = file.name || "archivo";
   const download = () => openProtectedFile(file.storage_path, { download: true, filename: name }).catch(() => {});

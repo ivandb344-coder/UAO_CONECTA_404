@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowRight, Plus, Link2, Search, BookOpen, ExternalLink } from "lucide-react";
+import { ArrowRight, Plus, Link2, Search, BookOpen, ExternalLink, Check } from "lucide-react";
 import { api } from "@/lib/api";
 import CreateSubjectForm from "@/components/CreateSubjectForm";
 import { COURSE_KIND_LABELS, UAO_CURRICULA } from "@/data/uaoCurricula";
 import { matchesSearch } from "@/lib/searchText";
+import { playUiSound } from "@/lib/audioFeedback";
 
 const roleLabel = (role) => (role === "professor" ? "Profesor" : role === "monitor" ? "Monitor" : "Estudiante");
 const OFFICIAL_COURSES = UAO_CURRICULA.flatMap((curriculum) => [
@@ -51,6 +52,9 @@ export default function Subjects({ user }) {
   const [showCreate, setShowCreate] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [showJoin, setShowJoin] = useState(false);
+  const [joining, setJoining] = useState(false);
+  const [toast, setToast] = useState("");
+  const toastTimer = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState(() => searchParams.get("vista") === "catalogo" ? "catalog" : "spaces");
   const [catalogQuery, setCatalogQuery] = useState("");
@@ -58,6 +62,15 @@ export default function Subjects({ user }) {
   const [catalogKind, setCatalogKind] = useState("all");
   const [semesterFilter, setSemesterFilter] = useState("");
   const nav = useNavigate();
+
+  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
+
+  const showToast = (text) => {
+    window.clearTimeout(toastTimer.current);
+    setToast(text);
+    playUiSound("save");
+    toastTimer.current = window.setTimeout(() => setToast(""), 3200);
+  };
 
   const changeView = (nextView) => {
     setView(nextView);
@@ -69,14 +82,23 @@ export default function Subjects({ user }) {
 
   const join = async (event) => {
     event.preventDefault();
+    if (joining) return;
     setError("");
+    setJoining(true);
     try {
       const response = await api.post("/subjects/join", { code: joinCode });
-      setItems((current) => current.map((item) => item.id === response.data.id ? response.data : item));
+      setItems((current) =>
+        current.some((item) => item.id === response.data.id)
+          ? current.map((item) => (item.id === response.data.id ? response.data : item))
+          : [response.data, ...current]
+      );
       setJoinCode("");
       setShowJoin(false);
+      showToast("Te uniste a la asignatura correctamente.");
     } catch (requestError) {
       setError(requestError.response?.data?.detail || "No pudimos unirte a esta asignatura.");
+    } finally {
+      setJoining(false);
     }
   };
 
@@ -116,11 +138,11 @@ export default function Subjects({ user }) {
       {error && <div className="error" data-testid="subjects-error">{error}</div>}
       {view === "spaces" ? (
         <>
-          {showCreate && user && ["professor", "monitor"].includes(user.role) && <CreateSubjectForm onCancel={() => setShowCreate(false)} onCreated={(created) => { setItems((current) => [created, ...current]); setShowCreate(false); }} />}
+          {showCreate && user && ["professor", "monitor"].includes(user.role) && <CreateSubjectForm onCancel={() => setShowCreate(false)} onCreated={(created) => { setItems((current) => [created, ...current]); setShowCreate(false); showToast("Asignatura creada correctamente."); }} />}
           {showJoin && (
             <form className="composer join-subject-form" onSubmit={join} data-testid="join-subject-form">
-              <label className="field"><span>Código de unión</span><input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} placeholder="Ej. A1B2C3D4" required data-testid="join-subject-code" /></label>
-              <button className="primary" data-testid="submit-join-subject">Unirme</button>
+              <label className="field"><span>Código de unión</span><input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} placeholder="Ej. A1B2C3D4" required disabled={joining} data-testid="join-subject-code" /></label>
+              <button className="primary" disabled={joining || !joinCode.trim()} data-testid="submit-join-subject">{joining ? "Uniéndome…" : "Unirme"}</button>
             </form>
           )}
           <div className="subject-grid large" data-testid="subject-spaces-list">
@@ -134,7 +156,7 @@ export default function Subjects({ user }) {
               </div>
             ))}
           </div>
-          {!visibleItems.length && <div className="empty">No tienes asignaturas para ese semestre.</div>}
+          {!visibleItems.length && <div className="empty">{items.length ? "No tienes asignaturas para ese semestre." : "Todavía no hay asignaturas disponibles. Crea un espacio o únete con un código."}</div>}
         </>
       ) : (
         <section className="uao-catalog" aria-labelledby="uao-catalog-title" data-testid="uao-course-catalog">
@@ -191,6 +213,11 @@ export default function Subjects({ user }) {
             </article>)}
           </div> : <div className="empty" data-testid="official-catalog-empty">No encontramos materias con esos filtros. Prueba otra palabra o programa.</div>}
         </section>
+      )}
+      {toast && (
+        <div className="save-toast success" role="status" aria-live="polite" data-testid="subjects-toast">
+          <Check size={15} aria-hidden="true" /> {toast}
+        </div>
       )}
     </section>
   );

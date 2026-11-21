@@ -1,12 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, Plus, X, CheckCircle2, MessageCircle, Upload, FileText, ClipboardCheck, LockKeyhole, Trash2, LogOut } from "lucide-react";
+import { ArrowRight, Plus, X, CheckCircle2, MessageCircle, Upload, FileText, ClipboardCheck, LockKeyhole, Trash2, LogOut, Check, Copy } from "lucide-react";
 import { api } from "@/lib/api";
 import SubjectResources from "@/components/SubjectResources";
 import FileActions from "@/components/files/FileActions";
 import FilePreviewModal from "@/components/files/FilePreviewModal";
+import { playUiSound } from "@/lib/audioFeedback";
 
 const localDateInput = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+const formatTaskDueDate = (dueDate, dueTime) => {
+  if (!dueDate) return "—";
+  const parsed = new Date(`${dueDate}T${dueTime || "23:59"}`);
+  if (Number.isNaN(parsed.getTime())) return dueDate;
+  return parsed.toLocaleDateString("es-CO", {
+    timeZone: "America/Bogota",
+    day: "2-digit",
+    month: "short",
+  });
+};
 
 export default function SubjectDetail({ user }) {
   const { id } = useParams();
@@ -19,10 +31,32 @@ export default function SubjectDetail({ user }) {
   const [text, setText] = useState("");
   const [attachment, setAttachment] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [creatingTask, setCreatingTask] = useState(false);
+  const [submittingTask, setSubmittingTask] = useState(false);
   const [error, setError] = useState("");
+  const [toast, setToast] = useState("");
   const [subjectActionBusy, setSubjectActionBusy] = useState(false);
   const fileRef = useRef(null);
+  const toastTimer = useRef(null);
   const nav = useNavigate();
+
+  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
+
+  const showToast = useCallback((message) => {
+    window.clearTimeout(toastTimer.current);
+    setToast(message);
+    playUiSound("save");
+    toastTimer.current = window.setTimeout(() => setToast(""), 3200);
+  }, []);
+
+  useEffect(() => {
+    if (!selected) return;
+    const onKeyDown = (event) => {
+      if (event.key === "Escape" && !uploading && !submittingTask) setSelected(null);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [selected, uploading, submittingTask]);
 
   const load = useCallback(() =>
     Promise.all([api.get("/subjects"), api.get(`/subjects/${id}/tasks`)])
@@ -40,14 +74,20 @@ export default function SubjectDetail({ user }) {
 
   const create = async (e) => {
     e.preventDefault();
+    if (creatingTask) return;
+    setCreatingTask(true);
+    setError("");
     try {
       await api.post(`/subjects/${id}/tasks`, form);
       setShowCreate(false);
       setForm({ title: "", description: "", due_date: "", due_time: "23:59" });
-      load();
+      await load();
+      showToast("Tarea publicada correctamente.");
     } catch (x) {
       const detail = x.response?.data?.detail;
-      setError(detail?.fields?.due_date || detail?.fields?.due_time || detail?.fields?.title || detail || "No pudimos crear la tarea.");
+      setError(detail?.fields?.due_date || detail?.fields?.due_time || detail?.fields?.title || (typeof detail === "string" ? detail : "") || "No pudimos crear la tarea.");
+    } finally {
+      setCreatingTask(false);
     }
   };
 
@@ -59,6 +99,7 @@ export default function SubjectDetail({ user }) {
       await api.post(`/subjects/${id}/close`);
       setSubject((current) => ({ ...current, status: "closed" }));
       setShowCreate(false);
+      showToast("Asignatura cerrada en modo de solo lectura.");
     } catch (requestError) {
       setError(requestError.response?.data?.detail || "No pudimos cerrar la asignatura.");
     } finally {
@@ -114,20 +155,36 @@ export default function SubjectDetail({ user }) {
     }
   };
 
+  const copyAccessCode = async () => {
+    if (!subject?.access_code) return;
+    try {
+      await navigator.clipboard.writeText(subject.access_code);
+      showToast("Código de unión copiado al portapapeles.");
+    } catch {
+      showToast(`Código de unión: ${subject.access_code}`);
+    }
+  };
+
   const submit = async () => {
+    if (submittingTask || uploading) return;
     if (!text.trim() && !attachment) {
       setError("Escribe una respuesta o adjunta un archivo para entregar la tarea.");
       return;
     }
+    setSubmittingTask(true);
+    setError("");
     try {
       await api.post(`/tasks/${selected.id}/submissions`, { text, file_id: attachment?.id || "" });
       setSelected(null);
       setText("");
       setAttachment(null);
-      load();
+      await load();
+      showToast("Entrega enviada correctamente.");
     } catch (x) {
       const detail = x.response?.data?.detail;
-      setError(detail?.fields?.file_id || detail || "No pudimos entregar la tarea.");
+      setError(detail?.fields?.file_id || (typeof detail === "string" ? detail : "") || "No pudimos entregar la tarea.");
+    } finally {
+      setSubmittingTask(false);
     }
   };
 
@@ -156,6 +213,17 @@ export default function SubjectDetail({ user }) {
           <div className="subject-detail-labels">
             <span className="subject-code">{subject.code}</span>
             <span className="subject-semester">Semestre {subject.semester}</span>
+            {subject.access_code && (
+              <button
+                type="button"
+                className="subject-access-pill"
+                onClick={copyAccessCode}
+                title="Copiar código de unión"
+                data-testid="copy-subject-access-code"
+              >
+                Código: {subject.access_code} <Copy size={12} aria-hidden="true" />
+              </button>
+            )}
             {subject.status === "closed" && <span className="subject-state-closed">Cerrada</span>}
           </div>
           <h1>{subject.name}</h1>
@@ -233,8 +301,8 @@ export default function SubjectDetail({ user }) {
               />
             </label>
           </div>
-          <button className="primary" data-testid="submit-task-button">
-            Publicar tarea <ArrowRight size={15} />
+          <button className="primary" disabled={creatingTask} data-testid="submit-task-button">
+            {creatingTask ? "Publicando…" : "Publicar tarea"} <ArrowRight size={15} />
           </button>
         </form>
       )}
@@ -247,29 +315,34 @@ export default function SubjectDetail({ user }) {
       </div>
       <div className="tasks-list">
         {tasks.length ? (
-          tasks.map((t) => (
+          tasks.map((t) => {
+            const taskStatus = user.role === "student"
+              ? (t.submission?.status || "Pendiente")
+              : (subject.status === "closed" ? "Cerrada" : "Publicada");
+            const taskStatusTone = taskStatus === "Rechazada"
+              ? "danger"
+              : ["Entregada", "Revisada", "Aprobada", "Publicada"].includes(taskStatus)
+                ? "done"
+                : "";
+            return (
             <div className="task-card" key={t.id} data-testid={`task-card-${t.id}`}>
               <div className="task-date">
                 <strong>
-                  {new Date(`${t.due_date}T${t.due_time}`).toLocaleDateString("es-CO", {
-                    timeZone: "America/Bogota",
-                    day: "2-digit",
-                    month: "short",
-                  })}
+                  {formatTaskDueDate(t.due_date, t.due_time)}
                 </strong>
                 <span>Entrega</span>
               </div>
               <div className="task-content">
-                <div className="task-status">{t.submission?.status || "Pendiente"}</div>
+                <div className={`task-status ${taskStatusTone}`.trim()}>{taskStatus}</div>
                 <h3>{t.title}</h3>
                 <p>{t.description}</p>
                 <small>
-                  Fecha límite: {t.due_date} · {t.due_time}
+                  Fecha límite: {t.due_date || "Por confirmar"}{t.due_time ? ` · ${t.due_time}` : ""}
                 </small>
                 {t.submission?.feedback && (
                   <div className="feedback" data-testid={`task-feedback-${t.id}`}>
                     <CheckCircle2 size={15} /> {t.submission.feedback}
-                    {t.submission.grade !== null && ` · ${t.submission.grade}/5`}
+                    {t.submission.grade !== null && t.submission.grade !== undefined && ` · ${t.submission.grade}/5`}
                   </div>
                 )}
                 {t.submission?.file && (
@@ -289,7 +362,7 @@ export default function SubjectDetail({ user }) {
                   onClick={() => {
                     setSelected(t);
                     setText(t.submission?.text || "");
-                    setAttachment(null);
+                    setAttachment(t.submission?.file || null);
                   }}
                   data-testid={`submit-task-${t.id}`}
                 >
@@ -297,7 +370,8 @@ export default function SubjectDetail({ user }) {
                 </button>
               )}
             </div>
-          ))
+            );
+          })
         ) : (
           <div className="subject-empty-state" data-testid="subject-tasks-empty">
             <span className="subject-empty-icon"><ClipboardCheck size={22} aria-hidden="true" /></span>
@@ -312,15 +386,15 @@ export default function SubjectDetail({ user }) {
         )}
       </div>
       {selected && (
-        <div className="modal-backdrop">
-          <div className="modal" data-testid="submission-modal">
-            <button className="close" onClick={() => setSelected(null)} data-testid="close-submission-modal">
+        <div className="modal-backdrop" onClick={() => { if (!uploading && !submittingTask) setSelected(null); }}>
+          <div className="modal" role="dialog" aria-modal="true" aria-labelledby="submission-modal-title" data-testid="submission-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="close" onClick={() => { if (!uploading && !submittingTask) setSelected(null); }} aria-label="Cerrar modal de entrega" data-testid="close-submission-modal">
               <X />
             </button>
             <p className="eyebrow">ENTREGA ACADÉMICA</p>
-            <h2>{selected.title}</h2>
+            <h2 id="submission-modal-title">{selected.title}</h2>
             <p className="modal-detail">
-              Fecha límite: {selected.due_date} · {selected.due_time}
+              Fecha límite: {selected.due_date || "Por confirmar"}{selected.due_time ? ` · ${selected.due_time}` : ""}
             </p>
             <label>
               Tu respuesta
@@ -334,7 +408,7 @@ export default function SubjectDetail({ user }) {
             </label>
             <div className="submission-file-picker">
               <input ref={fileRef} type="file" hidden onChange={onFileChosen} data-testid="submission-file-input" />
-              <button type="button" className="ghost" onClick={() => fileRef.current?.click()} disabled={uploading} data-testid="submission-file-button">
+              <button type="button" className="ghost" onClick={() => fileRef.current?.click()} disabled={uploading || submittingTask} data-testid="submission-file-button">
                 <Upload size={14} /> {uploading ? "Subiendo…" : attachment ? "Cambiar archivo" : "Adjuntar archivo"}
               </button>
               {attachment && (
@@ -344,8 +418,8 @@ export default function SubjectDetail({ user }) {
                 </span>
               )}
             </div>
-            <button className="primary wide" onClick={submit} disabled={uploading} data-testid="confirm-submission-button">
-              {uploading ? "Subiendo archivo…" : "Enviar entrega"} <ArrowRight size={15} />
+            <button className="primary wide" onClick={submit} disabled={uploading || submittingTask} data-testid="confirm-submission-button">
+              {uploading ? "Subiendo archivo…" : submittingTask ? "Enviando…" : "Enviar entrega"} <ArrowRight size={15} />
             </button>
           </div>
         </div>
@@ -353,6 +427,11 @@ export default function SubjectDetail({ user }) {
 
       <SubjectResources subjectId={id} user={user} readOnly={subject.status === "closed"} />
       {preview && <FilePreviewModal file={preview} onClose={() => setPreview(null)} />}
+      {toast && (
+        <div className="save-toast success" role="status" aria-live="polite" data-testid="subject-detail-toast">
+          <Check size={15} aria-hidden="true" /> {toast}
+        </div>
+      )}
     </section>
   );
 }

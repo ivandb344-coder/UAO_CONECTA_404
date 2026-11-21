@@ -99,7 +99,19 @@ export default function SearchResults() {
                       ? `${x.subject || ""} · ${x.status || ""}`.trim()
                       : x.description;
                   return (
-                    <li key={x.id} onClick={() => nav(meta.route(x))} role="button" data-testid={`search-hit-${x.id}`}>
+                    <li
+                      key={x.id}
+                      onClick={() => nav(meta.route(x))}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          nav(meta.route(x));
+                        }
+                      }}
+                      data-testid={`search-hit-${x.id}`}
+                    >
                       <b>{title}</b>
                       {sub && <small>{sub}</small>}
                       <ArrowRight size={14} />

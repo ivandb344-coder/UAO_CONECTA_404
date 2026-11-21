@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 import uuid, logging
-from app.core.config import db, pwd, DEMO_SUBJECTS, DEFAULT_ACCESSIBILITY
+from app.core.config import db, pwd, DEMO_SUBJECTS, DEFAULT_ACCESSIBILITY, is_valid_subject_doc, is_valid_subject_name, is_garbage_free_text
 
 OWNER_FIELDS = {
     "subjects": ["owner_id"], "tasks": ["author_id"], "submissions": ["student_id"], "questions": ["author_id"],
@@ -76,11 +76,48 @@ async def seed():
         logging.error("Seed/migración inicial no completada: %s", exc)
 
 
+async def cleanup_garbage_subjects():
+    """Elimina asignaturas y registros de prueba/relleno sin sentido (ej. 'xxjxjxj', 'six seven')."""
+    removed_subject_ids = []
+    removed_object_ids = []
+    async for doc in db.subjects.find({}, {"_id": 1, "id": 1, "name": 1, "code": 1, "status": 1, "deleted_at": 1}):
+        if not (doc.get("status") == "deleted" or doc.get("deleted_at")) and not is_valid_subject_doc(doc):
+            removed_object_ids.append(doc["_id"])
+            if doc.get("id"):
+                removed_subject_ids.append(doc["id"])
+    if removed_object_ids:
+        await db.subjects.delete_many({"_id": {"$in": removed_object_ids}})
+        if removed_subject_ids:
+            await db.tasks.delete_many({"subject_id": {"$in": removed_subject_ids}})
+            await db.resources.delete_many({"subject_id": {"$in": removed_subject_ids}})
+            await db.messages.delete_many({"room": {"$in": removed_subject_ids}})
+        logging.info("Asignaturas de prueba/basura eliminadas: %s", len(removed_object_ids))
+
+    # Limpieza de dudas y asesorías asociadas a nombres de asignaturas basura
+    bad_questions = []
+    async for q in db.questions.find({}, {"_id": 1, "subject": 1, "title": 1}):
+        if not is_valid_subject_name(q.get("subject")) or not is_garbage_free_text(q.get("title")):
+            bad_questions.append(q["_id"])
+    if bad_questions:
+        await db.questions.delete_many({"_id": {"$in": bad_questions}})
+
+    bad_advisories = []
+    async for adv in db.advisories.find({}, {"_id": 1, "subject": 1, "topic": 1}):
+        if not is_valid_subject_name(adv.get("subject")) or not is_garbage_free_text(adv.get("topic")):
+            bad_advisories.append(adv["_id"])
+    if bad_advisories:
+        await db.advisories.delete_many({"_id": {"$in": bad_advisories}})
+
+
 async def _seed():
     try:
         await migrate_legacy_users()
     except Exception as exc:
         logging.warning("Migración de usuarios diferida: %s", exc)
+    try:
+        await cleanup_garbage_subjects()
+    except Exception as exc:
+        logging.warning("Limpieza de asignaturas de prueba diferida: %s", exc)
     try:
         logging.info("File storage ready: MongoDB GridFS bucket uao_files")
     except Exception as exc:

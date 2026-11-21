@@ -33,6 +33,15 @@ export default function Questions({ user }) {
   }, []);
 
   useEffect(() => {
+    if (!confirmOpen) return;
+    const onKeyDown = (event) => {
+      if (event.key === "Escape" && !sending) setConfirmOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [confirmOpen, sending]);
+
+  useEffect(() => {
     try {
       const saved = JSON.parse(sessionStorage.getItem(draftKey) || "null");
       if (saved && typeof saved === "object") {

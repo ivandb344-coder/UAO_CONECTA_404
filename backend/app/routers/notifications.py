@@ -28,7 +28,8 @@ async def list_notifications(user=Depends(current_user)):
         "link": f"/chat/{message['room']}",
     } for message in messages]
     combined = sorted([*items, *message_items], key=lambda item: item.get("created_at") or "", reverse=True)[:200]
-    unread_messages = sum(unread_chat_counts(user["id"], visible_rooms.keys()).values())
+    unread_counts = await unread_chat_counts(user["id"], visible_rooms.keys())
+    unread_messages = sum(unread_counts.values())
     unread = sum(1 for item in items if not item.get("read")) + unread_messages
     return {"unread": unread, "items": combined}
 

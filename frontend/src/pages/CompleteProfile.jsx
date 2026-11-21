@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { api } from "@/lib/api";
-import { SEMESTERS } from "@/lib/programs";
+import { SEMESTERS, DEFAULT_PROGRAMS } from "@/lib/programs";
 import BrandLogo from "@/components/BrandLogo";
 import RoleBadge from "@/components/hub/RoleBadge";
 
@@ -12,7 +12,7 @@ function fieldError(errors, key) {
 
 export default function CompleteProfile({ user, onDone }) {
   const nav = useNavigate();
-  const [programs, setPrograms] = useState([]);
+  const [programs, setPrograms] = useState(DEFAULT_PROGRAMS);
   // El rol lo asigna el backend al verificar el correo (directorio docente / Banner); aquí es de solo lectura.
   const role = user.role || "student";
   const [form, setForm] = useState({
@@ -26,7 +26,11 @@ export default function CompleteProfile({ user, onDone }) {
   const [remoteMsg, setRemoteMsg] = useState("");
 
   useEffect(() => {
-    api.get("/programs").then((r) => setPrograms(r.data));
+    api.get("/programs")
+      .then((r) => {
+        if (Array.isArray(r.data) && r.data.length) setPrograms(r.data);
+      })
+      .catch(() => {});
   }, []);
 
   const grouped = useMemo(() => {
