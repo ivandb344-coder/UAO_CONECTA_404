@@ -3,14 +3,28 @@ import { Bot, Send, MessageSquarePlus } from "lucide-react";
 import { API } from "@/lib/api";
 import { playUiSound } from "@/lib/audioFeedback";
 
-const STORAGE_KEY = "uao_chat_history";
+const STORAGE_KEY = "uao_chat_history_v2";
+const LEGACY_STORAGE_KEY = "uao_chat_history";
 const WELCOME = {
   from: "ai",
   text: "Hola, soy el asistente de UAO Conecta. ¿Qué necesitas encontrar hoy?",
 };
 
+const HUB_CONTEXT_HISTORY = [
+  {
+    role: "user",
+    content: "¿Qué secciones oficiales existen actualmente en el menú de UAO Conecta?",
+  },
+  {
+    role: "assistant",
+    content:
+      "Las secciones actuales de UAO Conecta son: Inicio (/inicio), Dudas (/dudas), Asignaturas (/asignaturas), Asesorías (/asesorias), Chat (/chat), Revisiones (/revisiones, para docentes y monitores), Asistente IA (/asistente-ia), Reconocimientos (/ranking), Vida UAO (/vida-uao: reúne enlaces oficiales a Eventos UAO, Noticias UAO, Biblioteca UAO y el formulario de soporte de UAO Conecta), Tutorial de navegación (/evidencias-dcu: guía paso a paso y Documentación académica), Mi perfil (/perfil) y Configuración (/configuracion: accesibilidad y Acceso manual). En Chat además se pueden editar texto y archivos adjuntos durante el primer minuto.",
+  },
+];
+
 function loadHistory() {
   try {
+    sessionStorage.removeItem(LEGACY_STORAGE_KEY);
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return [WELCOME];
     const parsed = JSON.parse(raw);
@@ -72,6 +86,14 @@ export default function AI() {
         );
       }
 
+      const conversationHistory = messages
+        .filter((item, idx) => !(idx === 0 && item.from === "ai"))
+        .slice(-6)
+        .map((item) => ({
+          role: item.from === "ai" ? "assistant" : "user",
+          content: item.text,
+        }));
+
       const res = await fetch(`${API}/ai`, {
         method: "POST",
         headers: {
@@ -80,10 +102,7 @@ export default function AI() {
         },
         body: JSON.stringify({
           message: question,
-          history: messages.slice(-8).map((item) => ({
-            role: item.from === "ai" ? "assistant" : "user",
-            content: item.text,
-          })),
+          history: [...HUB_CONTEXT_HISTORY, ...conversationHistory],
         }),
       });
 
