@@ -59,7 +59,16 @@ DEMO_SUBJECTS = [
 GARBAGE_SUBJECT_PATTERNS = [
     re.compile(r"\bxxjxjxj\b"),
     re.compile(r"\bsix\s*seven\b"),
+    re.compile(r"\bsixseven\b"),
     re.compile(r"\bseven\s*six\b"),
+    re.compile(r"\beso\s*tilt?in\b"),
+    re.compile(r"\besotilt?in\b"),
+    re.compile(r"\bintroduccion\s*vr\b"),
+    re.compile(r"\bduda\s*iii\b"),
+    re.compile(r"\bkadlksakdasd\b"),
+    re.compile(r"\bsdsdsd\b"),
+    re.compile(r"\bqedasda[a-z0-9]*\b"),
+    re.compile(r"\bprueva[a-z]*\b"),
     re.compile(r"\blorem\s*ipsum\b"),
     re.compile(r"\bhola\s*mundo\b"),
     re.compile(r"\bhello\s*world\b"),
@@ -67,18 +76,27 @@ GARBAGE_SUBJECT_PATTERNS = [
     re.compile(r"\bcualquier\s*cosa\b"),
     re.compile(r"\basdf\b|\bqwerty\b|\bzxcv\b|\bhjkl\b"),
 ]
+_EXACT_FILLER_TEXTS = {
+    "hola", "ola", "olak", "duda", "tengo una duda", "soy nuevo",
+    "dd", "chi", "appo", "prueva", "eso tilin", "eso tiltin",
+    "introduccion vr", "duda iii", "dsdsd", "sdsdsd", "dwdw",
+    "hgh", "kadlksakdasd", "qedasda343",
+}
 _GARBAGE_SUBJECT_WORDS = {
-    "xxjxjxj", "sixseven", "test", "tests", "testing", "prueba", "pruebas",
-    "mock", "mocks", "basura", "relleno", "sample", "dummy", "fake", "demo",
-    "asdf", "asdfg", "qwerty", "zxcv", "zxcvb", "lorem", "ipsum", "foo", "bar",
-    "baz", "ejemplo", "placeholder", "temporal", "temp", "borrar", "delete",
-    "none", "null", "undefined", "nan", "aaa", "bbb", "ccc", "xxx", "zzz",
-    "jaja", "jeje", "xd",
+    "xxjxjxj", "sixseven", "tilin", "tiltin", "prueva", "pruevas",
+    "ola", "olak", "appo", "chi", "qedasda343", "kadlksakdasd",
+    "sdsdsd", "dsdsd", "dwdw", "hgh", "dd", "test", "tests", "testing",
+    "prueba", "pruebas", "mock", "mocks", "basura", "relleno", "sample",
+    "dummy", "fake", "demo", "asdf", "asdfg", "qwerty", "zxcv", "zxcvb",
+    "lorem", "ipsum", "foo", "bar", "baz", "ejemplo", "placeholder",
+    "temporal", "temp", "borrar", "delete", "none", "null", "undefined",
+    "nan", "aaa", "bbb", "ccc", "xxx", "zzz", "jaja", "jeje", "xd",
 }
 _GARBAGE_SUBJECT_CODES = {
     "TEST", "TEST1", "TEST01", "PRUEBA", "MOCK", "DEMO", "FAKE", "DUMMY",
-    "BASURA", "RELLENO", "ASDF", "QWERTY", "XXX", "XXJXJXJ", "SIX7",
-    "000", "0000", "123", "1234", "12345",
+    "BASURA", "RELLENO", "ASDF", "ASDASD", "DADA", "PPO01", "3534SACASC",
+    "QWERTY", "XXX", "XXJXJXJ", "SIX7", "000", "0000", "123", "1234",
+    "12345", "2246487", "3401", "13123",
 }
 _ALLOWED_CONSONANT_ACRONYMS = {
     "ti", "ia", "ihc", "hci", "etl", "iot", "sql", "uml", "xml", "html",
@@ -124,6 +142,8 @@ def is_garbage_free_text(value: object) -> bool:
     normalized = _normalize_subject_text(value)
     if len(normalized) < 2 or normalized.isdigit():
         return False
+    if normalized in _EXACT_FILLER_TEXTS:
+        return False
     if any(pattern.search(normalized) for pattern in GARBAGE_SUBJECT_PATTERNS):
         return False
     words = [w for w in normalized.split() if w]
@@ -136,9 +156,25 @@ def is_garbage_free_text(value: object) -> bool:
     return True
 
 
-def is_valid_subject_name(name: object, code: object = "") -> bool:
+def is_valid_academic_code(code: object = "") -> bool:
     code_upper = str(code or "").strip().upper()
-    if code_upper and (code_upper in _GARBAGE_SUBJECT_CODES or re.search(r"(.)\1{3,}", code_upper)):
+    if len(code_upper) < 2:
+        return False
+    if code_upper in _GARBAGE_SUBJECT_CODES or code_upper.isdigit():
+        return False
+    if not re.search(r"[A-Z]", code_upper):
+        return False
+    if re.search(r"(.)\1{3,}", code_upper) or re.fullmatch(r"([A-Z]{2})\1+", code_upper):
+        return False
+    letters_only = re.sub(r"[^A-Z]", "", code_upper)
+    if len(letters_only) >= 5 and not is_garbage_free_text(letters_only):
+        return False
+    return True
+
+
+def is_valid_subject_name(name: object, code: object = "") -> bool:
+    code_str = str(code or "").strip()
+    if code_str and not is_valid_academic_code(code_str):
         return False
     if not is_garbage_free_text(name):
         return False
@@ -153,4 +189,22 @@ def is_valid_subject_doc(doc: object) -> bool:
         return False
     if doc.get("status") == "deleted" or doc.get("deleted_at"):
         return False
-    return is_valid_subject_name(doc.get("name"), doc.get("code"))
+    code = str(doc.get("code") or "").strip()
+    if not is_valid_academic_code(code):
+        return False
+    return is_valid_subject_name(doc.get("name"), code)
+
+
+def is_valid_question_doc(doc: object) -> bool:
+    if not isinstance(doc, dict):
+        return False
+    if not is_valid_subject_name(doc.get("subject")):
+        return False
+    norm_title = _normalize_subject_text(doc.get("title"))
+    if len(norm_title) < 4 or not is_garbage_free_text(doc.get("title")):
+        return False
+    desc = doc.get("description")
+    if desc is not None and str(desc).strip():
+        if not is_garbage_free_text(desc):
+            return False
+    return True

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CheckCircle2, ExternalLink, MessageSquareText } from "lucide-react";
 import { api, bogotaDate } from "@/lib/api";
+import { normalizeExternalUrl } from "@/lib/integrationLinks";
 import FileActions from "@/components/files/FileActions";
 
 const STATUS_CLASS = { Entregada: "open", Revisada: "done", Aprobada: "done", Rechazada: "danger" };
@@ -39,11 +40,14 @@ export default function ReviewCard({ item, onPreview, onReviewed, onError }) {
         )}
       </div>
       {item.text && <p className="review-text" data-testid={`review-text-${item.id}`}>{item.text}</p>}
-      {item.link && (
-        <a href={item.link} target="_blank" rel="noreferrer" className="review-link" data-testid={`review-link-${item.id}`}>
-          <ExternalLink size={13} /> {item.link}
-        </a>
-      )}
+      {item.link && (() => {
+        const safeLink = normalizeExternalUrl(item.link);
+        return safeLink ? (
+          <a href={safeLink} target="_blank" rel="noopener noreferrer" className="review-link" data-testid={`review-link-${item.id}`}>
+            <ExternalLink size={13} /> {safeLink}
+          </a>
+        ) : null;
+      })()}
       {item.file && <FileActions file={item.file} idPrefix={`submission-${item.id}`} onPreview={onPreview} onError={onError} showName />}
       {item.feedback && !open && (
         <div className="feedback" data-testid={`review-feedback-${item.id}`}>

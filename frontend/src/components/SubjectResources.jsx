@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus, FileText, ExternalLink, Trash2, Upload } from "lucide-react";
 import { api } from "@/lib/api";
+import { normalizeExternalUrl } from "@/lib/integrationLinks";
 import { openProtectedFile } from "@/services/fileService";
 import { Empty } from "@/components/ui/states";
 import FileActions from "@/components/files/FileActions";
@@ -206,7 +207,7 @@ export default function SubjectResources({ subjectId, user, readOnly = false }) 
                     />
                   </div>
                 ) : (
-                  <a href={r.url} target="_blank" rel="noreferrer" className="ghost small" data-testid={`open-resource-${r.id}`}>
+                  <a href={normalizeExternalUrl(r.url, r.url)} target="_blank" rel="noopener noreferrer" className="ghost small" data-testid={`open-resource-${r.id}`}>
                     Abrir
                   </a>
                 )}

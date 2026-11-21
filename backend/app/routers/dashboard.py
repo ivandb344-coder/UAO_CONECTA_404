@@ -2,7 +2,7 @@ import re
 
 from fastapi import APIRouter, HTTPException, Depends
 
-from app.core.config import db, PROGRAMS, is_valid_subject_doc, is_valid_subject_name, is_garbage_free_text
+from app.core.config import db, PROGRAMS, is_valid_subject_doc, is_valid_question_doc
 from app.core.security import current_user
 from app.services.users import public_user
 from app.services.search_match import document_matches
@@ -17,7 +17,7 @@ async def programs():
 async def dashboard(user=Depends(current_user)):
     questions = [
         q for q in await db.questions.find({}, {"_id": 0}).sort("created_at", -1).to_list(20)
-        if is_valid_subject_name(q.get("subject")) and is_garbage_free_text(q.get("title"))
+        if is_valid_question_doc(q)
     ][:5]
     bookings = await db.bookings.find({"user_id": user["id"]}, {"_id": 0}).sort("date", 1).to_list(3)
     subjects = [item for item in await db.subjects.find({"status": {"$ne": "deleted"}, "deleted_at": {"$exists": False}}, {"_id": 0}).to_list(100)
@@ -73,7 +73,7 @@ async def search(q: str = "", user=Depends(current_user)):
         {"$or": [{"title": rx}, {"description": rx}, {"subject": rx}]},
         {"_id": 0},
     ).limit(15).to_list(15)
-    questions = [q for q in questions if is_valid_subject_name(q.get("subject")) and is_garbage_free_text(q.get("title"))]
+    questions = [q for q in questions if is_valid_question_doc(q)]
     resources = await db.resources.find(
         {"$or": [{"title": rx}, {"description": rx}]},
         {"_id": 0},
@@ -95,7 +95,7 @@ async def search(q: str = "", user=Depends(current_user)):
     subjects = [item for item in await db.subjects.find({"status": {"$ne": "deleted"}, "deleted_at": {"$exists": False}}, {"_id": 0}).limit(150).to_list(150)
                 if is_valid_subject_doc(item) and user["id"] not in (item.get("left_members") or []) and document_matches(q, (item.get("name"), item.get("code"), item.get("professor"), item.get("program")))][:15]
     questions = [item for item in await db.questions.find({}, {"_id": 0}).limit(150).to_list(150)
-                 if is_valid_subject_name(item.get("subject")) and is_garbage_free_text(item.get("title")) and document_matches(q, (item.get("title"), item.get("description"), item.get("subject")))][:15]
+                 if is_valid_question_doc(item) and document_matches(q, (item.get("title"), item.get("description"), item.get("subject")))][:15]
     resources = [item for item in await db.resources.find({}, {"_id": 0}).limit(150).to_list(150)
                  if document_matches(q, (item.get("title"), item.get("description")))][:15]
     return {

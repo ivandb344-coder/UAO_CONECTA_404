@@ -15,9 +15,9 @@ router = APIRouter(prefix="/integrations", tags=["Integraciones (mock)"])
 BOGOTA = ZoneInfo("America/Bogota")
 
 SYSTEMS = {
-    "moodle": {"name": "Moodle", "description": "Aulas virtuales, calificaciones y entregas", "url": "https://moodle.uao.edu.co", "color": "#F98012"},
+    "moodle": {"name": "Moodle", "description": "Aulas virtuales, calificaciones y entregas", "url": "https://campus.uaovirtual.edu.co", "color": "#F98012"},
     "teams": {"name": "Microsoft Teams", "description": "Mensajes, reuniones y equipos de clase", "url": "https://teams.microsoft.com", "color": "#5B5FC7"},
-    "banner": {"name": "Banner", "description": "Registro académico, matrícula y promedio", "url": "https://banner.uao.edu.co", "color": "#1E293B"},
+    "banner": {"name": "Banner", "description": "Registro académico, matrícula y promedio", "url": "https://www.uao.edu.co/ingreso-a-portales/", "color": "#1E293B"},
 }
 
 # Ecosistema de herramientas complementarias, agrupadas por categoría (MOCK).

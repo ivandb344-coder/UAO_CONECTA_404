@@ -1,5 +1,6 @@
 import axios from "axios";
-import { cleanTestSubjectStorage, filterCoherentSubjects, isCoherentSubjectName, isGarbageText } from "@/lib/validSubjects";
+import { cleanTestSubjectStorage, filterCoherentSubjects, isCoherentAdvisory, isCoherentQuestion } from "@/lib/validSubjects";
+import { normalizeExternalUrl } from "@/lib/integrationLinks";
 
 cleanTestSubjectStorage();
 
@@ -69,7 +70,7 @@ function sanitizeApiPayload(response) {
   } else if (path === "dashboard" && typeof response.data === "object") {
     const subjects = filterCoherentSubjects(response.data.subjects);
     const questions = Array.isArray(response.data.questions)
-      ? response.data.questions.filter((q) => isCoherentSubjectName(q?.subject) && !isGarbageText(q?.title))
+      ? response.data.questions.filter(isCoherentQuestion)
       : [];
     response.data = {
       ...response.data,
@@ -82,13 +83,30 @@ function sanitizeApiPayload(response) {
       ...response.data,
       subjects: filterCoherentSubjects(response.data.subjects),
       questions: Array.isArray(response.data.questions)
-        ? response.data.questions.filter((q) => isCoherentSubjectName(q?.subject) && !isGarbageText(q?.title))
+        ? response.data.questions.filter(isCoherentQuestion)
         : [],
     };
   } else if (path === "questions" && Array.isArray(response.data)) {
-    response.data = response.data.filter((q) => isCoherentSubjectName(q?.subject) && !isGarbageText(q?.title));
+    response.data = response.data.filter(isCoherentQuestion);
   } else if (path === "advisories" && Array.isArray(response.data)) {
-    response.data = response.data.filter((a) => isCoherentSubjectName(a?.subject) && !isGarbageText(a?.topic));
+    response.data = response.data
+      .filter(isCoherentAdvisory)
+      .map((a) => (a.link ? { ...a, link: normalizeExternalUrl(a.link, a.link) } : a));
+  } else if (path === "integrations/summary" && typeof response.data === "object") {
+    const systems = Array.isArray(response.data.systems)
+      ? response.data.systems.map((sys) => ({
+          ...sys,
+          url: normalizeExternalUrl(sys.url, sys.url),
+          cta: sys.cta ? { ...sys.cta, url: normalizeExternalUrl(sys.cta.url, sys.cta.url) } : sys.cta,
+        }))
+      : response.data.systems;
+    response.data = { ...response.data, systems };
+  } else if (path.startsWith("integrations/") && typeof response.data === "object" && response.data.cta) {
+    response.data = {
+      ...response.data,
+      url: normalizeExternalUrl(response.data.url, response.data.url),
+      cta: { ...response.data.cta, url: normalizeExternalUrl(response.data.cta.url, response.data.cta.url) },
+    };
   }
   return response;
 }

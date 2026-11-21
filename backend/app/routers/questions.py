@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from datetime import datetime, timezone
 import uuid
 
-from app.core.config import db
+from app.core.config import db, is_valid_question_doc
 from app.core.security import current_user
 from app.models.schemas import QuestionCreate, AnswerCreate, AnswerRatingCreate
 from app.services.users import clean
@@ -11,7 +11,8 @@ router = APIRouter()
 
 @router.get("/questions")
 async def questions(user=Depends(current_user)):
-    return await db.questions.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    docs = await db.questions.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return [q for q in docs if is_valid_question_doc(q)]
 
 @router.post("/questions")
 async def create_question(data: QuestionCreate, user=Depends(current_user)):

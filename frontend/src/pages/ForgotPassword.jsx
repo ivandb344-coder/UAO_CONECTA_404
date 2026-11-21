@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ExternalLink } from "lucide-react";
 import { api } from "@/lib/api";
+import BrandLogo from "@/components/BrandLogo";
 
 const UAO_PASSWORD_HELP_URL = "https://campus.uaovirtual.edu.co/login/forgot_password.php";
 
@@ -55,9 +56,7 @@ export default function ForgotPassword() {
   return (
     <main className="auth">
       <div className="auth-visual">
-        <div className="brand-mark">
-          UAO <span>Conecta</span>
-        </div>
+        <BrandLogo plate caption="Universidad Autónoma de Occidente" testId="forgot-visual-logo" />
 
         <div>
           <p className="eyebrow">
@@ -85,9 +84,7 @@ export default function ForgotPassword() {
           className="auth-form"
           onSubmit={handleSubmit}
         >
-          <div className="brand-mobile brand-mark">
-            UAO <span>Conecta</span>
-          </div>
+          <BrandLogo caption="Hub de Integración Estudiantil" size="sm" testId="forgot-form-logo" />
 
           <p className="eyebrow">
             RECUPERAR CONTRASEÑA

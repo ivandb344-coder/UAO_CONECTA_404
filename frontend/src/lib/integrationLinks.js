@@ -7,14 +7,36 @@ export const DEFAULT_LINKS = {
   gmail: "https://mail.google.com",
   teams: "https://teams.microsoft.com",
   piazza: "https://piazza.com",
-  moodle: "https://moodle.uao.edu.co",
+  moodle: "https://campus.uaovirtual.edu.co",
   whatsapp: "https://web.whatsapp.com",
-  banner: "https://sinu.uao.edu.co",
+  banner: "https://www.uao.edu.co/ingreso-a-portales/",
   events: "https://www.uao.edu.co/evento/",
   news: "https://www.uao.edu.co/noticias/",
   library: "https://www.uao.edu.co/biblioteca/",
   support: "https://docs.google.com/forms/d/e/1FAIpQLSfiGvm7tFuTxLrOAXClVN09QRfFFWeucOoDbH09JB12bp9SWA/viewform",
 };
+
+export function normalizeExternalUrl(rawUrl, fallback = "") {
+  const value = String(rawUrl || "").trim();
+  if (!value) return fallback;
+  if (/^(mailto:|tel:)/i.test(value)) return value;
+  const candidate = /^[a-z][a-z0-9+.-]*:/i.test(value) ? value : `https://${value.replace(/^\/+/, "")}`;
+  try {
+    const parsed = new URL(candidate);
+    if (!["http:", "https:"].includes(parsed.protocol)) return fallback || DEFAULT_LINKS.support;
+    const host = parsed.hostname.toLowerCase();
+    if (host === "moodle.uao.edu.co") return DEFAULT_LINKS.moodle;
+    if (host === "sinu.uao.edu.co" || host === "banner.uao.edu.co") return DEFAULT_LINKS.banner;
+    if (host === "meet.google.com") {
+      const doubleMeet = parsed.pathname.match(/^\/meet\/([a-z0-9-]+)\/?$/i);
+      if (doubleMeet) return `https://meet.google.com/${doubleMeet[1]}`;
+      if (parsed.pathname === "/uao-calculo") return "https://meet.google.com/";
+    }
+    return parsed.toString();
+  } catch {
+    return fallback;
+  }
+}
 
 export const CATEGORIES = [
   { id: "soporte", label: "Soporte y ayuda" },
@@ -37,12 +59,18 @@ export function loadLinks() {
     const raw = localStorage.getItem(LINKS_KEY);
     const saved = raw ? JSON.parse(raw) : null;
     if (saved && typeof saved === "object") {
+      const normalized = { ...DEFAULT_LINKS };
+      for (const [key, val] of Object.entries(saved)) {
+        if (typeof val === "string" && val.trim()) {
+          normalized[key] = normalizeExternalUrl(val, DEFAULT_LINKS[key] || "");
+        }
+      }
       const savedSupport = typeof saved.support === "string" ? saved.support.trim() : "";
       // Upgrade the old empty-recipient mailto link saved in existing browsers.
-      const support = !savedSupport || /^mailto:/i.test(savedSupport)
+      normalized.support = !savedSupport || /^mailto:/i.test(savedSupport)
         ? DEFAULT_LINKS.support
-        : savedSupport;
-      return { ...DEFAULT_LINKS, ...saved, support };
+        : normalizeExternalUrl(savedSupport, DEFAULT_LINKS.support);
+      return normalized;
     }
   } catch {
     /* json inválido: usar defaults */

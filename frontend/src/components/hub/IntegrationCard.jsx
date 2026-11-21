@@ -1,5 +1,6 @@
 import { ExternalLink, RefreshCw } from "lucide-react";
 import HoverDisclosureCard from "@/components/hub/HoverDisclosureCard";
+import { loadLinks, normalizeExternalUrl } from "@/lib/integrationLinks";
 
 const MARK = { moodle: "M", teams: "T", banner: "B" };
 
@@ -41,9 +42,9 @@ export default function IntegrationCard({ system, index = 0 }) {
         <footer className="integration-foot">
           <a
             className="sys-cta"
-            href={system.cta.url}
+            href={normalizeExternalUrl(loadLinks()[system.key] || system.cta?.url)}
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             data-testid={`integration-open-${system.key}`}
           >
             {system.cta.label} <ExternalLink size={13} aria-hidden="true" />

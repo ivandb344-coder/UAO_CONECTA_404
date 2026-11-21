@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Plus, Clock3, X, CheckCircle2, Edit3, Trash2, Power, MapPin, Video, CircleAlert, ChevronDown, ChevronUp, CalendarDays, List, Inbox, Search } from "lucide-react";
 import { api } from "@/lib/api";
+import { normalizeExternalUrl } from "@/lib/integrationLinks";
 import { Empty } from "@/components/ui/states";
 import AdvisoryCalendar, { advisoryDateInput, advisoryDateKey, advisoryDateLabel, advisoryHasPassed, advisoryTimeInput, advisoryTimeRange } from "@/components/AdvisoryCalendar";
 import { UAO_CURRICULA } from "@/data/uaoCurricula";
@@ -193,9 +194,9 @@ function AdvisoryForm({ initial, onSubmit, onCancel, formRef }) {
     if (!isRealISODate(form.date)) errors.date = "Selecciona una fecha válida en el calendario.";
     else if (form.date < localToday()) errors.date = "La fecha debe ser hoy o posterior.";
     if (!Number.isInteger(Number(form.slots)) || Number(form.slots) < 1 || Number(form.slots) > 30) errors.slots = "Indica entre 1 y 30 cupos.";
-    if (form.link.trim()) {
-      try { if (!["http:", "https:"].includes(new URL(form.link).protocol)) throw new Error(); }
-      catch { errors.link = "Escribe una URL completa que comience por https://"; }
+    const cleanLink = form.link.trim() ? normalizeExternalUrl(form.link.trim()) : "";
+    if (form.link.trim() && !cleanLink) {
+      errors.link = "Escribe una URL completa que comience por https://";
     }
     if (form.mode === "Presencial" && !form.place.trim()) errors.place = "Indica el salón o lugar de encuentro.";
     setFieldErrors(errors);
@@ -213,7 +214,7 @@ function AdvisoryForm({ initial, onSubmit, onCancel, formRef }) {
       mode: form.mode,
       slots: Number(form.slots),
       place: form.place,
-      link: form.link,
+      link: cleanLink,
       active: form.active,
     });
   };

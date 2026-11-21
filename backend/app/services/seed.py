@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 import uuid, logging
-from app.core.config import db, pwd, DEMO_SUBJECTS, DEFAULT_ACCESSIBILITY, is_valid_subject_doc, is_valid_subject_name, is_garbage_free_text
+from app.core.config import db, pwd, DEMO_SUBJECTS, DEFAULT_ACCESSIBILITY, is_valid_subject_doc, is_valid_subject_name, is_valid_question_doc, is_garbage_free_text
 
 OWNER_FIELDS = {
     "subjects": ["owner_id"], "tasks": ["author_id"], "submissions": ["student_id"], "questions": ["author_id"],
@@ -95,8 +95,8 @@ async def cleanup_garbage_subjects():
 
     # Limpieza de dudas y asesorías asociadas a nombres de asignaturas basura
     bad_questions = []
-    async for q in db.questions.find({}, {"_id": 1, "subject": 1, "title": 1}):
-        if not is_valid_subject_name(q.get("subject")) or not is_garbage_free_text(q.get("title")):
+    async for q in db.questions.find({}, {"_id": 1, "subject": 1, "title": 1, "description": 1}):
+        if not is_valid_question_doc(q):
             bad_questions.append(q["_id"])
     if bad_questions:
         await db.questions.delete_many({"_id": {"$in": bad_questions}})
@@ -154,6 +154,6 @@ async def _seed():
     await seed_hub_accounts()
     if await db.advisories.count_documents({}) == 0:
         await db.advisories.insert_many([
-            {"id": "adv-1", "advisor": demo_advisor["name"], "advisor_id": demo_advisor["id"], "role": "Monitor", "subject": "Cálculo I", "topic": "Derivadas", "date": "Martes", "time": "3:00 p. m. – 3:30 p. m.", "mode": "Virtual", "slots": 4, "place": "", "link": "https://meet.google.com/uao-calculo", "active": True, "created_at": datetime.now(timezone.utc).isoformat()},
+            {"id": "adv-1", "advisor": demo_advisor["name"], "advisor_id": demo_advisor["id"], "role": "Monitor", "subject": "Cálculo I", "topic": "Derivadas", "date": "Martes", "time": "3:00 p. m. – 3:30 p. m.", "mode": "Virtual", "slots": 4, "place": "", "link": "https://meet.google.com/", "active": True, "created_at": datetime.now(timezone.utc).isoformat()},
             {"id": "adv-2", "advisor": "Andrés Rojas", "advisor_id": "demo-professor-rojas", "role": "Profesor", "subject": "Programación", "topic": "Estructuras de datos", "date": "Jueves", "time": "10:00 a. m. – 11:00 a. m.", "mode": "Presencial", "slots": 3, "place": "Aula 302 · Bloque D", "link": "", "active": True, "created_at": datetime.now(timezone.utc).isoformat()},
         ])

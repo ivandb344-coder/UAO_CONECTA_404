@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { api } from "@/lib/api";
+import BrandLogo from "@/components/BrandLogo";
 
 export default function ResetPassword() {
   const location = useLocation();
@@ -74,9 +75,7 @@ export default function ResetPassword() {
   return (
     <main className="auth">
       <div className="auth-visual">
-        <div className="brand-mark">
-          UAO <span>Conecta</span>
-        </div>
+        <BrandLogo plate caption="Universidad Autónoma de Occidente" testId="reset-visual-logo" />
 
         <div>
           <p className="eyebrow">
@@ -104,9 +103,7 @@ export default function ResetPassword() {
           className="auth-form"
           onSubmit={handleSubmit}
         >
-          <div className="brand-mobile brand-mark">
-            UAO <span>Conecta</span>
-          </div>
+          <BrandLogo caption="Hub de Integración Estudiantil" size="sm" testId="reset-form-logo" />
 
           <p className="eyebrow">
             NUEVA CONTRASEÑA

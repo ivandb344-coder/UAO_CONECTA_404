@@ -1,4 +1,4 @@
-import { UAO_CURRICULA } from "@/data/uaoCurricula";
+import { UAO_CURRICULA } from "../data/uaoCurricula";
 
 const ROMAN_TO_ARABIC = new Map([
   ["i", "1"],
@@ -44,6 +44,16 @@ const GARBAGE_PHRASES = [
   "six seven",
   "sixseven",
   "seven six",
+  "eso tilin",
+  "eso tiltin",
+  "esotilin",
+  "esotiltin",
+  "introduccion vr",
+  "duda iii",
+  "kadlksakdasd",
+  "sdsdsd",
+  "qedasda",
+  "prueva",
   "hello world",
   "hola mundo",
   "lorem ipsum",
@@ -58,12 +68,50 @@ const GARBAGE_PHRASES = [
   "hjkl",
   "jaja",
   "jeje",
-  "xd",
 ];
+
+const EXACT_FILLER_TEXTS = new Set([
+  "hola",
+  "ola",
+  "olak",
+  "duda",
+  "tengo una duda",
+  "soy nuevo",
+  "dd",
+  "chi",
+  "appo",
+  "prueva",
+  "eso tilin",
+  "eso tiltin",
+  "introduccion vr",
+  "duda iii",
+  "dsdsd",
+  "sdsdsd",
+  "dwdw",
+  "hgh",
+  "kadlksakdasd",
+  "qedasda343",
+]);
 
 const GARBAGE_WORDS = new Set([
   "xxjxjxj",
   "sixseven",
+  "tilin",
+  "tiltin",
+  "prueva",
+  "pruevas",
+  "ola",
+  "olak",
+  "appo",
+  "chi",
+  "qedasda343",
+  "kadlksakdasd",
+  "sdsdsd",
+  "dsdsd",
+  "dwdw",
+  "hgh",
+  "dd",
+  "xd",
   "test",
   "tests",
   "testing",
@@ -116,6 +164,10 @@ const GARBAGE_CODES = new Set([
   "BASURA",
   "RELLENO",
   "ASDF",
+  "ASDASD",
+  "DADA",
+  "PPO01",
+  "3534SACASC",
   "QWERTY",
   "XXX",
   "XXJXJXJ",
@@ -125,6 +177,9 @@ const GARBAGE_CODES = new Set([
   "123",
   "1234",
   "12345",
+  "2246487",
+  "3401",
+  "13123",
 ]);
 
 function normalizeSubjectText(value) {
@@ -147,9 +202,19 @@ function canonicalCourseName(value) {
 
 const OFFICIAL_SUBJECT_NAMES = new Set([
   "calculo 1",
+  "calculo 3",
   "programacion",
   "fisica 1",
+  "fisica 3",
   "ingenieria de datos",
+  "estructuras de datos",
+  "bases de datos",
+  "ecuaciones diferenciales",
+  "algebra lineal",
+  "programacion orientada a objetos",
+  "inteligencia artificial",
+  "interaccion humano computador",
+  "ingenieria de software",
   ...UAO_CURRICULA.flatMap((curriculum) => [
     ...curriculum.courses,
     ...curriculum.electives,
@@ -161,6 +226,7 @@ export function isGarbageText(value) {
   const normalized = normalizeSubjectText(value);
   if (!normalized || normalized.length < 2) return true;
   if (/^\d+$/.test(normalized)) return true;
+  if (EXACT_FILLER_TEXTS.has(normalized)) return true;
   if (GARBAGE_PHRASES.some((phrase) => normalized.includes(phrase))) return true;
 
   const words = normalized.split(" ").filter(Boolean);
@@ -193,13 +259,26 @@ export function isGarbageText(value) {
   return false;
 }
 
+export function isValidAcademicCode(code = "") {
+  const upper = String(code || "").trim().toUpperCase();
+  if (!upper || upper.length < 2) return false;
+  if (GARBAGE_CODES.has(upper)) return false;
+  if (/^\d+$/.test(upper)) return false;
+  if (!/[A-Z]/.test(upper)) return false;
+  if (/(.)\1{3,}/.test(upper)) return false;
+  if (/^([A-Z]{2})\1+$/.test(upper)) return false;
+  const lettersOnly = upper.replace(/[^A-Z]/g, "");
+  if (lettersOnly.length >= 5 && isGarbageText(lettersOnly)) return false;
+  return true;
+}
+
 export function isCoherentSubjectName(name, code = "") {
-  const normalizedCode = String(code || "").trim().toUpperCase();
-  if (normalizedCode && GARBAGE_CODES.has(normalizedCode)) return false;
-  if (normalizedCode && /(.)\1{3,}/.test(normalizedCode)) return false;
+  const trimmedCode = String(code || "").trim();
+  if (trimmedCode && !isValidAcademicCode(trimmedCode)) return false;
 
   const canonical = canonicalCourseName(name);
   if (!canonical || canonical.length < 2) return false;
+  if (EXACT_FILLER_TEXTS.has(canonical)) return false;
   if (OFFICIAL_SUBJECT_NAMES.has(canonical)) return true;
 
   if (isGarbageText(name)) return false;
@@ -213,12 +292,33 @@ export function isCoherentSubjectName(name, code = "") {
 export function isCoherentSubject(subject) {
   if (!subject || typeof subject !== "object") return false;
   if (subject.status === "deleted" || subject.deleted_at) return false;
-  return isCoherentSubjectName(subject.name, subject.code);
+  if (!isValidAcademicCode(subject.code)) return false;
+  const canonical = canonicalCourseName(subject.name);
+  if (!canonical || EXACT_FILLER_TEXTS.has(canonical)) return false;
+  return OFFICIAL_SUBJECT_NAMES.has(canonical);
 }
 
 export function filterCoherentSubjects(list) {
   if (!Array.isArray(list)) return [];
   return list.filter(isCoherentSubject);
+}
+
+export function isCoherentQuestion(q) {
+  if (!q || typeof q !== "object") return false;
+  if (!isCoherentSubjectName(q.subject)) return false;
+  const normTitle = normalizeSubjectText(q.title);
+  if (!normTitle || normTitle.length < 4) return false;
+  if (EXACT_FILLER_TEXTS.has(normTitle) || isGarbageText(q.title)) return false;
+  if (q.description) {
+    const normDesc = normalizeSubjectText(q.description);
+    if (!normDesc || EXACT_FILLER_TEXTS.has(normDesc) || isGarbageText(q.description)) return false;
+  }
+  return true;
+}
+
+export function isCoherentAdvisory(a) {
+  if (!a || typeof a !== "object") return false;
+  return isCoherentSubjectName(a.subject) && !isGarbageText(a.topic);
 }
 
 export function cleanTestSubjectStorage() {

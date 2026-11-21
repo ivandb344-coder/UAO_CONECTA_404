@@ -5,6 +5,8 @@ import { api } from "@/lib/api";
 import { StarsDisplay } from "@/components/ui/Stars";
 import { Loading } from "@/components/ui/states";
 import { PLATFORMS, platformMeta } from "@/lib/platforms";
+import { normalizeExternalUrl } from "@/lib/integrationLinks";
+import { isGarbageText } from "@/lib/validSubjects";
 import Avatar from "@/components/Avatar";
 
 const roleLabel = (r) => (r === "professor" ? "Profesor" : r === "monitor" ? "Monitor" : "Estudiante");
@@ -78,13 +80,16 @@ export default function Profile({ me }) {
               {visibleLinks.map((l) => {
                 const meta = platformMeta(l.platform);
                 const Icon = meta.icon;
+                const safeUrl = normalizeExternalUrl(l.url);
+                if (!safeUrl) return null;
+                const displayLabel = l.label && !isGarbageText(l.label) ? l.label : meta.label;
                 return (
                   <li key={l.id}>
-                    <a href={l.url} target="_blank" rel="noreferrer" data-testid={`profile-link-${l.id}`}>
+                    <a href={safeUrl} target="_blank" rel="noopener noreferrer" data-testid={`profile-link-${l.id}`}>
                       {l.icon ? <span className="link-custom-icon" aria-hidden="true">{l.icon}</span> : <Icon size={16} />}
                       <div>
-                        <b>{l.label || meta.label}</b>
-                        <small>{l.url}</small>
+                        <b>{displayLabel}</b>
+                        <small>{safeUrl}</small>
                       </div>
                       <ExternalLink size={13} />
                     </a>

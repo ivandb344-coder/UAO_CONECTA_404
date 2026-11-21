@@ -2,7 +2,7 @@ import { Linkedin, MessageCircle, Send, Video, Users, Mail, Globe, GraduationCap
 
 // Icon and label mapping for supported networks/platforms
 export const PLATFORMS = [
-  { key: "moodle", label: "Moodle", icon: GraduationCap, placeholder: "https://moodle.uao.edu.co/..." },
+  { key: "moodle", label: "Moodle", icon: GraduationCap, placeholder: "https://campus.uaovirtual.edu.co/..." },
   { key: "whatsapp", label: "WhatsApp", icon: MessageCircle, placeholder: "https://wa.me/57..." },
   { key: "discord", label: "Discord", icon: Users, placeholder: "https://discord.gg/..." },
   { key: "meet", label: "Google Meet", icon: Video, placeholder: "https://meet.google.com/..." },
