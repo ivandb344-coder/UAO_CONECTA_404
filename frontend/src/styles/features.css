@@ -373,8 +373,8 @@
 .attach-pill button:hover { color:#c53d28; }
 .message-image img { max-width: 260px; max-height: 260px; border-radius: 6px; margin-top: 6px; display:block; border:1px solid var(--line); }
 .message-file { display:inline-flex; align-items:center; gap:6px; margin-top:6px; padding: 8px 12px; background:#f5f7fa; color: var(--ink); font-size:11px; border-radius:4px; text-decoration:none; }
-.message.mine .message-file { background: rgba(255,255,255,.15); color:#fff; }
-.message.mine .message-file:hover { background: rgba(255,255,255,.25); }
+.message.mine .message-file { background: var(--primary-soft); color: var(--primary); border:1px solid var(--primary-line); }
+.message.mine .message-file:hover { background: #fbe8ed; }
 
 /* Bell badge */
 .bell-badge { position:absolute; top:-2px; right:-2px; background: var(--red); color:#fff; font-size:9px; font-weight:700; border-radius:999px; padding: 2px 5px; font-style: normal; }
@@ -449,16 +449,23 @@
 
 /* Moderación temprana de mensajes y estado de salas */
 .message-actions { display:flex; align-items:center; gap:6px; margin-top:6px; opacity:.78; }
+.message.mine .message-actions { justify-content:flex-end; }
 .message-actions button, .message-edit-form button { display:inline-flex; align-items:center; gap:4px; color:var(--muted); font-size:10px; }
 .message-actions button:hover { color:var(--primary); }
 .message-actions span { color:var(--muted); font-size:9px; }
 .message-actions button:disabled, .message-edit-form button:disabled { opacity:.5; }
-.message-edit-form { display:grid; gap:7px; min-width:min(300px,70vw); margin-top:6px; }
-.message-edit-form textarea { min-height:60px; padding:8px; border:1px solid var(--line); border-radius:6px; resize:vertical; font:inherit; font-size:12px; }
-.message-edit-form>div { display:flex; align-items:center; gap:10px; }
+.message-edit-form { display:grid; gap:7px; min-width:min(300px,70vw); margin-top:6px; text-align:left; }
+.message-edit-form textarea { min-height:60px; padding:8px; border:1px solid var(--line); border-radius:6px; resize:vertical; font:inherit; font-size:12px; background:#fff; color:var(--ink); }
+.message-edit-form>div { display:flex; align-items:center; flex-wrap:wrap; gap:8px 10px; }
+.message-edit-file-bar { padding:2px 0; }
+.message-edit-attach { padding:5px 9px; border:1px solid var(--line); border-radius:4px; background:#fff; color:var(--ink)!important; font-weight:600; }
+.message-edit-attach:hover:not(:disabled) { border-color:var(--primary); color:var(--primary)!important; }
+.message-edit-file-pill { display:inline-flex; align-items:center; gap:6px; max-width:220px; padding:4px 8px; border-radius:4px; background:var(--primary-soft); color:var(--primary); font-size:10px; border:1px solid var(--primary-line); }
+.message-edit-file-pill span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.message-edit-file-pill button { color:var(--primary); padding:0; }
 .message-edit-form .message-edit-save { color:var(--primary); font-weight:700; }
-.message-deleted, .message-edited-label { color:var(--muted)!important; font-style:italic; }
-.message-edited-label { font-size:9px; }
+.message-deleted { color:var(--muted)!important; font-style:italic; }
+.message-edited-label { color:var(--muted); font-style:normal; font-size:9px; font-weight:500; }
 .chat-system-message { max-width:82%; margin:10px auto; padding:9px 13px; border:1px solid var(--primary-line); border-radius:999px; color:var(--muted); background:var(--primary-soft); font-size:10px; line-height:1.5; text-align:center; }
 .chat-room-closed { padding:11px 15px; border-top:1px solid #e7c984; color:#634b16; background:#fff8e8; font-size:11px; line-height:1.5; }
 .subject-closed-banner { margin:0 0 18px; border:1px solid #e7c984; border-radius:var(--radius); }

@@ -191,9 +191,27 @@ async def edit_chat_message(room: str, message_id: str, data: ChatMessageEdit, u
         raise HTTPException(status_code=404, detail="No encontramos ese mensaje.")
     _can_edit_message(message, user)
     body = (data.body or "").strip()
-    if not body and not message.get("file"):
+    if "file" in data.model_fields_set:
+        if data.file is None:
+            new_file = None
+        elif (
+            isinstance(data.file, dict)
+            and data.file.get("storage_path")
+            and data.file.get("storage_path") == (message.get("file") or {}).get("storage_path")
+        ):
+            new_file = message.get("file")
+        else:
+            new_file = await _owned_chat_file(data.file, user["id"])
+            if not new_file:
+                raise HTTPException(status_code=422, detail="El archivo adjunto no es válido o no te pertenece.")
+    else:
+        new_file = message.get("file")
+    if not body and not new_file:
         raise HTTPException(status_code=422, detail="El mensaje no puede quedar vacío.")
-    await db.messages.update_one({"id": message_id, "room": room}, {"$set": {"body": body[:2000], "edited_at": datetime.now(timezone.utc).isoformat()}})
+    await db.messages.update_one(
+        {"id": message_id, "room": room},
+        {"$set": {"body": body[:2000], "file": new_file, "edited_at": datetime.now(timezone.utc).isoformat()}},
+    )
     updated = await db.messages.find_one({"id": message_id, "room": room}, {"_id": 0})
     await manager.broadcast(room, {"type": "message_updated", "message": clean(updated)})
     return clean(updated)

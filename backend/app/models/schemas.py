@@ -59,7 +59,8 @@ class ChatMessage(BaseModel):
     file: Optional[dict] = None
 
 class ChatMessageEdit(BaseModel):
-    body: str
+    body: str = ""
+    file: Optional[dict] = None
 
 class AIQuestion(BaseModel):
     message: str

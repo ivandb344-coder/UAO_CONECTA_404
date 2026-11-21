@@ -74,6 +74,8 @@ export default function Chat({ user }) {
   const [error, setError] = useState("");
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editText, setEditText] = useState("");
+  const [editFile, setEditFile] = useState(null);
+  const [editUploading, setEditUploading] = useState(false);
   const [messageBusy, setMessageBusy] = useState(false);
   const writeNoticeKey = `uao_chat_write_notice_${user?.id || user?.email || "session"}_${room}`;
   const [writeAcknowledgedFor, setWriteAcknowledgedFor] = useState(() => {
@@ -85,6 +87,7 @@ export default function Chat({ user }) {
   const wsRef = useRef(null);
   const messagesRef = useRef(null);
   const fileInputRef = useRef(null);
+  const editFileInputRef = useRef(null);
   const messageInputRef = useRef(null);
   const retryRef = useRef(0);
   const retryTimerRef = useRef(null);
@@ -121,6 +124,9 @@ export default function Chat({ user }) {
   useEffect(() => {
     setRoomClosedEvent(false);
     setEditingMessageId(null);
+    setEditText("");
+    setEditFile(null);
+    setEditUploading(false);
     setBody("");
     setAttachment(null);
     setConfirmWriteOpen(false);
@@ -362,15 +368,44 @@ export default function Chat({ user }) {
     });
   };
 
+  const onEditFileChosen = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > MAX_ATTACH_MB * 1024 * 1024) {
+      setError(`El archivo supera los ${MAX_ATTACH_MB}MB permitidos en el chat.`);
+      return;
+    }
+    setError("");
+    setEditUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await api.post("/files", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      setEditFile({
+        name: r.data.name,
+        storage_path: r.data.storage_path,
+        content_type: r.data.content_type,
+        size: file.size,
+      });
+    } catch {
+      setError("No pudimos subir el archivo para editar el mensaje, intenta de nuevo.");
+    } finally {
+      setEditUploading(false);
+    }
+  };
+
   const updateMessage = async (messageId) => {
-    if (messageBusy) return;
+    if (messageBusy || editUploading) return;
     setMessageBusy(true);
     setError("");
     try {
-      const response = await api.patch(`/chat/${encodeURIComponent(room)}/${encodeURIComponent(messageId)}`, { body: editText });
-      setMessages((prev) => prev.map((message) => message.id === messageId ? response.data : message));
+      const response = await api.patch(`/chat/${encodeURIComponent(room)}/${encodeURIComponent(messageId)}`, { body: editText, file: editFile });
+      const updatedMessage = { ...response.data, file: "file" in response.data ? response.data.file : editFile };
+      setMessages((prev) => prev.map((message) => (message.id === messageId ? updatedMessage : message)));
       setEditingMessageId(null);
       setEditText("");
+      setEditFile(null);
     } catch (requestError) {
       setError(requestError.response?.data?.detail || "No pudimos editar el mensaje.");
     } finally {
@@ -550,22 +585,66 @@ export default function Chat({ user }) {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
+                      {m.edited_at && !m.deleted && (
+                        <span className="message-edited-label" data-testid={`message-edited-${m.id}`}>
+                          {" • Editado"}
+                        </span>
+                      )}
                     </small>
-                    {!m.deleted && m.file && <MessageFile file={m.file} />}
+                    {!m.deleted && editingMessageId !== m.id && m.file && <MessageFile file={m.file} />}
                     {editingMessageId === m.id ? (
                       <form className="message-edit-form" onSubmit={(event) => { event.preventDefault(); updateMessage(m.id); }}>
                         <textarea aria-label="Editar mensaje" value={editText} onChange={(event) => setEditText(event.target.value)} maxLength={2000} autoFocus data-testid={`edit-message-input-${m.id}`} />
-                        <div><button type="submit" className="message-edit-save" disabled={messageBusy || (!editText.trim() && !m.file)}><Check size={14} /> Guardar</button><button type="button" className="message-edit-cancel" onClick={() => { setEditingMessageId(null); setEditText(""); }} disabled={messageBusy}>Cancelar</button></div>
+                        <div className="message-edit-file-bar">
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            ref={editFileInputRef}
+                            onChange={onEditFileChosen}
+                            style={{ display: "none" }}
+                            data-testid={`edit-message-file-input-${m.id}`}
+                          />
+                          <button
+                            type="button"
+                            className="message-edit-attach"
+                            onClick={() => editFileInputRef.current?.click()}
+                            disabled={messageBusy || editUploading}
+                            data-testid={`edit-message-attach-${m.id}`}
+                          >
+                            <Paperclip size={13} aria-hidden="true" />
+                            {editUploading ? "Subiendo archivo…" : editFile ? "Cambiar archivo" : "Adjuntar archivo"}
+                          </button>
+                          {editFile && (
+                            <span className="message-edit-file-pill" data-testid={`edit-message-file-${m.id}`}>
+                              <FileText size={12} aria-hidden="true" />
+                              <span>{editFile.name}</span>
+                              <button
+                                type="button"
+                                onClick={() => setEditFile(null)}
+                                aria-label="Quitar archivo"
+                                disabled={messageBusy || editUploading}
+                                data-testid={`edit-message-remove-file-${m.id}`}
+                              >
+                                <XIcon size={12} aria-hidden="true" />
+                              </button>
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          <button type="submit" className="message-edit-save" disabled={messageBusy || editUploading || (!editText.trim() && !editFile)} data-testid={`edit-message-save-${m.id}`}>
+                            <Check size={14} /> Guardar
+                          </button>
+                          <button type="button" className="message-edit-cancel" onClick={() => { setEditingMessageId(null); setEditText(""); setEditFile(null); }} disabled={messageBusy || editUploading}>
+                            Cancelar
+                          </button>
+                        </div>
                       </form>
                     ) : m.deleted ? <p className="message-deleted">Mensaje eliminado</p> : (
-                      <>
-                        {m.body && <p>{m.body}</p>}
-                        {m.edited_at && <p className="message-edited-label" data-testid={`message-edited-${m.id}`}>Mensaje editado</p>}
-                      </>
+                      m.body ? <p>{m.body}</p> : null
                     )}
                     {canEdit && editingMessageId !== m.id && (
                       <div className="message-actions" aria-label="Acciones de tu mensaje">
-                        <button type="button" onClick={() => { setEditingMessageId(m.id); setEditText(m.body || ""); }} disabled={messageBusy} title="Editar durante el primer minuto" data-testid={`edit-message-${m.id}`}><Pencil size={13} aria-hidden="true" /> Editar</button>
+                        <button type="button" onClick={() => { setEditingMessageId(m.id); setEditText(m.body || ""); setEditFile(m.file || null); }} disabled={messageBusy} title="Editar durante el primer minuto" data-testid={`edit-message-${m.id}`}><Pencil size={13} aria-hidden="true" /> Editar</button>
                         <button type="button" onClick={() => removeMessage(m.id)} disabled={messageBusy} title="Eliminar durante el primer minuto" data-testid={`delete-message-${m.id}`}><Trash2 size={13} aria-hidden="true" /> Eliminar</button>
                         <span>Disponible {Math.max(1, Math.ceil((60_000 - age) / 1000))} s</span>
                       </div>
