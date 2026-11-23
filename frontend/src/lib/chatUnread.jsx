@@ -28,10 +28,23 @@ export function ChatUnreadProvider({ enabled, children }) {
   }, []);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      setState({ total: 0, rooms: {} });
+      return undefined;
+    }
     refresh();
-    const i = setInterval(refresh, 15000);
-    return () => clearInterval(i);
+    const tick = () => {
+      if (document.visibilityState !== "hidden") refresh();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    const i = setInterval(tick, 15000);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearInterval(i);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [enabled, refresh]);
 
   const value = useMemo(() => ({ ...state, refresh, markRead }), [state, refresh, markRead]);

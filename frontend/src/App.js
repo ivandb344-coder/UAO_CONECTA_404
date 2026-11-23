@@ -309,6 +309,12 @@ function AppInner() {
   // La confirmación la gestiona LogoutDialog (Layout.jsx) antes de llamar a onLogout.
   const logout = () => {
     localStorage.removeItem("uao_token");
+    try {
+      sessionStorage.removeItem("uao_chat_history_v2");
+      sessionStorage.removeItem("uao_chat_history");
+    } catch {
+      /* almacenamiento de sesión no disponible */
+    }
     clearProtectedFileCache();
     setUser(null);
     setAuthError("");
@@ -324,6 +330,12 @@ function AppInner() {
   useEffect(() => {
     const onUnauthorized = () => {
       localStorage.removeItem("uao_token");
+      try {
+        sessionStorage.removeItem("uao_chat_history_v2");
+        sessionStorage.removeItem("uao_chat_history");
+      } catch {
+        /* almacenamiento de sesión no disponible */
+      }
       clearProtectedFileCache();
       setUser(null);
       setAuthError("Tu sesión expiró. Inicia sesión nuevamente.");
@@ -354,7 +366,18 @@ function AppInner() {
   };
 
   if (!ready) {
-    return null;
+    return (
+      <main className="auth-callback" aria-busy="true" aria-live="polite">
+        <div className="callback-card">
+          <div className="ai-orbit big">
+            <span className="dot" />
+          </div>
+          <p className="eyebrow">UAO CONECTA</p>
+          <h2>Preparando tu sesión…</h2>
+          <p className="muted">Conectando con UAO Conecta.</p>
+        </div>
+      </main>
+    );
   }
 
   /* ==========================================================

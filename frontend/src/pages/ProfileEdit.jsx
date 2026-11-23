@@ -40,6 +40,7 @@ export default function ProfileEdit({ me, onUpdate }) {
   const protectedPicture = storagePathFromFileUrl(form.picture);
   const protectedPictureUrl = useProtectedFileUrl(protectedPicture);
   const pictureSrc = protectedPicture ? protectedPictureUrl : form.picture;
+  const [imgError, setImgError] = useState(false);
   const [errors, setErrors] = useState({});
   const [remoteMsg, setRemoteMsg] = useState("");
   const [busy, setBusy] = useState(false);
@@ -48,6 +49,7 @@ export default function ProfileEdit({ me, onUpdate }) {
   const [linkErrors, setLinkErrors] = useState({});
 
   useEffect(() => () => window.clearTimeout(savedTimer.current), []);
+  useEffect(() => { setImgError(false); }, [pictureSrc]);
 
   useEffect(() => {
     api.get("/programs")
@@ -145,7 +147,9 @@ export default function ProfileEdit({ me, onUpdate }) {
     };
     try {
       const r = await api.post("/profile/links", linkToSend);
-      setLinks((l) => [...l, r.data]);
+      const nextLinks = [...links, r.data];
+      setLinks(nextLinks);
+      onUpdate({ ...me, links: nextLinks });
       setNewLink({ platform: "linkedin", url: "", label: "", icon: "" });
     } catch (x) {
       const d = x.response?.data?.detail;
@@ -157,7 +161,9 @@ export default function ProfileEdit({ me, onUpdate }) {
   const updateLink = async (link, patch) => {
     try {
       const r = await api.patch(`/profile/links/${link.id}`, patch);
-      setLinks((l) => l.map((x) => (x.id === link.id ? { ...x, ...r.data } : x)));
+      const nextLinks = links.map((x) => (x.id === link.id ? { ...x, ...r.data } : x));
+      setLinks(nextLinks);
+      onUpdate({ ...me, links: nextLinks });
     } catch (x) {
       const d = x.response?.data?.detail;
       if (d?.fields) setLinkErrors({ [`edit-${link.id}`]: d.fields.url || d.fields.label || d.fields.platform || "Datos inválidos" });
@@ -168,7 +174,9 @@ export default function ProfileEdit({ me, onUpdate }) {
     if (!window.confirm(`¿Eliminar el enlace ${platformMeta(link.platform).label}?`)) return;
     try {
       await api.delete(`/profile/links/${link.id}`);
-      setLinks((l) => l.filter((x) => x.id !== link.id));
+      const nextLinks = links.filter((x) => x.id !== link.id);
+      setLinks(nextLinks);
+      onUpdate({ ...me, links: nextLinks });
     } catch {
       setRemoteMsg("No pudimos eliminar el enlace.");
     }
@@ -195,7 +203,7 @@ export default function ProfileEdit({ me, onUpdate }) {
       <form className="profile-form" onSubmit={submit}>
         <div className="photo-row">
           <div className="profile-avatar big" data-testid="edit-avatar">
-            {pictureSrc ? <img src={pictureSrc} alt="Foto de perfil" /> : <span>{form.name?.[0] || "?"}</span>}
+            {pictureSrc && !imgError ? <img src={pictureSrc} alt="Foto de perfil" onError={() => setImgError(true)} /> : <span>{form.name?.[0] || "?"}</span>}
           </div>
           <div>
             <button type="button" className="ghost" onClick={() => fileRef.current?.click()} data-testid="upload-photo-button">
@@ -432,6 +440,7 @@ export default function ProfileEdit({ me, onUpdate }) {
                   type="button"
                   className="icon-mini"
                   title={l.visible === false ? "Mostrar en perfil" : "Ocultar en perfil"}
+                  aria-label={l.visible === false ? `Mostrar enlace ${meta.label} en perfil` : `Ocultar enlace ${meta.label} en perfil`}
                   onClick={() => updateLink(l, { visible: l.visible === false })}
                   data-testid={`link-toggle-${l.id}`}
                 >
@@ -441,6 +450,7 @@ export default function ProfileEdit({ me, onUpdate }) {
                   type="button"
                   className="icon-mini danger"
                   title="Eliminar enlace"
+                  aria-label={`Eliminar enlace ${meta.label}`}
                   onClick={() => removeLink(l)}
                   data-testid={`link-delete-${l.id}`}
                 >

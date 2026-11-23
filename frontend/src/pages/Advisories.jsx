@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Plus, Clock3, X, CheckCircle2, Edit3, Trash2, Power, MapPin, Video, CircleAlert, ChevronDown, ChevronUp, CalendarDays, List, Inbox, Search } from "lucide-react";
+import { Plus, Clock3, X, CheckCircle2, Edit3, Trash2, Power, MapPin, Video, CircleAlert, ChevronDown, ChevronUp, CalendarDays, List, Inbox, Search, ExternalLink } from "lucide-react";
 import { api } from "@/lib/api";
 import { normalizeExternalUrl } from "@/lib/integrationLinks";
 import { Empty } from "@/components/ui/states";
@@ -123,7 +123,7 @@ function BrowseAdvisories({ items, user, onBook, onManage }) {
   );
 }
 
-function MyBookings({ bookings, onCancel }) {
+function MyBookings({ bookings, onCancel, busyId }) {
   const activeStatuses = ["Pendiente", "Aceptada"];
   const groups = {
     "Próximas asesorías": bookings.filter((b) => activeStatuses.includes(b.status) && !advisoryHasPassed(b)),
@@ -141,7 +141,9 @@ function MyBookings({ bookings, onCancel }) {
           {label === "Realizadas" && <p className="booking-history-hint">El estado “Realizada” corresponde a una asesoría que el profesor o monitor marcó como completada.</p>}
           {list.length ? (
             <div className="advisory-list">
-              {list.map((b) => (
+              {list.map((b) => {
+                const meetingLink = normalizeExternalUrl(b.link);
+                return (
                 <div className="advisory" key={b.id} data-testid={`my-booking-${b.id}`}>
                   <div className="advisor-avatar">{(b.advisor || "?")[0]}</div>
                   <div className="advisory-info">
@@ -152,17 +154,43 @@ function MyBookings({ bookings, onCancel }) {
                     <h3>{b.advisor}</h3>
                     <p>{b.topic}</p>
                     <div className="advisory-time">
-                      <Clock3 size={16} /> {advisoryDateLabel(b.date)} · {b.time}
+                      <Clock3 size={16} aria-hidden="true" /> {advisoryDateLabel(b.date)} · {b.time}
                       <span>{b.mode}</span>
                     </div>
+                    {(b.place || meetingLink) && (
+                      <div className="booking-access-row">
+                        {b.place && (
+                          <span className="booking-access-place">
+                            <MapPin size={13} aria-hidden="true" /> {b.place}
+                          </span>
+                        )}
+                        {meetingLink && (
+                          <a
+                            href={meetingLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="booking-meeting-link"
+                            data-testid={`booking-link-${b.id}`}
+                          >
+                            <Video size={13} aria-hidden="true" /> Abrir enlace virtual <ExternalLink size={12} aria-hidden="true" />
+                          </a>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {["Pendiente", "Aceptada"].includes(b.status) && (
-                    <button className="ghost small" onClick={() => onCancel(b)} data-testid={`cancel-booking-${b.id}`}>
-                      Cancelar
+                    <button
+                      className="ghost small"
+                      onClick={() => onCancel(b)}
+                      disabled={busyId === b.id}
+                      data-testid={`cancel-booking-${b.id}`}
+                    >
+                      {busyId === b.id ? "Cancelando…" : "Cancelar"}
                     </button>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <Empty text={`Sin asesorías ${label.toLowerCase()}`} />
@@ -371,13 +399,13 @@ function MyAgenda({ items, onEdit, onDelete, onToggle }) {
               </div>
             </div>
             <div className="agenda-actions">
-              <button className="icon-mini" onClick={() => onToggle(x)} data-testid={`toggle-advisory-${x.id}`} title="Activar/Desactivar">
+              <button className="icon-mini" onClick={() => onToggle(x)} data-testid={`toggle-advisory-${x.id}`} title="Activar/Desactivar" aria-label={x.active === false ? `Activar asesoría ${x.subject}` : `Desactivar asesoría ${x.subject}`}>
                 <Power size={15} />
               </button>
-              <button className="icon-mini" onClick={() => onEdit(x)} data-testid={`edit-advisory-${x.id}`} title="Editar">
+              <button className="icon-mini" onClick={() => onEdit(x)} data-testid={`edit-advisory-${x.id}`} title="Editar" aria-label={`Editar asesoría ${x.subject}`}>
                 <Edit3 size={15} />
               </button>
-              <button className="icon-mini danger" onClick={() => onDelete(x)} data-testid={`delete-advisory-${x.id}`} title="Eliminar">
+              <button className="icon-mini danger" onClick={() => onDelete(x)} data-testid={`delete-advisory-${x.id}`} title="Eliminar" aria-label={`Eliminar asesoría ${x.subject}`}>
                 <Trash2 size={15} />
               </button>
             </div>
@@ -390,7 +418,7 @@ function MyAgenda({ items, onEdit, onDelete, onToggle }) {
   );
 }
 
-function IncomingBookings({ items, onStatus }) {
+function IncomingBookings({ items, onStatus, busyId }) {
   const activeStatuses = ["Pendiente", "Aceptada"];
   const groups = [
     { label: "Próximas citas", items: items.filter((b) => activeStatuses.includes(b.status) && !advisoryHasPassed(b)) },
@@ -423,20 +451,20 @@ function IncomingBookings({ items, onStatus }) {
             <div className="agenda-actions">
               {b.status === "Pendiente" && (
                 <>
-                  <button className="primary small" onClick={() => onStatus(b, "Aceptada")} data-testid={`accept-${b.id}`}>
+                  <button className="primary small" disabled={busyId === b.id} onClick={() => onStatus(b, "Aceptada")} data-testid={`accept-${b.id}`}>
                     Aceptar
                   </button>
-                  <button className="ghost small" onClick={() => onStatus(b, "Rechazada")} data-testid={`reject-${b.id}`}>
+                  <button className="ghost small" disabled={busyId === b.id} onClick={() => onStatus(b, "Rechazada")} data-testid={`reject-${b.id}`}>
                     Rechazar
                   </button>
                 </>
               )}
               {b.status === "Aceptada" && (
                 <>
-                  <button className="ghost small" onClick={() => onStatus(b, "Completada")} data-testid={`complete-${b.id}`}>
+                  <button className="ghost small" disabled={busyId === b.id} onClick={() => onStatus(b, "Completada")} data-testid={`complete-${b.id}`}>
                     Completada
                   </button>
-                  <button className="ghost small" onClick={() => onStatus(b, "No asistió")} data-testid={`noshow-${b.id}`}>
+                  <button className="ghost small" disabled={busyId === b.id} onClick={() => onStatus(b, "No asistió")} data-testid={`noshow-${b.id}`}>
                     No asistió
                   </button>
                 </>
@@ -478,6 +506,7 @@ export default function Advisories({ user, viewRole = user.role }) {
   const [formOpen, setFormOpen] = useState(false);
   const advisoryFormRef = useRef(null);
   const [editing, setEditing] = useState(null);
+  const [busyBookingId, setBusyBookingId] = useState("");
 
   useEffect(() => {
     setTab(!isAdvisor && requestedTab === "mine" ? "mine" : isAdvisor ? "agenda" : "browse");
@@ -550,11 +579,16 @@ export default function Advisories({ user, viewRole = user.role }) {
   };
 
   const cancelBooking = async (b) => {
+    if (busyBookingId) return;
+    setBusyBookingId(b.id);
+    setError("");
     try {
       await api.patch(`/bookings/${b.id}/status`, { status: "Cancelada" });
       load();
     } catch {
       setError("No pudimos cancelar la reserva.");
+    } finally {
+      setBusyBookingId("");
     }
   };
 
@@ -591,11 +625,16 @@ export default function Advisories({ user, viewRole = user.role }) {
   };
 
   const changeIncomingStatus = async (b, status) => {
+    if (busyBookingId) return;
+    setBusyBookingId(b.id);
+    setError("");
     try {
       await api.patch(`/bookings/${b.id}/status`, { status });
       load();
     } catch {
       setError("No pudimos actualizar la solicitud.");
+    } finally {
+      setBusyBookingId("");
     }
   };
 
@@ -661,7 +700,7 @@ export default function Advisories({ user, viewRole = user.role }) {
       </div>
 
       {error && (
-        <div className="error" data-testid="advisories-error" onClick={() => setError("")}>
+        <div className="error" role="alert" data-testid="advisories-error" onClick={() => setError("")}>
           {error}
         </div>
       )}
@@ -726,6 +765,7 @@ export default function Advisories({ user, viewRole = user.role }) {
 
       {isAdvisor && formOpen && (
         <AdvisoryForm
+          key={editing?.id || "new"}
           formRef={advisoryFormRef}
           initial={editing}
           onSubmit={saveAdvisory}
@@ -777,7 +817,7 @@ export default function Advisories({ user, viewRole = user.role }) {
               onManage={() => setTab(isAdvisor ? "agenda" : "browse")}
             />
           )}
-          {tab === "mine" && <MyBookings bookings={bookings} onCancel={cancelBooking} />}
+          {tab === "mine" && <MyBookings bookings={bookings} onCancel={cancelBooking} busyId={busyBookingId} />}
           {tab === "agenda" && (
             <>
               <MyAgenda
@@ -789,10 +829,10 @@ export default function Advisories({ user, viewRole = user.role }) {
                 onDelete={deleteAdvisory}
                 onToggle={toggleAdvisory}
               />
-              <IncomingBookings items={incoming} onStatus={changeIncomingStatus} />
+              <IncomingBookings items={incoming} onStatus={changeIncomingStatus} busyId={busyBookingId} />
             </>
           )}
-          {tab === "incoming" && <IncomingBookings items={incoming} onStatus={changeIncomingStatus} />}
+          {tab === "incoming" && <IncomingBookings items={incoming} onStatus={changeIncomingStatus} busyId={busyBookingId} />}
         </>
       )}
 

@@ -43,11 +43,17 @@ async def read_notification(nid: str, user=Depends(current_user)):
         )
         if not message:
             raise HTTPException(404, "Ese mensaje ya no está disponible.")
-        await db.chat_seen.update_one(
+        existing = await db.chat_seen.find_one(
             {"user_id": user["id"], "room": message["room"]},
-            {"$set": {"user_id": user["id"], "room": message["room"], "seen_at": message["created_at"]}},
-            upsert=True,
+            {"_id": 0, "seen_at": 1},
         )
+        msg_ts = message.get("created_at") or ""
+        if not existing or msg_ts > (existing.get("seen_at") or ""):
+            await db.chat_seen.update_one(
+                {"user_id": user["id"], "room": message["room"]},
+                {"$set": {"user_id": user["id"], "room": message["room"], "seen_at": msg_ts}},
+                upsert=True,
+            )
         return {"ok": True}
     await db.notifications.update_one({"id": nid, "user_id": user["id"]}, {"$set": {"read": True}})
     return {"ok": True}

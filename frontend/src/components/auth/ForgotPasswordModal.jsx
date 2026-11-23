@@ -20,6 +20,19 @@ export default function ForgotPasswordModal({ open, initialEmail = "", onClose }
     }
   }, [open, initialEmail]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event) => {
+      if (event.key === "Escape" && !loading) {
+        setError("");
+        setMessage("");
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, loading, onClose]);
+
   if (!open) return null;
 
   const clean = email.trim().toLowerCase();

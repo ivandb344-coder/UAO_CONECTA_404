@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { KeyRound, ShieldCheck, ArrowRight, RefreshCw } from "lucide-react";
 import { api, API } from "@/lib/api";
 
@@ -12,6 +12,9 @@ export default function PasswordSettings({ user }) {
   const [hasPassword, setHasPassword] = useState(
     user.has_password ?? user.auth_provider !== "google",
   );
+  useEffect(() => {
+    setHasPassword(user.has_password ?? user.auth_provider !== "google");
+  }, [user.has_password, user.auth_provider]);
   const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -20,6 +23,10 @@ export default function PasswordSettings({ user }) {
   const [busy, setBusy] = useState(false);
   const [reauthRequired, setReauthRequired] = useState(false);
   const requiresGoogleVerification = user.auth_provider === "google" || user.can_set_password_without_current === true;
+  const clearFeedback = () => {
+    if (error) setError("");
+    if (notice) setNotice("");
+  };
 
   const submit = async (event) => {
     event.preventDefault();
@@ -84,7 +91,7 @@ export default function PasswordSettings({ user }) {
               type="password"
               autoComplete="current-password"
               value={currentPassword}
-              onChange={(event) => setCurrentPassword(event.target.value)}
+              onChange={(event) => { setCurrentPassword(event.target.value); clearFeedback(); }}
               required
               disabled={busy}
             />
@@ -98,7 +105,7 @@ export default function PasswordSettings({ user }) {
             minLength={6}
             placeholder="Mínimo 6 caracteres"
             value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            onChange={(event) => { setPassword(event.target.value); clearFeedback(); }}
             required
             disabled={busy}
           />
@@ -111,7 +118,7 @@ export default function PasswordSettings({ user }) {
             minLength={6}
             placeholder="Escríbela de nuevo"
             value={confirmPassword}
-            onChange={(event) => setConfirmPassword(event.target.value)}
+            onChange={(event) => { setConfirmPassword(event.target.value); clearFeedback(); }}
             required
             disabled={busy}
           />

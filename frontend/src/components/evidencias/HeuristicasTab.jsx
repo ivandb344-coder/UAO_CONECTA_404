@@ -47,14 +47,17 @@ export default function HeuristicasTab() {
       </div>
       <div className="ev-manual">
         <div className="ev-swatches" data-testid="ev-swatches">
-          {PALETTE.map((c) => (
+          {PALETTE.map((c) => {
+            const lightSwatch = ["#FFFFFF", "#F8FAFC", "#FBF5EC", "#FF836C"].includes(c.hex.toUpperCase());
+            return (
             <div className="ev-swatch" key={c.hex}>
-              <span className="ev-chip" style={{ background: c.hex, color: c.hex === "#FFFFFF" || c.hex === "#F8FAFC" ? "#1E293B" : "#fff" }}>{c.hex}</span>
+              <span className="ev-chip" style={{ background: c.hex, color: lightSwatch ? "#1E293B" : "#fff" }}>{c.hex}</span>
               <b>{c.name}</b>
               <small>{c.use}</small>
               <em>{c.contrast}</em>
             </div>
-          ))}
+            );
+          })}
         </div>
         <div className="ev-type">
           <div className="ev-type-sample">

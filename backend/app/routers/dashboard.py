@@ -32,7 +32,8 @@ async def dashboard(user=Depends(current_user)):
 
 @router.get("/people")
 async def people(q: str = "", role: str = "", user=Depends(current_user)):
-    filt = {"$or": [{"name": {"$regex": q, "$options": "i"}}, {"username": {"$regex": q, "$options": "i"}}, {"program": {"$regex": q, "$options": "i"}}]}
+    safe_q = re.escape((q or "").strip())
+    filt = {"$or": [{"name": {"$regex": safe_q, "$options": "i"}}, {"username": {"$regex": safe_q, "$options": "i"}}, {"program": {"$regex": safe_q, "$options": "i"}}]} if safe_q else {}
     if role:
         filt["role"] = role
     return [public_user(x) for x in await db.users.find(filt, {"_id": 0, "password": 0}).to_list(50)]
@@ -42,7 +43,7 @@ async def profile(uid: str, user=Depends(current_user)):
     item = await db.users.find_one({"id": uid}, {"_id": 0, "password": 0})
     if not item:
         raise HTTPException(404, "Perfil no encontrado")
-    return item
+    return public_user(item)
 
 @router.post("/saved")
 async def save(item: dict, user=Depends(current_user)):
@@ -58,6 +59,15 @@ async def search(q: str = "", user=Depends(current_user)):
     q = (q or "").strip()
     if not q:
         return {"people": [], "subjects": [], "questions": [], "resources": []}
+    visible_subjects = [
+        item for item in await db.subjects.find(
+            {"status": {"$ne": "deleted"}, "deleted_at": {"$exists": False}},
+            {"_id": 0, "id": 1, "name": 1, "code": 1, "left_members": 1},
+        ).limit(200).to_list(200)
+        if is_valid_subject_doc(item) and user["id"] not in (item.get("left_members") or [])
+    ]
+    visible_subject_ids = {item["id"] for item in visible_subjects if item.get("id")}
+
     # Treat the query as text so punctuation cannot change the regex pattern.
     rx = {"$regex": re.escape(q), "$options": "i"}
     people = await db.users.find(
@@ -65,7 +75,7 @@ async def search(q: str = "", user=Depends(current_user)):
         {"_id": 0, "password": 0},
     ).limit(15).to_list(15)
     subjects = await db.subjects.find(
-        {"$or": [{"name": rx}, {"code": rx}, {"professor": rx}, {"program": rx}]},
+        {"status": {"$ne": "deleted"}, "deleted_at": {"$exists": False}, "$or": [{"name": rx}, {"code": rx}, {"professor": rx}, {"program": rx}]},
         {"_id": 0},
     ).limit(15).to_list(15)
     subjects = [item for item in subjects if is_valid_subject_doc(item) and user["id"] not in (item.get("left_members") or [])]
@@ -77,7 +87,8 @@ async def search(q: str = "", user=Depends(current_user)):
     resources = await db.resources.find(
         {"$or": [{"title": rx}, {"description": rx}]},
         {"_id": 0},
-    ).limit(15).to_list(15)
+    ).limit(30).to_list(30)
+    resources = [item for item in resources if item.get("subject_id") in visible_subject_ids][:15]
     result = {
         "people": [public_user(p) for p in people],
         "subjects": subjects,
@@ -97,7 +108,7 @@ async def search(q: str = "", user=Depends(current_user)):
     questions = [item for item in await db.questions.find({}, {"_id": 0}).limit(150).to_list(150)
                  if is_valid_question_doc(item) and document_matches(q, (item.get("title"), item.get("description"), item.get("subject")))][:15]
     resources = [item for item in await db.resources.find({}, {"_id": 0}).limit(150).to_list(150)
-                 if document_matches(q, (item.get("title"), item.get("description")))][:15]
+                 if item.get("subject_id") in visible_subject_ids and document_matches(q, (item.get("title"), item.get("description")))][:15]
     return {
         "people": [public_user(p) for p in people],
         "subjects": subjects,

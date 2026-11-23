@@ -105,11 +105,14 @@ export default function AdvisoryCalendar({ items = [], kind = "browse", onSelect
   const [month, setMonth] = useState(() => initialMonth(items));
   const positioned = useRef(false);
   useEffect(() => {
+    positioned.current = false;
+  }, [kind]);
+  useEffect(() => {
     if (items.length && !positioned.current) {
       setMonth(initialMonth(items));
       positioned.current = true;
     }
-  }, [items]);
+  }, [items, kind]);
   const firstDay = new Date(month.getFullYear(), month.getMonth(), 1);
   const monthLabel = month.toLocaleDateString("es-CO", { month: "long", year: "numeric" });
   const eventsByDay = useMemo(() => {

@@ -60,7 +60,7 @@ async def create_subject(data: SubjectCreate, user=Depends(current_user)):
         errors["program"] = "Selecciona un programa académico válido."
     if data.semester < 1 or data.semester > 12:
         errors["semester"] = "Selecciona un semestre entre 1 y 12."
-    if await db.subjects.find_one({"code": code}, {"_id": 0}):
+    if await db.subjects.find_one({"code": code, "status": {"$ne": "deleted"}, "deleted_at": {"$exists": False}}, {"_id": 0}):
         errors["code"] = "Ya existe una asignatura con este código."
     if errors:
         raise HTTPException(status_code=422, detail={"fields": errors})
@@ -213,8 +213,18 @@ async def create_task(subject_id: str, data: TaskCreate, user=Depends(current_us
 async def submit_task(task_id: str, data: SubmissionCreate, user=Depends(current_user)):
     if user["role"] != "student":
         raise HTTPException(403, "Las entregas están disponibles para estudiantes")
-    if not await db.tasks.find_one({"id": task_id}):
+    task = await db.tasks.find_one({"id": task_id}, {"_id": 0})
+    if not task:
         raise HTTPException(404, "Tarea no encontrada")
+    subject = await db.subjects.find_one({"id": task["subject_id"]}, {"_id": 0, "status": 1, "left_members": 1})
+    if not subject or subject.get("status") == "deleted":
+        raise HTTPException(404, "Asignatura no encontrada")
+    if subject.get("status") == "closed":
+        raise HTTPException(409, "No puedes enviar entregas en una asignatura cerrada.")
+    if user["id"] in (subject.get("left_members") or []):
+        raise HTTPException(403, "Saliste de esta asignatura.")
+    if not (data.text or "").strip() and not (data.link or "").strip() and not data.file_id:
+        raise HTTPException(422, "Escribe una respuesta o adjunta un archivo para entregar la tarea.")
     if data.file_id:
         attached = await db.files.find_one({"id": data.file_id, "owner_id": user["id"], "is_deleted": False}, {"_id": 0})
         if not attached:

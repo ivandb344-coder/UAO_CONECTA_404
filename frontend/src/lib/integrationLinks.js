@@ -23,7 +23,7 @@ export function normalizeExternalUrl(rawUrl, fallback = "") {
   const candidate = /^[a-z][a-z0-9+.-]*:/i.test(value) ? value : `https://${value.replace(/^\/+/, "")}`;
   try {
     const parsed = new URL(candidate);
-    if (!["http:", "https:"].includes(parsed.protocol)) return fallback || DEFAULT_LINKS.support;
+    if (!["http:", "https:"].includes(parsed.protocol)) return fallback;
     const host = parsed.hostname.toLowerCase();
     if (host === "moodle.uao.edu.co") return DEFAULT_LINKS.moodle;
     if (host === "sinu.uao.edu.co" || host === "banner.uao.edu.co") return DEFAULT_LINKS.banner;
@@ -81,6 +81,9 @@ export function loadLinks() {
 export function saveLinks(links) {
   try {
     localStorage.setItem(LINKS_KEY, JSON.stringify(links));
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("uao:links-updated"));
+    }
   } catch {
     /* almacenamiento no disponible */
   }

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { ExternalLink, RefreshCw } from "lucide-react";
 import HoverDisclosureCard from "@/components/hub/HoverDisclosureCard";
 import { loadLinks, normalizeExternalUrl } from "@/lib/integrationLinks";
@@ -12,6 +13,18 @@ const syncedLabel = (iso) => {
 
 /* Widget de un sistema externo (Moodle / Teams / Banner). Botón de acción con affordance alto. */
 export default function IntegrationCard({ system, index = 0 }) {
+  const [links, setLinks] = useState(loadLinks);
+
+  useEffect(() => {
+    const sync = () => setLinks(loadLinks());
+    window.addEventListener("uao:links-updated", sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("uao:links-updated", sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+
   return (
     <HoverDisclosureCard
       className={`integration-card sys-${system.key}`}
@@ -42,7 +55,7 @@ export default function IntegrationCard({ system, index = 0 }) {
         <footer className="integration-foot">
           <a
             className="sys-cta"
-            href={normalizeExternalUrl(loadLinks()[system.key] || system.cta?.url)}
+            href={normalizeExternalUrl(links[system.key] || system.cta?.url)}
             target="_blank"
             rel="noopener noreferrer"
             data-testid={`integration-open-${system.key}`}

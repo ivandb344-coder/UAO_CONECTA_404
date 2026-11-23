@@ -76,6 +76,10 @@
 .advisory.agenda .advisor-avatar { background:#FBF5EC; color:#AC0B32; }
 .advisory.inactive { opacity:.62; }
 .advisory .note { margin-top:6px; font-size:11px; color:#64748b; font-style: italic; }
+.booking-access-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; margin-top:10px; }
+.booking-access-place { display:inline-flex; align-items:center; gap:5px; padding:4px 9px; border:1px solid var(--line); border-radius:999px; background:var(--paper); color:var(--ink); font-size:11px; font-weight:600; }
+.booking-meeting-link { display:inline-flex; align-items:center; gap:5px; padding:5px 10px; border:1px solid var(--primary-line); border-radius:6px; background:#FBF5EC; color:var(--primary); font-size:11px; font-weight:700; text-decoration:none; }
+.booking-meeting-link:hover { background:#f8e8ec; text-decoration:underline; }
 
 .agenda-actions { display:flex; gap:8px; align-items:center; }
 .icon-mini { width:34px; height:34px; display:grid; place-items:center; border:1px solid var(--line); color: var(--muted); border-radius:3px; }

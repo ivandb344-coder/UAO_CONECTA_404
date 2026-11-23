@@ -55,10 +55,23 @@ export function NotificationsProvider({ enabled, children }) {
   }, [refresh]);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      setState({ unread: 0, items: [] });
+      return undefined;
+    }
     refresh();
-    const i = setInterval(refresh, 20000);
-    return () => clearInterval(i);
+    const tick = () => {
+      if (document.visibilityState !== "hidden") refresh();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    const i = setInterval(tick, 20000);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearInterval(i);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [enabled, refresh]);
 
   const value = useMemo(() => ({ ...state, refresh, markRead, markAllRead }), [state, refresh, markRead, markAllRead]);

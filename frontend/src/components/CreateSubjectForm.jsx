@@ -81,6 +81,24 @@ export default function CreateSubjectForm({ onCreated, onCancel }) {
       {message && <div className="error">{message}</div>}
       <div className="task-fields">
         <label className="field">
+          <span>Ingeniería / programa académico</span>
+          <select data-testid="subject-program-input" value={form.program} onChange={(event) => update("program", event.target.value)} className={errors.program ? "invalid" : ""} required>
+            <option value="">— Selecciona —</option>
+            {Object.entries(grouped).map(([group, list]) => <optgroup key={group} label={group}>{list.map((name) => <option key={name} value={name}>{name}</option>)}</optgroup>)}
+          </select>
+          {fieldError(errors, "program")}
+        </label>
+        <label className="field">
+          <span>Semestre</span>
+          <select data-testid="subject-semester-input" value={form.semester} onChange={(event) => update("semester", event.target.value)} className={errors.semester ? "invalid" : ""} required>
+            <option value="">— Selecciona —</option>
+            {SEMESTERS.map((semester) => <option key={semester} value={semester}>{semester}° semestre</option>)}
+          </select>
+          {fieldError(errors, "semester")}
+        </label>
+      </div>
+      <div className="task-fields">
+        <label className="field">
           <span>Nombre</span>
           <select data-testid="subject-name-input" value={form.name} onChange={(event) => update("name", event.target.value)} className={errors.name ? "invalid" : ""} required disabled={!form.program}>
             <option value="">{form.program ? "— Selecciona una materia oficial —" : "Primero selecciona el programa"}</option>
@@ -98,24 +116,6 @@ export default function CreateSubjectForm({ onCreated, onCancel }) {
         <span>Descripción</span>
         <textarea data-testid="subject-description-input" value={form.description} onChange={(event) => update("description", event.target.value)} placeholder="¿Qué aprenderán en esta asignatura?" />
       </label>
-      <div className="task-fields">
-        <label className="field">
-          <span>Ingeniería / programa académico</span>
-          <select data-testid="subject-program-input" value={form.program} onChange={(event) => update("program", event.target.value)} className={errors.program ? "invalid" : ""} required>
-            <option value="">— Selecciona —</option>
-            {Object.entries(grouped).map(([group, list]) => <optgroup key={group} label={group}>{list.map((name) => <option key={name} value={name}>{name}</option>)}</optgroup>)}
-          </select>
-          {fieldError(errors, "program")}
-        </label>
-        <label className="field">
-          <span>Semestre</span>
-          <select data-testid="subject-semester-input" value={form.semester} onChange={(event) => update("semester", event.target.value)} className={errors.semester ? "invalid" : ""} required>
-            <option value="">— Selecciona —</option>
-            {SEMESTERS.map((semester) => <option key={semester} value={semester}>{semester}° semestre</option>)}
-          </select>
-          {fieldError(errors, "semester")}
-        </label>
-      </div>
       <div className="task-fields">
         <label className="field">
           <span>Horario</span>

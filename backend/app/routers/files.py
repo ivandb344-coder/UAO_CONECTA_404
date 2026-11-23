@@ -12,12 +12,19 @@ from app.services.files import _file_is_authorized
 
 router = APIRouter()
 
+MAX_FILE_BYTES = 25 * 1024 * 1024
+
+
 @router.post("/files")
 async def upload(file: UploadFile = File(...), user=Depends(current_user)):
-    ext = Path(file.filename).suffix.lower() or ".bin"
+    safe_name = Path(file.filename or "archivo").name or "archivo"
+    ext = Path(safe_name).suffix.lower() or ".bin"
+    content = await file.read()
+    if len(content) > MAX_FILE_BYTES:
+        raise HTTPException(413, "El archivo supera el límite permitido de 25 MB.")
     storage_path = f"uao-conecta/uploads/{user['id']}/{uuid.uuid4()}{ext}"
-    result = await put_object(storage_path, await file.read(), file.content_type or "application/octet-stream")
-    item = {"id": str(uuid.uuid4()), "name": file.filename, "storage_path": result["path"], "content_type": file.content_type, "owner_id": user["id"], "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat()}
+    result = await put_object(storage_path, content, file.content_type or "application/octet-stream")
+    item = {"id": str(uuid.uuid4()), "name": safe_name, "storage_path": result["path"], "content_type": file.content_type, "owner_id": user["id"], "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat()}
     await db.files.insert_one(item)
     return clean(item)
 

@@ -14,6 +14,8 @@ const KIND_LABEL = {
   chat_message: "Mensaje de chat",
   asignatura_actualizada: "Actualización de asignatura",
   entrega_revisada: "Entrega revisada",
+  nueva_solicitud: "Nueva solicitud de asesoría",
+  nueva_respuesta: "Nueva respuesta",
 };
 
 export default function Notifications() {

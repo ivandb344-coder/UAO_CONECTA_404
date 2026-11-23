@@ -3,7 +3,7 @@ from datetime import date, datetime, timezone
 import re
 import uuid
 
-from app.core.config import db
+from app.core.config import db, is_valid_subject_name, is_garbage_free_text
 from app.core.security import current_user
 from app.models.schemas import BookingCreate, BookingStatus, AdvisoryCreate, AdvisoryPatch
 from app.services.users import clean, _url_ok
@@ -45,6 +45,10 @@ def _validate_advisory(payload: dict, partial: bool = False):
     for key in ("subject", "topic"):
         if key in fields and (not isinstance(fields[key], str) or len(fields[key].strip()) < 2):
             errors[key] = "Escribe al menos 2 caracteres."
+    if "subject" in fields and "subject" not in errors and not is_valid_subject_name(fields["subject"]):
+        errors["subject"] = "Selecciona o escribe el nombre de una asignatura académica real."
+    if "topic" in fields and "topic" not in errors and not is_garbage_free_text(fields["topic"]):
+        errors["topic"] = "Escribe un tema académico válido."
     if "date" in fields:
         try:
             parsed = date.fromisoformat(str(fields["date"]))
@@ -69,6 +73,8 @@ def _validate_advisory(payload: dict, partial: bool = False):
 async def advisories(mine: bool = False, user=Depends(current_user)):
     filt = {"advisor_id": user["id"]} if mine else {}
     docs = await db.advisories.find(filt, {"_id": 0}).sort("created_at", -1).to_list(200)
+    if not mine:
+        docs = [d for d in docs if is_valid_subject_name(d.get("subject")) and is_garbage_free_text(d.get("topic"))]
     for d in docs:
         d["booked"] = await db.bookings.count_documents({"advisory_id": d["id"], "status": {"$in": ["Pendiente", "Aceptada", "Completada"]}})
         d["available"] = max((d.get("slots", 0) or 0) - d["booked"], 0)
@@ -111,6 +117,24 @@ async def delete_advisory(aid: str, user=Depends(current_user)):
         raise HTTPException(404, "Asesoría no encontrada")
     if adv.get("advisor_id") != user["id"]:
         raise HTTPException(403, "Solo puedes eliminar tu propia agenda")
+    active_bookings = await db.bookings.find(
+        {"advisory_id": aid, "status": {"$in": ["Pendiente", "Aceptada"]}},
+        {"_id": 0, "user_id": 1},
+    ).to_list(200)
+    if active_bookings:
+        now = datetime.now(timezone.utc).isoformat()
+        await db.bookings.update_many(
+            {"advisory_id": aid, "status": {"$in": ["Pendiente", "Aceptada"]}},
+            {"$set": {"status": "Cancelada", "updated_at": now}},
+        )
+        for student_id in {b["user_id"] for b in active_bookings if b.get("user_id")}:
+            await _create_notification(
+                student_id,
+                "cancelada",
+                "Se canceló una asesoría",
+                f"{adv.get('subject', '')} · {adv.get('topic', '')} fue retirada por el asesor.",
+                "/asesorias?tab=mine",
+            )
     await db.advisories.delete_one({"id": aid})
     return {"ok": True}
 
@@ -152,6 +176,18 @@ async def create_booking(data: BookingCreate, user=Depends(current_user)):
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.bookings.insert_one(item)
+    if adv.get("advisor_id"):
+        when = f"{adv.get('date', '')} · {adv.get('time', '')}".strip(" ·")
+        body = f"{user['name']} solicitó {adv.get('subject', '')} · {adv.get('topic', '')}"
+        if when:
+            body = f"{body} — {when}"
+        await _create_notification(
+            adv["advisor_id"],
+            "nueva_solicitud",
+            "Nueva solicitud de asesoría",
+            body,
+            "/asesorias",
+        )
     return clean(item)
 
 @router.get("/bookings")

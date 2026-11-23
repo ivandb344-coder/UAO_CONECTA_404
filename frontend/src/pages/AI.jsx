@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Bot, Send, MessageSquarePlus } from "lucide-react";
 import { API } from "@/lib/api";
 import { playUiSound } from "@/lib/audioFeedback";
@@ -39,6 +39,7 @@ export default function AI() {
 
   const [value, setValue] = useState("");
   const [loading, setLoading] = useState(false);
+  const messagesBoxRef = useRef(null);
 
   // Persiste la conversación durante la sesión del navegador.
   useEffect(() => {
@@ -48,6 +49,12 @@ export default function AI() {
       /* almacenamiento no disponible: la conversación sigue en memoria */
     }
   }, [messages]);
+
+  useEffect(() => {
+    if (messages.length > 1 || loading) {
+      messagesBoxRef.current?.scrollTo({ top: messagesBoxRef.current.scrollHeight, behavior: "smooth" });
+    }
+  }, [messages.length, loading]);
 
   const resetChat = () => {
     if (loading) return;
@@ -110,6 +117,9 @@ export default function AI() {
         res.headers.get("content-type") || "";
 
       if (!res.ok) {
+        if (res.status === 401) {
+          window.dispatchEvent(new CustomEvent("uao:unauthorized"));
+        }
         let errorMessage =
           "No pude comunicarme con el asistente de IA.";
 
@@ -204,7 +214,7 @@ export default function AI() {
             <MessageSquarePlus size={15} aria-hidden="true" /> Nueva conversación
           </button>
         </div>
-        <div className="ai-messages">
+        <div className="ai-messages" ref={messagesBoxRef}>
           {messages.map((m, i) => (
             <div
               className={`ai-message ${m.from}`}
@@ -232,6 +242,7 @@ export default function AI() {
         >
           <input
             data-testid="ai-message-input"
+            aria-label="Escribe tu consulta para el asistente IA"
             placeholder="Ej. ¿Dónde encuentro asesorías de Cálculo?"
             value={value}
             onChange={(e) =>
@@ -243,6 +254,7 @@ export default function AI() {
           <button
             type="submit"
             className="send"
+            aria-label="Enviar consulta"
             data-testid="send-ai-message"
             disabled={loading || !value.trim()}
           >

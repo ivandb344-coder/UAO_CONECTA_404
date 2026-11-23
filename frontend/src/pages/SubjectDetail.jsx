@@ -356,7 +356,7 @@ export default function SubjectDetail({ user }) {
                   </button>
                 )}
               </div>
-              {user.role === "student" && (
+              {user.role === "student" && subject.status !== "closed" && (
                 <button
                   className="primary small"
                   onClick={() => {

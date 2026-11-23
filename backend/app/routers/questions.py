@@ -6,6 +6,7 @@ from app.core.config import db, is_valid_question_doc
 from app.core.security import current_user
 from app.models.schemas import QuestionCreate, AnswerCreate, AnswerRatingCreate
 from app.services.users import clean
+from app.services.notifications import _create_notification
 
 router = APIRouter()
 
@@ -37,10 +38,25 @@ async def question_detail(qid: str, user=Depends(current_user)):
 
 @router.post("/questions/{qid}/answers")
 async def answer(qid: str, data: AnswerCreate, user=Depends(current_user)):
-    ans = {"id": str(uuid.uuid4()), "body": data.body, "author": user["name"], "author_id": user["id"], "role": user["role"], "created_at": datetime.now(timezone.utc).isoformat()}
-    result = await db.questions.update_one({"id": qid}, {"$push": {"answers": ans}, "$set": {"status": "En discusión"}})
-    if not result.matched_count:
+    q = await db.questions.find_one(
+        {"id": qid},
+        {"_id": 0, "id": 1, "title": 1, "author_id": 1, "status": 1, "accepted_id": 1},
+    )
+    if not q:
         raise HTTPException(404, "Duda no encontrada")
+    ans = {"id": str(uuid.uuid4()), "body": data.body, "author": user["name"], "author_id": user["id"], "role": user["role"], "created_at": datetime.now(timezone.utc).isoformat()}
+    update_doc = {"$push": {"answers": ans}}
+    if not q.get("accepted_id") and q.get("status") != "Resuelta":
+        update_doc["$set"] = {"status": "En discusión"}
+    await db.questions.update_one({"id": qid}, update_doc)
+    if q.get("author_id") and q["author_id"] != user["id"]:
+        await _create_notification(
+            q["author_id"],
+            "nueva_respuesta",
+            "Nueva respuesta en tu duda",
+            f"{user['name']} respondió en «{(q.get('title') or '')[:80]}»",
+            f"/dudas/{qid}",
+        )
     return ans
 
 @router.post("/answers/{answer_id}/rating")

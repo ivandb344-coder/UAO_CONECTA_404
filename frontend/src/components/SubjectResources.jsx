@@ -38,6 +38,7 @@ export default function SubjectResources({ subjectId, user, readOnly = false }) 
       setError("El archivo no puede pesar más de 25MB.");
       return;
     }
+    setError("");
     setBusy(true);
     try {
       const fd = new FormData();
@@ -212,7 +213,7 @@ export default function SubjectResources({ subjectId, user, readOnly = false }) 
                   </a>
                 )}
                 {!readOnly && user.id === r.owner_id && (
-                  <button className="icon-mini danger" onClick={() => remove(r)} data-testid={`delete-resource-${r.id}`}>
+                  <button className="icon-mini danger" onClick={() => remove(r)} title="Eliminar recurso" aria-label={`Eliminar recurso ${r.title}`} data-testid={`delete-resource-${r.id}`}>
                     <Trash2 size={13} />
                   </button>
                 )}

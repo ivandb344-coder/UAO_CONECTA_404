@@ -18,18 +18,20 @@ export function StarsInput({ value, onChange, disabled = false, testid = "stars-
   const [hover, setHover] = useState(0);
   const active = hover || value || 0;
   return (
-    <span className={`stars input ${disabled ? "disabled" : ""}`} data-testid={testid}>
+    <span className={`stars input ${disabled ? "disabled" : ""}`} role="group" aria-label="Valoración en estrellas" data-testid={testid}>
       {[1, 2, 3, 4, 5].map((n) => (
         <button
           key={n}
           type="button"
           disabled={disabled}
+          aria-label={`Calificar con ${n} ${n === 1 ? "estrella" : "estrellas"}`}
+          aria-pressed={n === value}
           onMouseEnter={() => !disabled && setHover(n)}
           onMouseLeave={() => setHover(0)}
           onClick={() => !disabled && onChange(n)}
           data-testid={`${testid}-${n}`}
         >
-          <Star size={19} className={n <= active ? "filled" : ""} strokeWidth={1.6} />
+          <Star size={19} className={n <= active ? "filled" : ""} strokeWidth={1.6} aria-hidden="true" />
         </button>
       ))}
     </span>

@@ -1,8 +1,15 @@
 import { useEffect, useState } from "react";
 import { X, Link2, RotateCcw, Save } from "lucide-react";
-import { TOOLS, DEFAULT_LINKS } from "@/lib/integrationLinks";
+import { TOOLS, DEFAULT_LINKS, normalizeExternalUrl } from "@/lib/integrationLinks";
 
-const isValidUrl = (v) => /^https?:\/\/.+/i.test((v || "").trim());
+const isValidUrl = (v) => {
+  try {
+    const parsed = new URL(String(v || "").trim());
+    return ["http:", "https:"].includes(parsed.protocol) && Boolean(parsed.hostname);
+  } catch {
+    return false;
+  }
+};
 
 /* Modal para que docentes/monitores editen las URLs de las 6 plataformas.
    Guarda en localStorage (vía onSave del padre). */
@@ -13,6 +20,15 @@ export default function EditLinksModal({ open, links, onSave, onClose }) {
     if (open) setForm(links);
   }, [open, links]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   const invalid = TOOLS.some((t) => !isValidUrl(form[t.key]));
@@ -22,7 +38,11 @@ export default function EditLinksModal({ open, links, onSave, onClose }) {
   const submit = (e) => {
     e.preventDefault();
     if (invalid) return;
-    onSave({ ...form });
+    const normalized = { ...form };
+    for (const tool of TOOLS) {
+      normalized[tool.key] = normalizeExternalUrl(form[tool.key], DEFAULT_LINKS[tool.key]);
+    }
+    onSave(normalized);
   };
 
   return (

@@ -12,23 +12,35 @@ export default function QuestionDetail() {
   const [error, setError] = useState("");
   const [body, setBody] = useState("");
   const [saving, setSaving] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
 
-  const load = useCallback(() =>
-    api
+  const load = useCallback(() => {
+    setError("");
+    return api
       .get(`/questions/${id}`)
       .then((r) => setQuestion(r.data))
-      .catch(() => setError("No pudimos cargar esta duda.")), [id]);
+      .catch(() => setError("No pudimos cargar esta duda."));
+  }, [id]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   if (!question && !error) return <Loading label="Cargando duda…" />;
-  if (error) return <div className="page"><div className="error">{error}</div></div>;
+  if (!question && error) return (
+    <section className="page">
+      <button type="button" className="back-link" onClick={() => nav("/dudas")} data-testid="back-to-questions">
+        <ArrowRight size={15} className="back-icon" /> Dudas
+      </button>
+      <div className="error" role="alert" data-testid="question-detail-error">{error}</div>
+      <button type="button" className="ghost" onClick={load}>Reintentar</button>
+    </section>
+  );
 
   const answer = async (e) => {
     e.preventDefault();
-    if (!body.trim()) return;
+    if (!body.trim() || saving) return;
+    setError("");
     setSaving(true);
     try {
       await api.post(`/questions/${id}/answers`, { body });
@@ -42,20 +54,32 @@ export default function QuestionDetail() {
   };
 
   const rate = async (answerId, value) => {
+    if (actionBusy) return;
+    setError("");
+    setActionBusy(true);
     try {
       await api.post(`/answers/${answerId}/rating`, { rating: value });
       await load();
+      window.dispatchEvent(new Event("uao:ranking-updated"));
     } catch (x) {
       setError(x.response?.data?.detail || "No pudimos guardar la valoración.");
+    } finally {
+      setActionBusy(false);
     }
   };
 
   const accept = async (answerId) => {
+    if (actionBusy) return;
+    setError("");
+    setActionBusy(true);
     try {
       await api.post(`/questions/${id}/accept/${answerId}`);
       await load();
+      window.dispatchEvent(new Event("uao:ranking-updated"));
     } catch (x) {
       setError(x.response?.data?.detail || "No pudimos aceptar esa respuesta.");
+    } finally {
+      setActionBusy(false);
     }
   };
 
@@ -86,7 +110,7 @@ export default function QuestionDetail() {
       </div>
 
       {error && (
-        <div className="error" data-testid="question-detail-error" style={{ marginTop: 20 }}>
+        <div className="error" role="alert" data-testid="question-detail-error" style={{ marginTop: 20 }}>
           {error}
         </div>
       )}
@@ -126,6 +150,7 @@ export default function QuestionDetail() {
                     <StarsInput
                       value={a.my_rating || 0}
                       onChange={(v) => rate(a.id, v)}
+                      disabled={actionBusy}
                       testid={`rate-answer-${a.id}`}
                     />
                     {a.my_rating && <em className="hint">Puedes actualizarla cuando quieras.</em>}
@@ -138,6 +163,7 @@ export default function QuestionDetail() {
                 <button
                   className="ghost accept-btn"
                   onClick={() => accept(a.id)}
+                  disabled={actionBusy}
                   data-testid={`accept-answer-${a.id}`}
                 >
                   <Award size={14} /> Marcar como respuesta aceptada

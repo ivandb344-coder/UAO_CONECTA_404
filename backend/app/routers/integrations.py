@@ -32,7 +32,7 @@ ECOSYSTEM = [
         "description": "Correo institucional @uao.edu.co y tutorías por Google Meet.",
         "status": "synced",
         "color": "#EA4335",
-        "cta": {"label": "Abrir", "action": "open", "url": "https://mail.google.com/a/uao.edu.co"},
+        "cta": {"label": "Abrir", "action": "open", "url": "https://mail.google.com"},
     },
     {
         "key": "piazza",
@@ -54,7 +54,7 @@ ECOSYSTEM = [
         "description": "Atención inmediata, canal de avisos y grupos de estudio.",
         "status": "synced",
         "color": "#25D366",
-        "cta": {"label": "Abrir", "action": "open", "url": "https://wa.me/573000000000"},
+        "cta": {"label": "Abrir", "action": "open", "url": "https://web.whatsapp.com"},
     },
 ]
 

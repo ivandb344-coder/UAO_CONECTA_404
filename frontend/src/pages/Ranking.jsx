@@ -43,7 +43,7 @@ function Podium({ rows, mode, onOpenProfile }) {
             <small>{row.program || "Monitor UAO"}</small>
           </button>
           <div className="podium-metrics">
-            {mode === "by_rating" ? <><Star size={14} fill="currentColor" aria-hidden="true" /> {row.rating.toFixed(1)} <span>· {row.rating_count} valoraciones</span></> : <><BookOpen size={14} aria-hidden="true" /> {row.answers} <span>respuestas</span></>}
+            {mode === "by_rating" ? <><Star size={14} fill="currentColor" aria-hidden="true" /> {Number(row.rating || 0).toFixed(1)} <span>· {row.rating_count} valoraciones</span></> : <><BookOpen size={14} aria-hidden="true" /> {row.answers} <span>respuestas</span></>}
           </div>
           <span className="podium-step">{position}</span>
         </article>
@@ -169,7 +169,7 @@ export default function Ranking() {
                   <td><span className="ranking-position">{row.position}</span></td>
                   <td><button type="button" className="ranking-person" onClick={() => navigate(`/perfil/${row.id}`)}><Avatar user={row} size="tiny" /><span><strong>{row.name}</strong><small>{row.program || "Monitor UAO"}</small></span></button></td>
                   <td>{row.answers}</td><td>{row.accepted}</td>
-                  <td>{row.rating_count ? <span className="ranking-rating"><Star size={14} fill="currentColor" aria-hidden="true" /> {row.rating.toFixed(1)} / 5</span> : <span className="muted">Sin valoraciones</span>}</td>
+                  <td>{row.rating_count ? <span className="ranking-rating"><Star size={14} fill="currentColor" aria-hidden="true" /> {Number(row.rating || 0).toFixed(1)} / 5</span> : <span className="muted">Sin valoraciones</span>}</td>
                   <td>{row.rating_count}</td>
                 </tr>
               ))}</tbody>

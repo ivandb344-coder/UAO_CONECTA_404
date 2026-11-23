@@ -70,17 +70,23 @@ async def update_profile(data: ProfilePatch, user=Depends(current_user)):
     updated = await db.users.find_one({"id": user["id"]}, {"_id": 0, "password": 0})
     return public_user(updated)
 
+MAX_PHOTO_BYTES = 5 * 1024 * 1024
+
+
 @router.post("/profile/photo")
 async def upload_profile_photo(file: UploadFile = File(...), user=Depends(current_user)):
     if not (file.content_type or "").startswith("image/"):
         raise HTTPException(422, "Solo se permiten imágenes para la foto de perfil.")
-    ext = Path(file.filename).suffix.lower() or ".jpg"
+    safe_name = Path(file.filename or "foto-de-perfil.jpg").name or "foto-de-perfil.jpg"
+    ext = Path(safe_name).suffix.lower() or ".jpg"
     storage_path = f"uao-conecta/avatars/{user['id']}/{uuid.uuid4()}{ext}"
     content = await file.read()
+    if len(content) > MAX_PHOTO_BYTES:
+        raise HTTPException(413, "La foto de perfil no puede superar los 5 MB.")
     result = await put_object(storage_path, content, file.content_type or "image/jpeg")
     await db.files.insert_one({
         "id": str(uuid.uuid4()),
-        "name": file.filename or "foto-de-perfil",
+        "name": safe_name,
         "storage_path": result["path"],
         "content_type": file.content_type or "image/jpeg",
         "owner_id": user["id"],

@@ -92,6 +92,8 @@ function sanitizeApiPayload(response) {
     response.data = response.data
       .filter(isCoherentAdvisory)
       .map((a) => (a.link ? { ...a, link: normalizeExternalUrl(a.link, a.link) } : a));
+  } else if ((path === "bookings" || path === "bookings/incoming") && Array.isArray(response.data)) {
+    response.data = response.data.map((b) => (b.link ? { ...b, link: normalizeExternalUrl(b.link, b.link) } : b));
   } else if (path === "integrations/summary" && typeof response.data === "object") {
     const systems = Array.isArray(response.data.systems)
       ? response.data.systems.map((sys) => ({

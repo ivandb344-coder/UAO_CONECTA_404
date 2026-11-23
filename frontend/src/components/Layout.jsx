@@ -101,6 +101,7 @@ export default function Layout({ user, onLogout, children }) {
         setSearchHistoryOpen(true);
       } else if (event.key === "Escape") {
         setSearchHistoryOpen(false);
+        setNotifOpen(false);
       }
     };
     document.addEventListener("keydown", onKeyDown);

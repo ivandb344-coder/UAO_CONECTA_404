@@ -1,5 +1,5 @@
 import { useViewMode } from "../../lib/viewMode";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 /* Toggle reversible (heurística 3: control y libertad). Solo para estudiantes. */
 export default function MonitorToggle({ compact = false, mobileNav = false }) {
@@ -7,6 +7,14 @@ export default function MonitorToggle({ compact = false, mobileNav = false }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  useEffect(() => {
+    if (!confirmOpen) return;
+    const onKeyDown = (event) => {
+      if (event.key === "Escape" && !saving) setConfirmOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [confirmOpen, saving]);
   if (!canToggle) return null;
   const requestModeChange = () => {
     if (!monitorMode) setConfirmOpen(true);

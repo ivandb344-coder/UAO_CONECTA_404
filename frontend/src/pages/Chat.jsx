@@ -77,6 +77,7 @@ export default function Chat({ user }) {
   const [editFile, setEditFile] = useState(null);
   const [editUploading, setEditUploading] = useState(false);
   const [messageBusy, setMessageBusy] = useState(false);
+  const [sending, setSending] = useState(false);
   const writeNoticeKey = `uao_chat_write_notice_${user?.id || user?.email || "session"}_${room}`;
   const [writeAcknowledgedFor, setWriteAcknowledgedFor] = useState(() => {
     try { return sessionStorage.getItem(writeNoticeKey) === "1" ? writeNoticeKey : ""; } catch { return ""; }
@@ -93,6 +94,7 @@ export default function Chat({ user }) {
   const retryTimerRef = useRef(null);
   const pollTimerRef = useRef(null);
   const knownMessageIdsRef = useRef(new Set());
+  const lastScrolledRef = useRef({ room: "", lastId: null });
 
   const directConversation = directConversations.find((item) => item.room === room);
   const isDirectRoom = room.startsWith("dm-");
@@ -127,13 +129,45 @@ export default function Chat({ user }) {
     setEditText("");
     setEditFile(null);
     setEditUploading(false);
+    setSending(false);
     setBody("");
     setAttachment(null);
     setConfirmWriteOpen(false);
     try { setWriteAcknowledgedFor(sessionStorage.getItem(writeNoticeKey) === "1" ? writeNoticeKey : ""); } catch { setWriteAcknowledgedFor(""); }
-    const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
   }, [room, writeNoticeKey]);
+
+  useEffect(() => {
+    const now = Date.now();
+    setClockNow(now);
+    if (roomClosed || !user?.id) return undefined;
+    const anyEditable = messages.some((m) => {
+      if (m.system || m.deleted || m.user_id !== user.id) return false;
+      const elapsed = now - new Date(m.created_at).getTime();
+      return Number.isFinite(elapsed) && elapsed < 61_000;
+    });
+    if (!anyEditable) return undefined;
+    const timer = window.setInterval(() => {
+      const tick = Date.now();
+      setClockNow(tick);
+      const stillAny = messages.some(
+        (m) => !m.system && !m.deleted && m.user_id === user.id && (tick - new Date(m.created_at).getTime()) < 61_000,
+      );
+      if (!stillAny) window.clearInterval(timer);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [messages, room, roomClosed, user?.id]);
+
+  useEffect(() => {
+    if (!confirmWriteOpen) return;
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setConfirmWriteOpen(false);
+        messageInputRef.current?.blur();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [confirmWriteOpen]);
 
   const startWriting = () => {
     try { sessionStorage.setItem(writeNoticeKey, "1"); } catch { /* La confirmación sigue activa en memoria. */ }
@@ -168,7 +202,7 @@ export default function Chat({ user }) {
     clearTimeout(retryTimerRef.current);
     clearInterval(pollTimerRef.current);
     api
-      .get(`/chat/${room}`)
+      .get(`/chat/${encodeURIComponent(room)}`)
       .then((r) => {
         if (!cancelled) {
           knownMessageIdsRef.current = new Set(r.data.map((message) => message.id));
@@ -308,8 +342,12 @@ export default function Chat({ user }) {
   }, [room, messages.length, markChatRead, refreshChatUnread, refreshNotifications]);
 
   useEffect(() => {
-    messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages]);
+    const lastId = messages.length ? messages[messages.length - 1].id : null;
+    if (lastScrolledRef.current.room !== room || lastScrolledRef.current.lastId !== lastId) {
+      lastScrolledRef.current = { room, lastId };
+      messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight, behavior: "smooth" });
+    }
+  }, [room, messages]);
 
   const openFilePicker = () => fileInputRef.current?.click();
 
@@ -342,7 +380,7 @@ export default function Chat({ user }) {
   const send = (e) => {
     e.preventDefault();
     const text = body.trim();
-    if (!text && !attachment) return;
+    if (sending || (!text && !attachment)) return;
     if (!canWrite) { setConfirmWriteOpen(true); return; }
     const payload = { body: text, file: attachment };
     const ws = wsRef.current;
@@ -357,6 +395,7 @@ export default function Chat({ user }) {
         setConnectionState("retrying");
       }
     }
+    setSending(true);
     api.post("/chat", { ...payload, room }).then((r) => {
       knownMessageIdsRef.current.add(r.data.id);
       setMessages((prev) => (prev.some((m) => m.id === r.data.id) ? prev : [...prev, r.data]));
@@ -365,6 +404,8 @@ export default function Chat({ user }) {
       setAttachment(null);
     }).catch((requestError) => {
       setError(requestError.response?.data?.detail || "No pudimos enviar el mensaje. Se conservará el texto para que puedas reintentar.");
+    }).finally(() => {
+      setSending(false);
     });
   };
 
@@ -539,7 +580,7 @@ export default function Chat({ user }) {
       )}
 
       {error && (
-        <div className="error" data-testid="chat-error" onClick={() => setError("")}>
+        <div className="error" role="alert" data-testid="chat-error" onClick={() => setError("")}>
           {error}
         </div>
       )}
@@ -594,7 +635,21 @@ export default function Chat({ user }) {
                     {!m.deleted && editingMessageId !== m.id && m.file && <MessageFile file={m.file} />}
                     {editingMessageId === m.id ? (
                       <form className="message-edit-form" onSubmit={(event) => { event.preventDefault(); updateMessage(m.id); }}>
-                        <textarea aria-label="Editar mensaje" value={editText} onChange={(event) => setEditText(event.target.value)} maxLength={2000} autoFocus data-testid={`edit-message-input-${m.id}`} />
+                        <textarea
+                          aria-label="Editar mensaje"
+                          value={editText}
+                          onChange={(event) => setEditText(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Escape" && !messageBusy && !editUploading) {
+                              setEditingMessageId(null);
+                              setEditText("");
+                              setEditFile(null);
+                            }
+                          }}
+                          maxLength={2000}
+                          autoFocus
+                          data-testid={`edit-message-input-${m.id}`}
+                        />
                         <div className="message-edit-file-bar">
                           <input
                             type="file"
@@ -688,7 +743,7 @@ export default function Chat({ user }) {
             onClick={() => { if (!canWrite && !roomClosed) setConfirmWriteOpen(true); }}
             onChange={(e) => setBody(e.target.value)}
           />
-          <button className="send" data-testid="send-chat-message" aria-label="Enviar mensaje" disabled={!canWrite || uploading || roomClosed || (!body.trim() && !attachment)}>
+          <button className="send" data-testid="send-chat-message" aria-label="Enviar mensaje" disabled={!canWrite || sending || uploading || roomClosed || (!body.trim() && !attachment)}>
             <Send size={17} />
           </button>
         </form>

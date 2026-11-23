@@ -4,7 +4,7 @@ import { Edit3, ArrowRight, Mail, Phone as PhoneIcon, ExternalLink } from "lucid
 import { api } from "@/lib/api";
 import { StarsDisplay } from "@/components/ui/Stars";
 import { Loading } from "@/components/ui/states";
-import { PLATFORMS, platformMeta } from "@/lib/platforms";
+import { platformMeta } from "@/lib/platforms";
 import { normalizeExternalUrl } from "@/lib/integrationLinks";
 import { isGarbageText } from "@/lib/validSubjects";
 import Avatar from "@/components/Avatar";
@@ -21,6 +21,7 @@ export default function Profile({ me }) {
   useEffect(() => {
     if (!targetId) return;
     setUser(null);
+    setError("");
     api
       .get(`/profiles/${targetId}`)
       .then((r) => setUser(r.data))
