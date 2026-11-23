@@ -1,9 +1,10 @@
-import { useState } from "react";
-import { Mail, Video, MessagesSquare, BookOpen, MessageCircle, GraduationCap, ExternalLink, Pencil, LifeBuoy } from "lucide-react";
-import { useViewMode } from "@/lib/viewMode";
-import { TOOLS, CATEGORIES, loadLinks, saveLinks } from "@/lib/integrationLinks";
-import EditLinksModal from "@/components/hub/EditLinksModal";
-import HoverDisclosureCard from "@/components/hub/HoverDisclosureCard";
+import { useEffect, useRef, useState } from "react";
+import { Mail, Video, MessagesSquare, BookOpen, MessageCircle, GraduationCap, ExternalLink, Pencil, LifeBuoy, Check } from "lucide-react";
+import { useViewMode } from "../../lib/viewMode";
+import { TOOLS, CATEGORIES, loadLinks, saveLinks } from "../../lib/integrationLinks";
+import EditLinksModal from "./EditLinksModal";
+import HoverDisclosureCard from "./HoverDisclosureCard";
+import { playUiSound } from "../../lib/audioFeedback";
 
 const ICONS = {
   gmail: Mail,
@@ -22,11 +23,19 @@ export default function EcosystemLayer() {
   const canEdit = viewRole !== "student";
   const [links, setLinks] = useState(loadLinks);
   const [editOpen, setEditOpen] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const savedTimer = useRef(null);
+
+  useEffect(() => () => window.clearTimeout(savedTimer.current), []);
 
   const handleSave = (next) => {
     saveLinks(next);
     setLinks(next);
     setEditOpen(false);
+    setSaved(true);
+    playUiSound("save");
+    window.clearTimeout(savedTimer.current);
+    savedTimer.current = window.setTimeout(() => setSaved(false), 3500);
   };
 
   return (
@@ -95,6 +104,11 @@ export default function EcosystemLayer() {
       })}
 
       <EditLinksModal open={editOpen} links={links} onSave={handleSave} onClose={() => setEditOpen(false)} />
+      {saved && (
+        <div className="save-toast success" role="status" aria-live="polite" data-testid="links-save-toast">
+          <Check size={15} aria-hidden="true" /> Cambios guardados. Los enlaces de integración ya están actualizados.
+        </div>
+      )}
     </section>
   );
 }

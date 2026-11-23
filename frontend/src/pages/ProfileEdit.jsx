@@ -51,6 +51,13 @@ export default function ProfileEdit({ me, onUpdate }) {
   useEffect(() => () => window.clearTimeout(savedTimer.current), []);
   useEffect(() => { setImgError(false); }, [pictureSrc]);
 
+  const showSavedToast = () => {
+    setSaved(true);
+    playUiSound("save");
+    window.clearTimeout(savedTimer.current);
+    savedTimer.current = window.setTimeout(() => setSaved(false), 3500);
+  };
+
   useEffect(() => {
     api.get("/programs")
       .then((r) => {
@@ -104,10 +111,7 @@ export default function ProfileEdit({ me, onUpdate }) {
       delete payload.picture; // photo is already saved via /profile/photo
       const r = await api.patch("/profile/me", payload);
       onUpdate(r.data);
-      setSaved(true);
-      playUiSound("save");
-      window.clearTimeout(savedTimer.current);
-      savedTimer.current = window.setTimeout(() => setSaved(false), 3500);
+      showSavedToast();
     } catch (x) {
       const detail = x.response?.data?.detail;
       if (detail && typeof detail === "object" && detail.fields) setErrors(detail.fields);
@@ -130,10 +134,7 @@ export default function ProfileEdit({ me, onUpdate }) {
       const r = await api.post("/profile/photo", fd, { headers: { "Content-Type": "multipart/form-data" } });
       set("picture", r.data.picture);
       onUpdate({ ...me, picture: r.data.picture });
-      setSaved(true);
-      playUiSound("save");
-      window.clearTimeout(savedTimer.current);
-      savedTimer.current = window.setTimeout(() => setSaved(false), 3500);
+      showSavedToast();
     } catch {
       setRemoteMsg("No pudimos subir la foto, intenta de nuevo.");
     }
@@ -151,6 +152,7 @@ export default function ProfileEdit({ me, onUpdate }) {
       setLinks(nextLinks);
       onUpdate({ ...me, links: nextLinks });
       setNewLink({ platform: "linkedin", url: "", label: "", icon: "" });
+      showSavedToast();
     } catch (x) {
       const d = x.response?.data?.detail;
       if (d?.fields) setLinkErrors(d.fields);
@@ -159,11 +161,22 @@ export default function ProfileEdit({ me, onUpdate }) {
   };
 
   const updateLink = async (link, patch) => {
+    const savedLink = (me.links || []).find((x) => x.id === link.id);
+    if (savedLink && Object.entries(patch).every(([key, value]) => (savedLink[key] ?? "") === (value ?? ""))) {
+      return;
+    }
     try {
       const r = await api.patch(`/profile/links/${link.id}`, patch);
       const nextLinks = links.map((x) => (x.id === link.id ? { ...x, ...r.data } : x));
       setLinks(nextLinks);
       onUpdate({ ...me, links: nextLinks });
+      setLinkErrors((current) => {
+        if (!current[`edit-${link.id}`]) return current;
+        const copy = { ...current };
+        delete copy[`edit-${link.id}`];
+        return copy;
+      });
+      showSavedToast();
     } catch (x) {
       const d = x.response?.data?.detail;
       if (d?.fields) setLinkErrors({ [`edit-${link.id}`]: d.fields.url || d.fields.label || d.fields.platform || "Datos inválidos" });
@@ -177,6 +190,7 @@ export default function ProfileEdit({ me, onUpdate }) {
       const nextLinks = links.filter((x) => x.id !== link.id);
       setLinks(nextLinks);
       onUpdate({ ...me, links: nextLinks });
+      showSavedToast();
     } catch {
       setRemoteMsg("No pudimos eliminar el enlace.");
     }

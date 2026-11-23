@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { X, Link2, RotateCcw, Save } from "lucide-react";
-import { TOOLS, DEFAULT_LINKS, normalizeExternalUrl } from "@/lib/integrationLinks";
+import { TOOLS, DEFAULT_LINKS, normalizeExternalUrl } from "../../lib/integrationLinks";
 
 const isValidUrl = (v) => {
   try {
