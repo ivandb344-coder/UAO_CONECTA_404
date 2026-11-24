@@ -216,7 +216,10 @@ async def _send_reset_email(to_email: str, reset_url: str, user_name: str, minut
     """Envía por Apps Script/HTTPS en Render Free; usa SMTP solo como respaldo."""
     cfg = _smtp_settings()
     safe_name = escape(user_name or "usuario")
+    safe_email = escape(to_email)
     safe_url = escape(reset_url, quote=True)
+    app_base = FRONTEND_URL.split("#", 1)[0].rstrip("/")
+    logo_url = escape(f"{app_base}/assets/logo-uao.png", quote=True)
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = "Restablece tu contraseña · UAO Conecta"
@@ -225,31 +228,123 @@ async def _send_reset_email(to_email: str, reset_url: str, user_name: str, minut
 
     text = (
         f"Hola, {user_name or 'usuario'}.\n\n"
-        "Recibimos una solicitud para restablecer la contraseña de tu cuenta de UAO Conecta.\n\n"
+        f"Recibimos una solicitud para restablecer la contraseña de tu cuenta de UAO Conecta ({to_email}).\n\n"
         f"Crea una nueva contraseña aquí:\n{reset_url}\n\n"
-        f"El enlace es válido durante {minutes} minutos y solo puede usarse una vez.\n"
-        "Si no solicitaste este cambio, ignora este correo.\n\nUAO Conecta"
+        f"Por seguridad, este enlace vence en {minutes} minutos y solo puede usarse una vez.\n"
+        "Esta clave corresponde únicamente a UAO Conecta y no modifica tus credenciales de Moodle, Teams ni Banner.\n\n"
+        "Si no solicitaste este cambio, puedes ignorar este correo.\n\n"
+        "UAO Conecta · Hub de Integración Estudiantil"
     )
-    html = f"""<!doctype html><html lang="es"><head><meta charset="utf-8"></head>
-<body style="margin:0;padding:0;background:#f7f3ee;font-family:Arial,Helvetica,sans-serif;color:#1e293b">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">Crea una nueva contraseña para tu cuenta de UAO Conecta.</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:36px 16px;background:#f7f3ee"><tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">
-<tr><td style="padding:26px 32px;background:#1e293b;border-bottom:4px solid #ac0b32">
-<div style="color:#ffffff;font-size:24px;font-weight:700;letter-spacing:-.4px">UAO <span style="font-weight:400;color:#f7c9d4">Conecta</span></div>
-<div style="margin-top:8px;color:#c7d0dc;font-size:12px;letter-spacing:.8px">RECUPERACIÓN DE ACCESO</div>
-</td></tr>
-<tr><td style="padding:32px">
-<h1 style="margin:0;color:#1e293b;font-size:26px;line-height:1.2;letter-spacing:-.4px">Restablece tu contraseña</h1>
-<p style="margin:18px 0 0;font-size:15px;line-height:1.65">Hola, <strong>{safe_name}</strong>.</p>
-<p style="margin:10px 0 0;font-size:15px;line-height:1.65;color:#475569">Recibimos una solicitud para crear una nueva contraseña para tu cuenta de UAO Conecta.</p>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;background:#fbf5ec;border-left:4px solid #ac0b32"><tr><td style="padding:14px 16px;color:#334155;font-size:13px;line-height:1.55">Por seguridad, este enlace vence en <strong>{minutes} minutos</strong> y solo puede usarse una vez.</td></tr></table>
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:28px 0"><tr><td style="border-radius:6px;background:#ac0b32"><a href="{safe_url}" style="display:inline-block;padding:14px 22px;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none">Crear nueva contraseña</a></td></tr></table>
-<p style="margin:0;font-size:12px;line-height:1.6;color:#64748b">Si no solicitaste este cambio, puedes ignorar este mensaje. Tu contraseña actual seguirá siendo válida.</p>
-<p style="margin:20px 0 0;font-size:11px;line-height:1.55;color:#94a3b8;word-break:break-word">Si el botón no abre, copia este enlace en tu navegador:<br><a href="{safe_url}" style="color:#ac0b32">{safe_url}</a></p>
-</td></tr>
-<tr><td style="padding:18px 32px;background:#f8fafc;border-top:1px solid #e5e7eb;color:#64748b;font-size:11px;line-height:1.5">Este correo fue enviado por UAO Conecta. No respondas a este mensaje.</td></tr>
-</table></td></tr></table></body></html>"""
+    html = f"""<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Restablece tu contraseña · UAO Conecta</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body style="margin:0;padding:0;background-color:#FBF5EC;font-family:'DM Sans','Segoe UI',Arial,Helvetica,sans-serif;color:#1E293B;-webkit-font-smoothing:antialiased">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all">
+    Solicitaste restablecer tu contraseña en UAO Conecta. Enlace válido durante {minutes} minutos.
+  </div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FBF5EC;padding:32px 16px">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:580px;background-color:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;box-shadow:0 16px 36px -24px rgba(30,41,59,0.35)">
+          <!-- Barra superior de acento institucional UAO -->
+          <tr>
+            <td style="height:4px;line-height:4px;font-size:4px;background-color:#FF051E">&nbsp;</td>
+          </tr>
+          <!-- Encabezado oscuro con contenedor blanco para el logo oficial (regla del manual UAO) -->
+          <tr>
+            <td style="padding:26px 32px 24px;background-color:#1E293B;border-bottom:3px solid #AC0B32">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="left" valign="middle">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="background-color:#FFFFFF;border-radius:10px">
+                      <tr>
+                        <td style="padding:10px 14px" valign="middle">
+                          <img src="{logo_url}" alt="UAO" height="26" style="display:block;height:26px;width:auto;border:0;outline:none;text-decoration:none;color:#AC0B32;font-weight:700;font-size:18px">
+                        </td>
+                        <td style="padding:10px 14px 10px 2px;border-left:1px solid #E2E8F0" valign="middle">
+                          <div style="padding-left:10px;color:#1E293B;font-size:15px;font-weight:700;line-height:1.1;letter-spacing:-0.3px">UAO Conecta</div>
+                          <div style="padding-left:10px;margin-top:2px;color:#64748B;font-size:10px;font-weight:500;line-height:1.2;letter-spacing:0.2px">Hub de Integración Estudiantil</div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding-top:16px">
+                    <div style="color:#FF836C;font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase">SEGURIDAD DE LA CUENTA · RECUPERACIÓN DE ACCESO</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Cuerpo principal -->
+          <tr>
+            <td style="padding:32px 32px 28px">
+              <h1 style="margin:0;color:#1E293B;font-size:25px;font-weight:700;line-height:1.2;letter-spacing:-0.5px">Restablece tu contraseña</h1>
+              <p style="margin:18px 0 0;color:#1E293B;font-size:15px;line-height:1.65">Hola, <strong>{safe_name}</strong>.</p>
+              <p style="margin:10px 0 0;color:#475569;font-size:14px;line-height:1.65">
+                Recibimos una solicitud para crear una nueva contraseña de acceso manual para tu cuenta de <strong>UAO Conecta</strong> asociada al correo <strong style="color:#1E293B">{safe_email}</strong>.
+              </p>
+
+              <!-- Caja de aviso de seguridad en crema institucional -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:22px 0 26px;background-color:#FBF5EC;border:1px solid #E8B5BF;border-left:4px solid #AC0B32;border-radius:6px">
+                <tr>
+                  <td style="padding:14px 16px;color:#334155;font-size:13px;line-height:1.55">
+                    <strong style="color:#8A1428;display:block;margin-bottom:3px">Enlace de uso único</strong>
+                    Por seguridad, este enlace vence en <strong style="color:#1E293B">{minutes} minutos</strong> y solo puede utilizarse una vez.
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Botón principal institucional -->
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px">
+                <tr>
+                  <td align="center" style="border-radius:6px;background-color:#AC0B32">
+                    <a href="{safe_url}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:14px 26px;color:#FFFFFF;font-size:14px;font-weight:700;letter-spacing:0.1px;text-decoration:none;border-radius:6px">
+                      Crear nueva contraseña &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0;color:#475569;font-size:13px;line-height:1.6">
+                Si no solicitaste este cambio, puedes ignorar este mensaje con tranquilidad: tu contraseña actual seguirá funcionando y tu cuenta permanece protegida.
+              </p>
+              <p style="margin:10px 0 0;color:#64748B;font-size:12px;line-height:1.6">
+                Recuerda que esta contraseña es solo para UAO Conecta y no modifica tus claves institucionales de Moodle, Microsoft Teams ni Banner.
+              </p>
+
+              <!-- Enlace de respaldo -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:22px 0 0;background-color:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px">
+                <tr>
+                  <td style="padding:12px 14px;color:#64748B;font-size:11px;line-height:1.55;word-break:break-all">
+                    <strong style="color:#334155;display:block;margin-bottom:4px">¿El botón no funciona? Copia y pega este enlace en tu navegador:</strong>
+                    <a href="{safe_url}" style="color:#AC0B32;text-decoration:underline">{safe_url}</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Pie institucional -->
+          <tr>
+            <td style="padding:18px 32px;background-color:#FBF5EC;border-top:1px solid #E2E8F0">
+              <div style="color:#1E293B;font-size:12px;font-weight:700;line-height:1.4">UAO Conecta · Universidad Autónoma de Occidente</div>
+              <div style="margin-top:4px;color:#64748B;font-size:11px;line-height:1.5">Mensaje automático de seguridad. Por favor, no respondas a este correo.</div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
 
     msg.attach(MIMEText(text, "plain", "utf-8"))
     msg.attach(MIMEText(html, "html", "utf-8"))
