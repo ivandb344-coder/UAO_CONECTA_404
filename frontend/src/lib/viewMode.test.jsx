@@ -44,8 +44,10 @@ describe("role views", () => {
     expect(toggle.getAttribute("aria-checked")).toBe("false");
 
     act(() => toggle.dispatchEvent(new MouseEvent("click", { bubbles: true })));
-    expect(container.querySelector("[data-testid='monitor-mode-confirmation']")).not.toBeNull();
-    const enableButton = [...container.querySelectorAll("button")].find((button) => button.textContent.includes("Activar modo Monitor"));
+    expect(container.querySelector("[data-testid='monitor-mode-confirmation']")).toBeNull();
+    const modal = document.body.querySelector("[data-testid='monitor-mode-confirmation']");
+    expect(modal).not.toBeNull();
+    const enableButton = [...modal.querySelectorAll("button")].find((button) => button.textContent.includes("Activar modo Monitor"));
     await act(async () => {
       enableButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -53,6 +55,7 @@ describe("role views", () => {
     expect(container.querySelector("[data-testid='view-role']").textContent).toBe("monitor");
     expect(toggle.getAttribute("aria-checked")).toBe("true");
     expect(api.patch).toHaveBeenCalledWith("/auth/peer-monitor-mode", { enabled: true });
+    expect(document.body.querySelector("[data-testid='monitor-toggle-toast']")?.textContent).toContain("Vista Monitor activada");
 
     await act(async () => {
       toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -61,6 +64,7 @@ describe("role views", () => {
     expect(container.querySelector("[data-testid='view-role']").textContent).toBe("student");
     expect(toggle.getAttribute("aria-checked")).toBe("false");
     expect(api.patch).toHaveBeenCalledTimes(1);
+    expect(document.body.querySelector("[data-testid='monitor-toggle-toast']")?.textContent).toContain("Volviste a la vista Estudiante");
   });
 
   it("keeps the monitor control hidden for professors", () => {

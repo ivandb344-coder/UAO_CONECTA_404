@@ -25,8 +25,8 @@ html[data-text-size="xlarge"] body { zoom: 1.25; }
 .a11y-high-contrast .ghost, .a11y-high-contrast .filter, .a11y-high-contrast .tab, .a11y-high-contrast .icon-mini { border:2px solid #000; color:#000; }
 .a11y-high-contrast .settings-section, .a11y-high-contrast .advisory-calendar, .a11y-high-contrast .eco-card, .a11y-high-contrast .integration-card, .a11y-high-contrast .calendar-day, .a11y-high-contrast .direct-contact-panel, .a11y-high-contrast .direct-contact { background:#fff; border-color:#000; }
 .a11y-high-contrast h1, .a11y-high-contrast h2, .a11y-high-contrast h3, .a11y-high-contrast h4, .a11y-high-contrast .section-title h3, .a11y-high-contrast .calendar-day-number, .a11y-high-contrast .eco-head b, .a11y-high-contrast .advisory-tab-title strong { color:#000; }
-.a11y-high-contrast nav button, .a11y-high-contrast .sidebar-bottom button { color:#000; }
-.a11y-high-contrast nav button.active, .a11y-high-contrast nav button:hover { background:#000; color:#fff; }
+.a11y-high-contrast aside nav button, .a11y-high-contrast .bottom-nav-scroller button, .a11y-high-contrast .sidebar-bottom button { color:#000; }
+.a11y-high-contrast aside nav button.active, .a11y-high-contrast aside nav button:hover, .a11y-high-contrast .bottom-nav-scroller button.active, .a11y-high-contrast .bottom-nav-scroller button:hover { background:#000; color:#fff; }
 .a11y-high-contrast .eyebrow, .a11y-high-contrast .lede, .a11y-high-contrast small, .a11y-high-contrast .muted, .a11y-high-contrast .meta-line { color:#1f2937; }
 .a11y-high-contrast .status, .a11y-high-contrast .task-status, .a11y-high-contrast .pill { border:2px solid #000; color:#000; background:#fff; }
 .a11y-high-contrast .availability, .a11y-high-contrast .live, .a11y-high-contrast .eco-status.on { color:#005a32; font-weight:700; }
@@ -55,7 +55,7 @@ html[data-text-size="xlarge"] body { zoom: 1.25; }
 .a11y-high-contrast .ai-callout h1, .a11y-high-contrast .ai-callout h2, .a11y-high-contrast .ai-callout h3, .a11y-high-contrast .ai-hero h1, .a11y-high-contrast .auth-visual h1, .a11y-high-contrast .ai-callout p, .a11y-high-contrast .ai-hero p, .a11y-high-contrast .auth-visual p { color:#fff; }
 .a11y-high-contrast .message p { background:#fff; border:1px solid #000; }
 .a11y-high-contrast a { color:#5b0a1f; font-weight:700; text-decoration:underline; text-decoration-thickness:2px; text-underline-offset:2px; }
-.a11y-high-contrast .primary, .a11y-high-contrast .primary *, .a11y-high-contrast .subject-card a, .a11y-high-contrast .subject-card a *, .a11y-high-contrast nav button.active, .a11y-high-contrast nav button.active * { color:#fff; }
+.a11y-high-contrast .primary, .a11y-high-contrast .primary *, .a11y-high-contrast .subject-card a, .a11y-high-contrast .subject-card a *, .a11y-high-contrast aside nav button.active, .a11y-high-contrast aside nav button.active *, .a11y-high-contrast .bottom-nav-scroller button.active, .a11y-high-contrast .bottom-nav-scroller button.active * { color:#fff; }
 
 /* Animaciones desactivadas / movimiento reducido */
 .a11y-no-anim *, .a11y-no-anim *::before, .a11y-no-anim *::after,
@@ -72,7 +72,7 @@ html[data-text-size="xlarge"] body { zoom: 1.25; }
 .a11y-large .primary, .a11y-large .ghost { padding:14px 20px; font-size:14px; }
 .a11y-large .ghost.small, .a11y-large .primary.small { padding:12px 16px; font-size:13px; }
 .a11y-large .icon-mini, .a11y-large .icon-btn, .a11y-large .send { width:44px; height:44px; }
-.a11y-large nav button, .a11y-large .sidebar-bottom button { padding:14px 12px; font-size:15px; }
+.a11y-large aside nav button, .a11y-large .bottom-nav-scroller button, .a11y-large .sidebar-bottom button { padding:14px 12px; font-size:15px; }
 .a11y-large .composer input, .a11y-large .composer textarea, .a11y-large .field input, .a11y-large .field select, .a11y-large .auth-form input, .a11y-large .auth-form select { padding:14px; font-size:14px; }
 
 /* Estados no dependientes solo del color */
@@ -141,6 +141,10 @@ html[data-text-size="xlarge"] body { zoom: 1.25; }
 @media (max-width:850px) {
   .pref-row { flex-direction:column; align-items:flex-start; }
   .settings-summary { grid-template-columns:1fr; }
+}
+@media (max-width:640px) {
+  .confirm-actions { flex-direction:column-reverse; gap:8px; }
+  .confirm-actions button { width:100%; display:inline-flex; align-items:center; justify-content:center; gap:6px; }
 }
 @media(max-width:520px) {
   .not-found-code { margin-top:28px; }

@@ -751,7 +751,7 @@ export default function Chat({ user }) {
       {confirmWriteOpen && !roomClosed && (
         <div className="modal-backdrop chat-write-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) { setConfirmWriteOpen(false); messageInputRef.current?.blur(); } }}>
           <section className="modal chat-write-confirm" role="dialog" aria-modal="true" aria-labelledby="chat-write-confirm-title" data-testid="chat-write-confirmation">
-            <button type="button" className="close" aria-label="Cerrar recordatorio" onClick={() => { setConfirmWriteOpen(false); messageInputRef.current?.blur(); }}>×</button>
+            <button type="button" className="close" aria-label="Cerrar recordatorio" onClick={() => { setConfirmWriteOpen(false); messageInputRef.current?.blur(); }}><XIcon size={18} aria-hidden="true" /></button>
             <span className="chat-write-icon" aria-hidden="true"><ShieldCheck size={22} /></span>
             <p className="eyebrow">CONVIVENCIA EN EL CHAT</p>
             <h2 id="chat-write-confirm-title">Antes de escribir</h2>
